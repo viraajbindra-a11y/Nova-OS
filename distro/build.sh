@@ -231,6 +231,13 @@ xserver-xorg-video-intel
 xserver-xorg-video-amdgpu
 xserver-xorg-video-nouveau
 mesa-utils
+
+# === BOOTLOADER ===
+isolinux
+syslinux
+syslinux-common
+grub-efi-amd64
+grub-pc-bin
 PACKAGES
 
 # ============================================
