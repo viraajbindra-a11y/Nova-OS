@@ -124,6 +124,80 @@ ipcMain.handle('get-fullscreen', () => {
   return mainWindow ? mainWindow.isFullScreen() : false;
 });
 
+// Handle browser navigation from renderer — opens URL in a BrowserView
+// This gives the NOVA browser app a REAL Chromium browser engine
+const { BrowserView } = require('electron');
+let browserView = null;
+
+ipcMain.handle('browser-navigate', (event, { url, bounds }) => {
+  if (!mainWindow) return;
+
+  if (!browserView) {
+    browserView = new BrowserView({
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+      }
+    });
+    mainWindow.addBrowserView(browserView);
+  }
+
+  browserView.setBounds({
+    x: Math.round(bounds.x),
+    y: Math.round(bounds.y),
+    width: Math.round(bounds.width),
+    height: Math.round(bounds.height),
+  });
+
+  browserView.webContents.loadURL(url);
+
+  // Send title updates back to renderer
+  browserView.webContents.on('page-title-updated', (e, title) => {
+    if (mainWindow) mainWindow.webContents.send('browser-title', title);
+  });
+
+  browserView.webContents.on('did-navigate', (e, url) => {
+    if (mainWindow) mainWindow.webContents.send('browser-url', url);
+  });
+
+  browserView.webContents.on('did-navigate-in-page', (e, url) => {
+    if (mainWindow) mainWindow.webContents.send('browser-url', url);
+  });
+
+  return { success: true };
+});
+
+ipcMain.handle('browser-back', () => {
+  if (browserView?.webContents.canGoBack()) browserView.webContents.goBack();
+});
+
+ipcMain.handle('browser-forward', () => {
+  if (browserView?.webContents.canGoForward()) browserView.webContents.goForward();
+});
+
+ipcMain.handle('browser-reload', () => {
+  if (browserView) browserView.webContents.reload();
+});
+
+ipcMain.handle('browser-close', () => {
+  if (browserView && mainWindow) {
+    mainWindow.removeBrowserView(browserView);
+    browserView.webContents.destroy();
+    browserView = null;
+  }
+});
+
+ipcMain.handle('browser-resize', (event, bounds) => {
+  if (browserView) {
+    browserView.setBounds({
+      x: Math.round(bounds.x),
+      y: Math.round(bounds.y),
+      width: Math.round(bounds.width),
+      height: Math.round(bounds.height),
+    });
+  }
+});
+
 app.whenReady().then(async () => {
   await startServer();
   createWindow();

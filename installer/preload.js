@@ -10,4 +10,16 @@ contextBridge.exposeInMainWorld('novaElectron', {
   isFullscreen: () => ipcRenderer.invoke('get-fullscreen'),
   platform: process.platform,
   isDesktopApp: true,
+
+  // Real browser engine
+  browser: {
+    navigate: (url, bounds) => ipcRenderer.invoke('browser-navigate', { url, bounds }),
+    back: () => ipcRenderer.invoke('browser-back'),
+    forward: () => ipcRenderer.invoke('browser-forward'),
+    reload: () => ipcRenderer.invoke('browser-reload'),
+    close: () => ipcRenderer.invoke('browser-close'),
+    resize: (bounds) => ipcRenderer.invoke('browser-resize', bounds),
+    onTitle: (callback) => ipcRenderer.on('browser-title', (e, title) => callback(title)),
+    onUrl: (callback) => ipcRenderer.on('browser-url', (e, url) => callback(url)),
+  }
 });

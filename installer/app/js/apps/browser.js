@@ -1,4 +1,6 @@
 // NOVA OS — Web Browser App
+// In Electron: uses a real Chromium BrowserView (loads ANY website)
+// In web: falls back to iframe (limited)
 
 import { processManager } from '../kernel/process-manager.js';
 import { windowManager } from '../kernel/window-manager.js';
@@ -19,21 +21,22 @@ export function registerBrowser() {
 
 function initBrowser(container, instanceId, options = {}) {
   let currentUrl = options.url || '';
-  let history = [];
-  let historyIndex = -1;
+  const isElectron = !!window.novaElectron?.browser;
 
   const bookmarks = [
-    { name: 'DuckDuckGo', url: 'https://duckduckgo.com', icon: '\uD83E\uDD86' },
-    { name: 'Wikipedia', url: 'https://en.m.wikipedia.org', icon: '\uD83D\uDCDA' },
-    { name: 'Hacker News', url: 'https://news.ycombinator.com', icon: '\uD83D\uDCF0' },
-    { name: 'Reddit', url: 'https://old.reddit.com', icon: '\uD83E\uDD16' },
+    { name: 'Google', url: 'https://www.google.com', icon: '\uD83D\uDD0D' },
+    { name: 'YouTube', url: 'https://www.youtube.com', icon: '\u25B6\uFE0F' },
+    { name: 'Wikipedia', url: 'https://en.wikipedia.org', icon: '\uD83D\uDCDA' },
+    { name: 'GitHub', url: 'https://github.com', icon: '\uD83D\uDC31' },
+    { name: 'Reddit', url: 'https://www.reddit.com', icon: '\uD83E\uDD16' },
+    { name: 'Twitter', url: 'https://x.com', icon: '\uD83D\uDC26' },
   ];
 
   container.innerHTML = `
     <div class="browser-app">
       <div class="browser-toolbar">
-        <button class="browser-nav-btn" id="brw-back-${instanceId}" disabled title="Back">\u25C0</button>
-        <button class="browser-nav-btn" id="brw-fwd-${instanceId}" disabled title="Forward">\u25B6</button>
+        <button class="browser-nav-btn" id="brw-back-${instanceId}" title="Back">\u25C0</button>
+        <button class="browser-nav-btn" id="brw-fwd-${instanceId}" title="Forward">\u25B6</button>
         <button class="browser-nav-btn" id="brw-reload-${instanceId}" title="Reload">\u21BB</button>
         <div class="browser-url-bar">
           <span class="browser-url-lock">\uD83D\uDD12</span>
@@ -51,10 +54,6 @@ function initBrowser(container, instanceId, options = {}) {
 
   const urlInput = container.querySelector(`#brw-url-${instanceId}`);
   const viewport = container.querySelector(`#brw-viewport-${instanceId}`);
-  const backBtn = container.querySelector(`#brw-back-${instanceId}`);
-  const fwdBtn = container.querySelector(`#brw-fwd-${instanceId}`);
-  const reloadBtn = container.querySelector(`#brw-reload-${instanceId}`);
-  const homeBtn = container.querySelector(`#brw-home-${instanceId}`);
   const loadingBar = container.querySelector(`#brw-loading-bar-${instanceId}`);
 
   // URL input
@@ -63,103 +62,115 @@ function initBrowser(container, instanceId, options = {}) {
       let url = urlInput.value.trim();
       if (!url) return;
       if (!url.match(/^https?:\/\//) && !url.includes('.')) {
-        url = `https://duckduckgo.com/?q=${encodeURIComponent(url)}`;
+        url = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
       } else if (!url.match(/^https?:\/\//)) {
         url = 'https://' + url;
       }
       navigate(url);
     }
   });
-
   urlInput.addEventListener('focus', () => urlInput.select());
 
   // Nav buttons
-  backBtn.addEventListener('click', () => {
-    if (historyIndex > 0) {
-      historyIndex--;
-      loadUrl(history[historyIndex], false);
-    }
+  container.querySelector(`#brw-back-${instanceId}`).addEventListener('click', () => {
+    if (isElectron) window.novaElectron.browser.back();
   });
-
-  fwdBtn.addEventListener('click', () => {
-    if (historyIndex < history.length - 1) {
-      historyIndex++;
-      loadUrl(history[historyIndex], false);
-    }
+  container.querySelector(`#brw-fwd-${instanceId}`).addEventListener('click', () => {
+    if (isElectron) window.novaElectron.browser.forward();
   });
-
-  reloadBtn.addEventListener('click', () => {
-    if (currentUrl) {
+  container.querySelector(`#brw-reload-${instanceId}`).addEventListener('click', () => {
+    if (isElectron) window.novaElectron.browser.reload();
+    else {
       const iframe = viewport.querySelector('iframe');
       if (iframe) iframe.src = iframe.src;
     }
   });
+  container.querySelector(`#brw-home-${instanceId}`).addEventListener('click', () => {
+    if (isElectron) window.novaElectron.browser.close();
+    showHome();
+  });
 
-  homeBtn.addEventListener('click', () => showHome());
-
-  function navigate(url) {
-    history = history.slice(0, historyIndex + 1);
-    history.push(url);
-    historyIndex = history.length - 1;
-    loadUrl(url, true);
+  // Listen for title/url updates from Electron
+  if (isElectron) {
+    window.novaElectron.browser.onTitle((title) => {
+      windowManager.setTitle(instanceId, title);
+    });
+    window.novaElectron.browser.onUrl((url) => {
+      urlInput.value = url;
+      currentUrl = url;
+    });
   }
 
-  function loadUrl(url, updateHistory) {
+  function navigate(url) {
     currentUrl = url;
     urlInput.value = url;
-
-    // Show loading
-    loadingBar.style.width = '30%';
-    setTimeout(() => { loadingBar.style.width = '70%'; }, 200);
-
-    // Remove old content
-    const old = viewport.querySelector('.browser-home, .browser-error, iframe');
-    if (old) old.remove();
-
-    // Check if running in Electron (can use webview) or browser (must use iframe)
-    const isElectron = window.novaElectron?.isDesktopApp;
+    loadingBar.style.width = '50%';
 
     if (isElectron) {
-      // Electron: use webview which can load any site
-      const webview = document.createElement('webview');
-      webview.className = 'browser-iframe';
-      webview.src = url;
-      webview.setAttribute('allowpopups', '');
-      webview.addEventListener('did-finish-load', () => {
-        loadingBar.style.width = '100%';
-        setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
+      // Use REAL Chromium browser engine
+      const rect = viewport.getBoundingClientRect();
+      window.novaElectron.browser.navigate(url, {
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
       });
-      webview.addEventListener('page-title-updated', (e) => {
-        windowManager.setTitle(instanceId, e.title || url);
-      });
-      viewport.appendChild(webview);
+
+      // Clear the viewport (BrowserView renders on top)
+      const old = viewport.querySelector('.browser-home, .browser-error');
+      if (old) old.remove();
+
+      setTimeout(() => { loadingBar.style.width = '100%'; }, 500);
+      setTimeout(() => { loadingBar.style.width = '0%'; }, 800);
+
+      windowManager.setTitle(instanceId, url.replace(/^https?:\/\//, '').split('/')[0]);
+
+      // Update BrowserView bounds when window moves/resizes
+      setupBrowserViewTracking(viewport);
     } else {
-      // Web: use iframe (limited — many sites block this)
+      // Web fallback: iframe (limited)
+      const old = viewport.querySelector('.browser-home, .browser-error, iframe');
+      if (old) old.remove();
+
       const iframe = document.createElement('iframe');
       iframe.className = 'browser-iframe';
       iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox');
-      iframe.setAttribute('referrerpolicy', 'no-referrer');
       iframe.src = url;
-
       iframe.onload = () => {
         loadingBar.style.width = '100%';
         setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
         windowManager.setTitle(instanceId, url.replace(/^https?:\/\//, '').split('/')[0]);
       };
-
-      iframe.onerror = () => {
-        loadingBar.style.width = '0%';
-        showError(url);
-      };
-
       viewport.appendChild(iframe);
     }
-    updateNavButtons();
+  }
+
+  function setupBrowserViewTracking(viewport) {
+    // Continuously update BrowserView position to match the window
+    const update = () => {
+      if (!document.contains(viewport)) {
+        // Window was closed — cleanup BrowserView
+        if (isElectron) window.novaElectron.browser.close();
+        return;
+      }
+      const rect = viewport.getBoundingClientRect();
+      if (isElectron && currentUrl) {
+        window.novaElectron.browser.resize({
+          x: rect.left,
+          y: rect.top,
+          width: rect.width,
+          height: rect.height,
+        });
+      }
+      requestAnimationFrame(update);
+    };
+    requestAnimationFrame(update);
   }
 
   function showHome() {
     currentUrl = '';
     urlInput.value = '';
+
     const old = viewport.querySelector('.browser-home, .browser-error, iframe');
     if (old) old.remove();
 
@@ -167,7 +178,7 @@ function initBrowser(container, instanceId, options = {}) {
     home.className = 'browser-home';
     home.innerHTML = `
       <div class="browser-home-logo">\uD83C\uDF10</div>
-      <input type="text" class="browser-home-search" placeholder="${window.novaElectron?.isDesktopApp ? 'Search the web...' : 'Search (limited in web version)...'}" autofocus>
+      <input type="text" class="browser-home-search" placeholder="Search Google or enter URL..." autofocus>
       <div class="browser-home-shortcuts">
         ${bookmarks.map(b => `
           <div class="browser-home-shortcut" data-url="${b.url}">
@@ -178,11 +189,10 @@ function initBrowser(container, instanceId, options = {}) {
       </div>
     `;
 
-    const searchInput = home.querySelector('.browser-home-search');
-    searchInput.addEventListener('keydown', (e) => {
+    home.querySelector('.browser-home-search').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
-        const q = searchInput.value.trim();
-        if (q) navigate(`https://duckduckgo.com/?q=${encodeURIComponent(q)}`);
+        const q = e.target.value.trim();
+        if (q) navigate(q.includes('.') ? (q.startsWith('http') ? q : 'https://' + q) : `https://www.google.com/search?q=${encodeURIComponent(q)}`);
       }
     });
 
@@ -192,34 +202,9 @@ function initBrowser(container, instanceId, options = {}) {
 
     viewport.appendChild(home);
     windowManager.setTitle(instanceId, 'Browser');
-    updateNavButtons();
-  }
-
-  function showError(url) {
-    const old = viewport.querySelector('.browser-home, .browser-error, iframe');
-    if (old) old.remove();
-
-    const err = document.createElement('div');
-    err.className = 'browser-error';
-    err.innerHTML = `
-      <div class="browser-error-icon">\u26A0\uFE0F</div>
-      <div style="font-size:16px;font-weight:600;">This site can't be embedded</div>
-      <div style="font-size:13px;color:var(--text-tertiary);margin-top:4px;max-width:400px;word-break:break-all;">${url}</div>
-      <div style="font-size:13px;margin-top:12px;color:var(--text-secondary);line-height:1.6;">Most websites block being loaded inside other apps for security.<br>Sites that work: Wikipedia, DuckDuckGo, Hacker News, and many others.</div>
-      <button style="margin-top:16px;background:var(--accent);color:white;border:none;padding:8px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font);" onclick="window.open('${url}','_blank')">Open in real browser</button>
-    `;
-    viewport.appendChild(err);
-  }
-
-  function updateNavButtons() {
-    backBtn.disabled = historyIndex <= 0;
-    fwdBtn.disabled = historyIndex >= history.length - 1;
   }
 
   // Show home page initially
-  if (currentUrl) {
-    navigate(currentUrl);
-  } else {
-    showHome();
-  }
+  if (currentUrl) navigate(currentUrl);
+  else showHome();
 }
