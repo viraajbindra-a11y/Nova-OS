@@ -13,12 +13,15 @@ class WindowManager {
   init() {
     this.container = document.getElementById('windows-container');
 
-    // Click desktop to deactivate windows
-    document.getElementById('desktop').addEventListener('mousedown', (e) => {
-      if (e.target.id === 'desktop' || e.target.id === 'desktop-icons' || e.target.closest('#desktop-icons')) {
-        this.deactivateAll();
-      }
-    });
+    // Click desktop to deactivate windows (desktop may not exist in native app mode)
+    const desktop = document.getElementById('desktop');
+    if (desktop) {
+      desktop.addEventListener('mousedown', (e) => {
+        if (e.target.id === 'desktop' || e.target.id === 'desktop-icons' || e.target.closest('#desktop-icons')) {
+          this.deactivateAll();
+        }
+      });
+    }
   }
 
   create({ id, title, app, x, y, width = 700, height = 480, minWidth = 300, minHeight = 200 }) {

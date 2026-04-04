@@ -85,14 +85,10 @@ app.get('/app/:appId', (req, res) => {
   <link rel="stylesheet" href="/css/apps/appstore.css">
   <link rel="stylesheet" href="/css/apps/browser.css">
   <style>
-    /* Native mode: no shell chrome, just the app */
+    /* Native mode: no shell chrome, just the app content filling the window */
     body.nova-native-app { background: #1e1e2e; margin: 0; padding: 0; overflow: hidden; }
-    body.nova-native-app #desktop, body.nova-native-app #menubar,
-    body.nova-native-app #dock, body.nova-native-app #spotlight,
-    body.nova-native-app #control-center, body.nova-native-app #notification-center,
-    body.nova-native-app #lock-screen, body.nova-native-app #setup-wizard,
-    body.nova-native-app #launchpad { display: none !important; }
-    body.nova-native-app #windows { position: fixed; inset: 0; }
+    body.nova-native-app #windows-container { position: fixed; inset: 0; }
+    body.nova-native-app #desktop { display: none !important; }
     body.nova-native-app .window {
       position: fixed !important; inset: 0 !important;
       width: 100% !important; height: 100% !important;
@@ -106,9 +102,10 @@ app.get('/app/:appId', (req, res) => {
   </style>
 </head>
 <body class="nova-native-app">
-  <div id="windows"></div>
+  <!-- These IDs are required by window-manager.js and process-manager.js -->
+  <div id="desktop" style="display:none"></div>
+  <div id="windows-container"></div>
   <script>
-    // Tell the boot system which app to auto-launch in native mode
     window.__NOVA_NATIVE__ = true;
     window.__NOVA_LAUNCH_APP__ = '${appId}';
   </script>
