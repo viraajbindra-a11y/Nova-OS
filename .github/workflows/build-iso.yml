@@ -1,0 +1,42 @@
+name: Build NOVA OS ISO
+
+on:
+  workflow_dispatch:  # Manual trigger from GitHub UI
+  push:
+    branches: [main]
+    paths:
+      - 'distro/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            live-build debootstrap syslinux isolinux \
+            xorriso squashfs-tools grub-pc-bin grub-efi-amd64-bin
+
+      - name: Build NOVA OS ISO
+        run: |
+          cd distro
+          sudo bash build.sh
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-os-iso
+          path: distro/output/nova-os.iso
+          retention-days: 30
+
+      - name: Get ISO size
+        run: |
+          ls -lh distro/output/nova-os.iso
