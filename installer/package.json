@@ -5,6 +5,10 @@
   "main": "main.js",
   "author": "NOVA OS Team",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/viraajbindra-a11y/Nova-OS.git"
+  },
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",

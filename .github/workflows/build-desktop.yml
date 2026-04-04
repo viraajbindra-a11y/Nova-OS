@@ -50,7 +50,7 @@ jobs:
 
       - name: Build desktop app
         working-directory: installer
-        run: npm run build:${{ matrix.platform }}
+        run: npx electron-builder --${{ matrix.platform }} --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
