@@ -23,10 +23,10 @@ function initBrowser(container, instanceId, options = {}) {
   let historyIndex = -1;
 
   const bookmarks = [
-    { name: 'Wikipedia', url: 'https://en.wikipedia.org', icon: '\uD83D\uDCDA' },
-    { name: 'GitHub', url: 'https://github.com', icon: '\uD83D\uDC31' },
-    { name: 'MDN Docs', url: 'https://developer.mozilla.org', icon: '\uD83D\uDCD6' },
-    { name: 'YouTube', url: 'https://youtube.com', icon: '\u25B6\uFE0F' },
+    { name: 'DuckDuckGo', url: 'https://duckduckgo.com', icon: '\uD83E\uDD86' },
+    { name: 'Wikipedia', url: 'https://en.m.wikipedia.org', icon: '\uD83D\uDCDA' },
+    { name: 'Hacker News', url: 'https://news.ycombinator.com', icon: '\uD83D\uDCF0' },
+    { name: 'Reddit', url: 'https://old.reddit.com', icon: '\uD83E\uDD16' },
   ];
 
   container.innerHTML = `
@@ -63,7 +63,7 @@ function initBrowser(container, instanceId, options = {}) {
       let url = urlInput.value.trim();
       if (!url) return;
       if (!url.match(/^https?:\/\//) && !url.includes('.')) {
-        url = `https://www.google.com/search?igu=1&q=${encodeURIComponent(url)}`;
+        url = `https://duckduckgo.com/?q=${encodeURIComponent(url)}`;
       } else if (!url.match(/^https?:\/\//)) {
         url = 'https://' + url;
       }
@@ -118,7 +118,8 @@ function initBrowser(container, instanceId, options = {}) {
 
     const iframe = document.createElement('iframe');
     iframe.className = 'browser-iframe';
-    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups');
+    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox');
+    iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.src = url;
 
     iframe.onload = () => {
@@ -167,7 +168,7 @@ function initBrowser(container, instanceId, options = {}) {
     searchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         const q = searchInput.value.trim();
-        if (q) navigate(`https://www.google.com/search?igu=1&q=${encodeURIComponent(q)}`);
+        if (q) navigate(`https://duckduckgo.com/?q=${encodeURIComponent(q)}`);
       }
     });
 
@@ -188,9 +189,10 @@ function initBrowser(container, instanceId, options = {}) {
     err.className = 'browser-error';
     err.innerHTML = `
       <div class="browser-error-icon">\u26A0\uFE0F</div>
-      <div style="font-size:16px;font-weight:600;">Can't reach this page</div>
-      <div>${url}</div>
-      <div style="font-size:12px;margin-top:8px;">The site may block being loaded in frames.<br>Try opening it directly in your real browser.</div>
+      <div style="font-size:16px;font-weight:600;">This site can't be embedded</div>
+      <div style="font-size:13px;color:var(--text-tertiary);margin-top:4px;max-width:400px;word-break:break-all;">${url}</div>
+      <div style="font-size:13px;margin-top:12px;color:var(--text-secondary);line-height:1.6;">Most websites block being loaded inside other apps for security.<br>Sites that work: Wikipedia, DuckDuckGo, Hacker News, and many others.</div>
+      <button style="margin-top:16px;background:var(--accent);color:white;border:none;padding:8px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font);" onclick="window.open('${url}','_blank')">Open in real browser</button>
     `;
     viewport.appendChild(err);
   }

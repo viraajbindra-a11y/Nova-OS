@@ -23,10 +23,10 @@ function initBrowser(container, instanceId, options = {}) {
   let historyIndex = -1;
 
   const bookmarks = [
-    { name: 'Wikipedia', url: 'https://en.m.wikipedia.org', icon: '\uD83D\uDCDA' },
-    { name: 'Google', url: 'https://www.google.com/webhp?igu=1', icon: '\uD83D\uDD0D' },
     { name: 'DuckDuckGo', url: 'https://duckduckgo.com', icon: '\uD83E\uDD86' },
+    { name: 'Wikipedia', url: 'https://en.m.wikipedia.org', icon: '\uD83D\uDCDA' },
     { name: 'Hacker News', url: 'https://news.ycombinator.com', icon: '\uD83D\uDCF0' },
+    { name: 'Reddit', url: 'https://old.reddit.com', icon: '\uD83E\uDD16' },
   ];
 
   container.innerHTML = `
@@ -63,7 +63,7 @@ function initBrowser(container, instanceId, options = {}) {
       let url = urlInput.value.trim();
       if (!url) return;
       if (!url.match(/^https?:\/\//) && !url.includes('.')) {
-        url = `https://www.google.com/search?igu=1&q=${encodeURIComponent(url)}`;
+        url = `https://duckduckgo.com/?q=${encodeURIComponent(url)}`;
       } else if (!url.match(/^https?:\/\//)) {
         url = 'https://' + url;
       }
@@ -168,7 +168,7 @@ function initBrowser(container, instanceId, options = {}) {
     searchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         const q = searchInput.value.trim();
-        if (q) navigate(`https://www.google.com/search?igu=1&q=${encodeURIComponent(q)}`);
+        if (q) navigate(`https://duckduckgo.com/?q=${encodeURIComponent(q)}`);
       }
     });
 
