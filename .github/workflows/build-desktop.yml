@@ -54,14 +54,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: List built files
+        shell: bash
+        run: ls -la installer/dist/ || echo "no dist dir"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: nova-os-${{ matrix.platform }}
-          path: |
-            installer/dist/*.dmg
-            installer/dist/*.zip
-            installer/dist/*.exe
-            installer/dist/*.AppImage
-            installer/dist/*.deb
+          path: installer/dist/*
+          if-no-files-found: error
           retention-days: 30
