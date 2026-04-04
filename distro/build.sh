@@ -72,11 +72,11 @@ apt-get update -qq
 # Install kernel + live boot
 apt-get install -y -qq linux-image-amd64 live-boot systemd-sysv
 
-# Display server + window manager
-apt-get install -y -qq xorg xinit openbox picom hsetroot
+# Display server (NO window manager — Chromium IS the shell, like ChromeOS)
+apt-get install -y -qq xorg xinit xdotool hsetroot
 
-# NOVA Desktop Shell
-apt-get install -y -qq polybar rofi plank dunst feh lxappearance
+# Utilities only (no polybar, no plank, no rofi — NOVA OS has its own)
+apt-get install -y -qq dunst feh
 
 # Real browser
 apt-get install -y -qq chromium || apt-get install -y -qq firefox-esr || true
@@ -346,28 +346,7 @@ cat > "$CHROOT/etc/nova-os/dunstrc" << 'DUNST'
     foreground = "#ffffff"
 DUNST
 
-# Plank dock config — all real apps
-mkdir -p "$CHROOT/etc/skel/.config/plank/dock1/launchers"
-for app in chromium thunar xfce4-terminal mousepad vlc shotwell galculator gnome-software; do
-  cat > "$CHROOT/etc/skel/.config/plank/dock1/launchers/${app}.dockitem" << DOCKITEM
-[PlankDockItemPreferences]
-Launcher=file:///usr/share/applications/${app}.desktop
-DOCKITEM
-done
-
-# Plank dock settings
-cat > "$CHROOT/etc/skel/.config/plank/dock1/settings" << 'PLANKCFG'
-[PlankDockPreferences]
-Alignment=3
-IconSize=48
-HideMode=3
-Position=3
-Theme=Transparent
-ZoomEnabled=true
-ZoomPercent=130
-PLANKCFG
-
-# Desktop shortcuts
+# User directories
 mkdir -p "$CHROOT/etc/skel/Desktop"
 mkdir -p "$CHROOT/etc/skel/Documents"
 mkdir -p "$CHROOT/etc/skel/Downloads"
@@ -421,10 +400,6 @@ useradd -m -s /bin/bash -G audio,video,sudo,netdev,plugdev,cdrom nova 2>/dev/nul
 echo "nova:nova" | chpasswd
 echo "nova ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/nova
 chmod 0440 /etc/sudoers.d/nova
-
-# Set NOVA as default session
-mkdir -p /home/nova/.config/openbox
-ln -sf /etc/nova-os/openbox/rc.xml /home/nova/.config/openbox/rc.xml
 
 # Install NOVA OS node modules
 if [ -f /opt/nova-os/package.json ]; then
