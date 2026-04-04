@@ -186,6 +186,48 @@
   font-size: 14px;
 }
 
+/* Content area with preview */
+.finder-content-area {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.finder-content-area .finder-files {
+  flex: 1;
+}
+
+.finder-preview {
+  width: 220px;
+  min-width: 220px;
+  border-left: 1px solid var(--border);
+  background: rgba(30, 30, 30, 0.4);
+  overflow-y: auto;
+}
+
+/* Toolbar right section */
+.finder-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.finder-view-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.finder-view-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .finder-statusbar {
   padding: 4px 14px;
   font-size: 11px;

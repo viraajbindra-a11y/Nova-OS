@@ -1,12 +1,15 @@
-// NOVA OS — Notification System
+// NOVA OS — Notification System with Notification Center
 
 import { eventBus } from './event-bus.js';
 
 class NotificationManager {
   constructor() {
     this.notifications = [];
+    this.history = []; // stored notification history
     this.container = null;
+    this.centerPanel = null;
     this.nextId = 0;
+    this.isOpen = false;
   }
 
   init() {
@@ -14,10 +17,111 @@ class NotificationManager {
     this.container.id = 'notification-center';
     this.container.style.cssText = 'position:fixed;top:32px;right:12px;z-index:90000;display:flex;flex-direction:column;gap:8px;pointer-events:none;width:320px;';
     document.body.appendChild(this.container);
+
+    // Create notification center panel (slide-out)
+    this.centerPanel = document.createElement('div');
+    this.centerPanel.id = 'notification-panel';
+    this.centerPanel.style.cssText = `
+      position:fixed; top:28px; right:0; width:340px; height:calc(100vh - 28px - 78px);
+      background:rgba(30,30,34,0.92); backdrop-filter:blur(30px); -webkit-backdrop-filter:blur(30px);
+      border-left:1px solid rgba(255,255,255,0.08); z-index:85000;
+      transform:translateX(100%); transition:transform 0.3s cubic-bezier(0.16,1,0.3,1);
+      display:flex; flex-direction:column; font-family:var(--font);
+    `;
+    this.centerPanel.innerHTML = `
+      <div style="padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-weight:600;font-size:14px;color:white;">Notifications</span>
+        <button id="notif-clear-all" style="background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer;font-family:var(--font);">Clear All</button>
+      </div>
+      <div id="notif-history" style="flex:1;overflow-y:auto;padding:8px;"></div>
+    `;
+    document.body.appendChild(this.centerPanel);
+
+    // Clear all button
+    this.centerPanel.querySelector('#notif-clear-all').addEventListener('click', () => {
+      this.history = [];
+      this._renderHistory();
+    });
+
+    // Click outside to close
+    document.addEventListener('click', (e) => {
+      if (this.isOpen && !this.centerPanel.contains(e.target) && !e.target.closest('#menubar-notif-btn')) {
+        this.closePanel();
+      }
+    });
+
+    // Listen for toggle event (from menubar)
+    eventBus.on('notifications:toggle', () => this.togglePanel());
+  }
+
+  togglePanel() {
+    if (this.isOpen) this.closePanel();
+    else this.openPanel();
+  }
+
+  openPanel() {
+    this._renderHistory();
+    this.centerPanel.style.transform = 'translateX(0)';
+    this.isOpen = true;
+  }
+
+  closePanel() {
+    this.centerPanel.style.transform = 'translateX(100%)';
+    this.isOpen = false;
+  }
+
+  _renderHistory() {
+    const histEl = this.centerPanel.querySelector('#notif-history');
+    if (this.history.length === 0) {
+      histEl.innerHTML = `<div style="text-align:center;color:rgba(255,255,255,0.3);padding:40px 0;font-size:13px;">No notifications</div>`;
+      return;
+    }
+    histEl.innerHTML = '';
+    // Show newest first
+    [...this.history].reverse().forEach((notif, i) => {
+      const el = document.createElement('div');
+      el.style.cssText = `
+        background:rgba(255,255,255,0.04); border-radius:10px; padding:10px 12px;
+        margin-bottom:6px; cursor:default; transition:background 0.15s;
+      `;
+      el.addEventListener('mouseenter', () => el.style.background = 'rgba(255,255,255,0.08)');
+      el.addEventListener('mouseleave', () => el.style.background = 'rgba(255,255,255,0.04)');
+
+      const timeAgo = this._timeAgo(notif.time);
+      el.innerHTML = `
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          ${notif.icon ? `<div style="font-size:20px;flex-shrink:0;">${notif.icon}</div>` : ''}
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+              <span style="font-weight:600;font-size:12px;color:white;">${notif.title}</span>
+              <span style="font-size:10px;color:rgba(255,255,255,0.3);flex-shrink:0;">${timeAgo}</span>
+            </div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px;line-height:1.4;">${notif.body}</div>
+          </div>
+        </div>
+      `;
+      histEl.appendChild(el);
+    });
+  }
+
+  _timeAgo(timestamp) {
+    const diff = Date.now() - timestamp;
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
   }
 
   show({ title, body, icon, duration = 4000, actions = [] }) {
     const id = this.nextId++;
+
+    // Add to history
+    this.history.push({ id, title, body, icon, time: Date.now() });
+    // Keep max 50 items
+    if (this.history.length > 50) this.history.shift();
+
     const el = document.createElement('div');
     el.style.cssText = `
       pointer-events:auto;
@@ -84,7 +188,8 @@ class NotificationManager {
       setTimeout(() => this.dismiss(id, el), duration);
     }
 
-    eventBus.emit('notification:shown', { id, title });
+    // Update badge in menubar
+    eventBus.emit('notification:shown', { id, title, count: this.history.length });
     return id;
   }
 
@@ -100,6 +205,10 @@ class NotificationManager {
 
   clear() {
     this.notifications.forEach(n => this.dismiss(n.id, n.el));
+  }
+
+  getCount() {
+    return this.history.length;
   }
 }
 

@@ -53,9 +53,16 @@ async function initFinder(container, instanceId, startPath) {
           <button class="finder-nav-btn" id="finder-back-${instanceId}" disabled>\u25C0</button>
           <button class="finder-nav-btn" id="finder-forward-${instanceId}" disabled>\u25B6</button>
           <span class="finder-path" id="finder-path-${instanceId}">${currentPath}</span>
-          <input type="text" class="finder-search" id="finder-search-${instanceId}" placeholder="Search...">
+          <div class="finder-toolbar-right">
+            <button class="finder-view-btn" id="finder-grid-${instanceId}" title="Grid view" style="opacity:1">&#9638;</button>
+            <button class="finder-view-btn" id="finder-list-${instanceId}" title="List view" style="opacity:0.4">&#9776;</button>
+            <input type="text" class="finder-search" id="finder-search-${instanceId}" placeholder="Search...">
+          </div>
         </div>
-        <div class="finder-files ${viewMode === 'list' ? 'list-view' : ''}" id="finder-files-${instanceId}"></div>
+        <div class="finder-content-area">
+          <div class="finder-files ${viewMode === 'list' ? 'list-view' : ''}" id="finder-files-${instanceId}"></div>
+          <div class="finder-preview" id="finder-preview-${instanceId}" style="display:none;"></div>
+        </div>
         <div class="finder-statusbar" id="finder-status-${instanceId}">0 items</div>
       </div>
     </div>
@@ -67,6 +74,23 @@ async function initFinder(container, instanceId, startPath) {
   const backBtn = container.querySelector(`#finder-back-${instanceId}`);
   const forwardBtn = container.querySelector(`#finder-forward-${instanceId}`);
   const searchInput = container.querySelector(`#finder-search-${instanceId}`);
+  const previewPanel = container.querySelector(`#finder-preview-${instanceId}`);
+  const gridBtn = container.querySelector(`#finder-grid-${instanceId}`);
+  const listBtn = container.querySelector(`#finder-list-${instanceId}`);
+
+  // View mode toggles
+  gridBtn.addEventListener('click', () => {
+    viewMode = 'grid';
+    filesContainer.classList.remove('list-view');
+    gridBtn.style.opacity = '1';
+    listBtn.style.opacity = '0.4';
+  });
+  listBtn.addEventListener('click', () => {
+    viewMode = 'list';
+    filesContainer.classList.add('list-view');
+    gridBtn.style.opacity = '0.4';
+    listBtn.style.opacity = '1';
+  });
 
   // Sidebar navigation
   container.querySelectorAll('.finder-sidebar-item').forEach(item => {
@@ -155,11 +179,17 @@ async function initFinder(container, instanceId, startPath) {
         <div class="finder-file-name">${name}</div>
       `;
 
-      el.addEventListener('click', (e) => {
+      el.addEventListener('click', async (e) => {
         if (!e.metaKey && !e.ctrlKey) {
           filesContainer.querySelectorAll('.finder-file').forEach(f => f.classList.remove('selected'));
         }
         el.classList.toggle('selected');
+        // Show preview
+        if (el.classList.contains('selected') && file.type === 'file') {
+          showPreview(file, name);
+        } else {
+          hidePreview();
+        }
       });
 
       el.addEventListener('dblclick', () => {
@@ -277,6 +307,47 @@ async function initFinder(container, instanceId, startPath) {
     document.body.appendChild(menu);
     const closeMenu = () => { menu.remove(); document.removeEventListener('click', closeMenu); };
     setTimeout(() => document.addEventListener('click', closeMenu), 10);
+  }
+
+  // File preview panel
+  async function showPreview(file, name) {
+    const data = await fileSystem.readFile(file.path);
+    if (!data) return;
+
+    const ext = fileSystem.getExtension(file.path);
+    let preview = '';
+    const icon = fileSystem.getFileIcon(file);
+    const modified = new Date(data.modified).toLocaleString();
+    const size = data.content ? `${data.content.length} bytes` : '0 bytes';
+
+    // Text preview
+    if (['txt', 'md', 'js', 'html', 'css', 'json', 'py', 'ts', 'xml', 'csv', 'sh', 'yaml', 'yml'].includes(ext)) {
+      const content = (data.content || '').substring(0, 500);
+      preview = `<pre style="font-size:10px;color:rgba(255,255,255,0.6);white-space:pre-wrap;word-break:break-word;max-height:180px;overflow:hidden;background:rgba(0,0,0,0.2);padding:8px;border-radius:6px;margin:8px 0;">${escapeHtml(content)}${data.content?.length > 500 ? '\n...' : ''}</pre>`;
+    }
+    // Image preview (data URL)
+    else if (['jpg', 'png', 'gif', 'svg', 'webp'].includes(ext) && data.content?.startsWith('data:')) {
+      preview = `<img src="${data.content}" style="max-width:100%;max-height:180px;border-radius:6px;margin:8px 0;">`;
+    }
+
+    previewPanel.innerHTML = `
+      <div style="text-align:center;padding:12px;">
+        <div style="font-size:48px;margin-bottom:8px;">${icon}</div>
+        <div style="font-weight:600;font-size:13px;color:white;word-break:break-word;">${name}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px;">${ext.toUpperCase() || 'File'} &middot; ${size}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px;">Modified: ${modified}</div>
+        ${preview}
+      </div>
+    `;
+    previewPanel.style.display = 'block';
+  }
+
+  function hidePreview() {
+    previewPanel.style.display = 'none';
+  }
+
+  function escapeHtml(text) {
+    return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
   // Drop files into the current directory (from Desktop or external)

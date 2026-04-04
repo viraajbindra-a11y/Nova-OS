@@ -40,6 +40,22 @@ async function loadDesktopIcons() {
       }
     });
 
+    // Drag desktop icons
+    el.draggable = true;
+    el.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('nova/filepath', file.path);
+      e.dataTransfer.effectAllowed = 'move';
+      el.classList.add('dragging');
+    });
+    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+
+    // Right-click context menu on desktop icons
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showDesktopIconMenu(e, file, name);
+    });
+
     container.appendChild(el);
   });
 }
@@ -92,6 +108,70 @@ function setupContextMenu() {
       loadDesktopIcons();
     }
   });
+}
+
+function showDesktopIconMenu(e, file, name) {
+  // Remove existing menus
+  document.querySelectorAll('.desktop-context-menu').forEach(m => m.remove());
+
+  const menu = document.createElement('div');
+  menu.className = 'desktop-context-menu';
+  menu.style.cssText = `position:fixed;left:${Math.min(e.clientX, window.innerWidth - 200)}px;top:${Math.min(e.clientY, window.innerHeight - 200)}px;background:rgba(38,38,42,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:4px;min-width:180px;z-index:99999;box-shadow:0 10px 40px rgba(0,0,0,0.4);font-size:13px;`;
+
+  const items = [
+    { label: 'Open', action: () => {
+      if (file.type === 'folder') processManager.launch('finder', { openPath: file.path });
+      else processManager.launch('text-editor', { filePath: file.path, title: name });
+    }},
+    { separator: true },
+    { label: 'Rename', action: async () => {
+      const newName = prompt('Rename to:', name);
+      if (newName && newName !== name) {
+        const newPath = file.path.replace(name, newName);
+        await fileSystem.rename(file.path, newPath);
+        loadDesktopIcons();
+      }
+    }},
+    { label: 'Duplicate', action: async () => {
+      if (file.type === 'file') {
+        const content = (await fileSystem.readFile(file.path))?.content || '';
+        const copyName = name.replace(/(\.\w+)?$/, ' copy$1');
+        await fileSystem.writeFile(`/Desktop/${copyName}`, content);
+        loadDesktopIcons();
+      }
+    }},
+    { separator: true },
+    { label: 'Move to Trash', action: async () => {
+      if (confirm(`Delete "${name}"?`)) {
+        await fileSystem.delete(file.path);
+        loadDesktopIcons();
+      }
+    }},
+    { separator: true },
+    { label: 'Get Info', action: () => {
+      alert(`Name: ${name}\nPath: ${file.path}\nType: ${file.type}\nCreated: ${new Date(file.created).toLocaleString()}\nModified: ${new Date(file.modified).toLocaleString()}`);
+    }},
+  ];
+
+  items.forEach(item => {
+    if (item.separator) {
+      const sep = document.createElement('div');
+      sep.style.cssText = 'height:1px;background:rgba(255,255,255,0.08);margin:4px 8px;';
+      menu.appendChild(sep);
+      return;
+    }
+    const el = document.createElement('div');
+    el.style.cssText = 'padding:6px 12px;border-radius:4px;cursor:pointer;color:white;';
+    el.textContent = item.label;
+    el.addEventListener('mouseenter', () => el.style.background = 'var(--accent)');
+    el.addEventListener('mouseleave', () => el.style.background = 'transparent');
+    el.addEventListener('click', () => { menu.remove(); item.action(); });
+    menu.appendChild(el);
+  });
+
+  document.body.appendChild(menu);
+  const closeMenu = () => { menu.remove(); document.removeEventListener('click', closeMenu); };
+  setTimeout(() => document.addEventListener('click', closeMenu), 10);
 }
 
 function setupDesktopDragDrop() {
