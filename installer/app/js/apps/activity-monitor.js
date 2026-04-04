@@ -1,6 +1,7 @@
 // NOVA OS — Activity Monitor App
 
 import { processManager } from '../kernel/process-manager.js';
+import { windowManager } from '../kernel/window-manager.js';
 
 export function registerActivityMonitor() {
   processManager.register('activity-monitor', {
@@ -331,9 +332,6 @@ function initActivityMonitor(container, instanceId) {
     const base = 5 + runningApps * 4;
     return Math.min(95, base + Math.random() * 15 - 7);
   }
-
-  // Import windowManager for kill
-  const { windowManager } = await import('../kernel/window-manager.js');
 
   // Initial render
   render();
