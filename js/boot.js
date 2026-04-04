@@ -15,6 +15,11 @@ import { registerCalculator } from './apps/calculator.js';
 import { registerSettings, applyWallpaper, applyAccentColor } from './apps/settings.js';
 import { registerTextEditor } from './apps/text-editor.js';
 import { registerDraw } from './apps/draw.js';
+import { registerBrowser } from './apps/browser.js';
+import { registerMusic } from './apps/music.js';
+import { registerCalendar } from './apps/calendar.js';
+import { registerAppStore } from './apps/appstore.js';
+import { showSetupWizard } from './shell/setup-wizard.js';
 
 // Boot sequence
 (async function boot() {
@@ -38,6 +43,10 @@ import { registerDraw } from './apps/draw.js';
   registerSettings();
   registerTextEditor();
   registerDraw();
+  registerBrowser();
+  registerMusic();
+  registerCalendar();
+  registerAppStore();
   await animate(progressBar, 85, 200);
 
   // Init kernel
@@ -100,6 +109,10 @@ import { registerDraw } from './apps/draw.js';
 
   // Desktop ready
   await sleep(300);
+
+  // Show setup wizard on first boot
+  await showSetupWizard();
+
   eventBus.emit('desktop:ready');
   console.log('NOVA OS booted successfully.');
 })();

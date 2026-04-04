@@ -5,11 +5,15 @@ import { eventBus } from '../kernel/event-bus.js';
 
 const dockApps = [
   { id: 'finder', name: 'Finder', icon: '\uD83D\uDCC2', iconClass: 'dock-icon-finder' },
+  { id: 'browser', name: 'Browser', icon: '\uD83C\uDF10', iconClass: 'dock-icon-browser' },
   { id: 'notes', name: 'Notes', icon: '\uD83D\uDCDD', iconClass: 'dock-icon-notes' },
   { id: 'text-editor', name: 'Text Editor', icon: '\uD83D\uDCBB', iconClass: 'dock-icon-texteditor' },
   { id: 'terminal', name: 'Terminal', icon: '>_', iconClass: 'dock-icon-terminal' },
+  { id: 'music', name: 'Music', icon: '\uD83C\uDFB5', iconClass: 'dock-icon-music' },
+  { id: 'calendar', name: 'Calendar', icon: '\uD83D\uDCC5', iconClass: 'dock-icon-calendar' },
   { id: 'calculator', name: 'Calculator', icon: '\uD83D\uDDA9', iconClass: 'dock-icon-calculator' },
   { id: 'draw', name: 'Draw', icon: '\uD83C\uDFA8', iconClass: 'dock-icon-draw' },
+  { id: 'appstore', name: 'App Store', icon: '\uD83D\uDECD\uFE0F', iconClass: 'dock-icon-appstore' },
   { id: 'settings', name: 'Settings', icon: '\u2699\uFE0F', iconClass: 'dock-icon-settings' },
 ];
 

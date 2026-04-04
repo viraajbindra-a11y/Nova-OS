@@ -145,6 +145,12 @@ export function initSpotlight() {
       'open settings': 'settings',
       'open text editor': 'text-editor',
       'open editor': 'text-editor',
+      'open browser': 'browser',
+      'open music': 'music',
+      'open calendar': 'calendar',
+      'open draw': 'draw',
+      'open app store': 'appstore',
+      'open store': 'appstore',
     };
 
     for (const [cmd, appId] of Object.entries(appCommands)) {

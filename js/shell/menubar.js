@@ -10,9 +10,14 @@ export function initMenubar() {
   eventBus.on('window:focused', ({ title, app }) => {
     const appNames = {
       finder: 'Finder',
+      browser: 'Browser',
       notes: 'Notes',
       terminal: 'Terminal',
       calculator: 'Calculator',
+      music: 'Music',
+      calendar: 'Calendar',
+      draw: 'Draw',
+      appstore: 'App Store',
       settings: 'Settings',
       'text-editor': 'Text Editor',
     };

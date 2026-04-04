@@ -1,0 +1,227 @@
+/* Calendar */
+.calendar-app {
+  display: flex;
+  height: 100%;
+}
+
+.calendar-sidebar {
+  width: 200px;
+  border-right: 1px solid var(--border);
+  padding: 12px;
+  background: rgba(25, 25, 25, 0.6);
+}
+
+.calendar-mini {
+  margin-bottom: 16px;
+}
+
+.calendar-mini-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.calendar-mini-nav {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 6px;
+}
+
+.calendar-mini-nav:hover {
+  color: var(--text-primary);
+}
+
+.calendar-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  font-size: 11px;
+  text-align: center;
+}
+
+.calendar-mini-day-header {
+  color: var(--text-tertiary);
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+.calendar-mini-day {
+  padding: 4px 0;
+  border-radius: 50%;
+  cursor: default;
+  color: var(--text-secondary);
+}
+
+.calendar-mini-day:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.calendar-mini-day.today {
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+}
+
+.calendar-mini-day.other-month {
+  color: var(--text-tertiary);
+  opacity: 0.4;
+}
+
+.calendar-mini-day.selected {
+  background: rgba(0, 122, 255, 0.2);
+}
+
+.calendar-calendars-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.calendar-cal-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.calendar-cal-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.calendar-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.calendar-header-title {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.calendar-header-nav {
+  display: flex;
+  gap: 4px;
+}
+
+.calendar-header-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-family: var(--font);
+}
+
+.calendar-header-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.calendar-header-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.calendar-week-view {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-day-headers {
+  display: grid;
+  grid-template-columns: 50px repeat(7, 1fr);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg-primary);
+  z-index: 1;
+}
+
+.calendar-day-header {
+  padding: 8px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+
+.calendar-day-header-date {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.calendar-day-header.today .calendar-day-header-date {
+  background: var(--accent);
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.calendar-time-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 50px repeat(7, 1fr);
+}
+
+.calendar-time-label {
+  padding: 0 8px;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-align: right;
+  height: 48px;
+  position: relative;
+  top: -6px;
+}
+
+.calendar-time-slot {
+  height: 48px;
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  position: relative;
+}
+
+.calendar-event {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  overflow: hidden;
+  cursor: default;
+  z-index: 1;
+}

@@ -223,9 +223,15 @@ class WindowManager {
       if (!dragging) return;
       el.style.left = `${e.clientX - offsetX}px`;
       el.style.top = `${Math.max(28, e.clientY - offsetY)}px`;
+
+      // Show snap preview
+      this._updateSnapPreview(e.clientX, e.clientY);
     });
 
-    titlebar.addEventListener('pointerup', () => {
+    titlebar.addEventListener('pointerup', (e) => {
+      if (dragging) {
+        this._handleSnap(e.clientX, e.clientY, id);
+      }
       dragging = false;
       el.style.transition = '';
     });
@@ -303,6 +309,62 @@ class WindowManager {
         this.focus(id);
       }
     });
+  }
+
+  // Window snapping
+  _updateSnapPreview(x, y) {
+    let preview = document.getElementById('snap-preview');
+    const menuH = 28;
+    const dockH = 78;
+    const snapZone = 8;
+
+    if (x <= snapZone) {
+      // Snap left
+      if (!preview) preview = this._createSnapPreview();
+      Object.assign(preview.style, { left: '0', top: menuH + 'px', width: '50vw', height: `calc(100vh - ${menuH}px - ${dockH}px)`, display: 'block' });
+    } else if (x >= window.innerWidth - snapZone) {
+      // Snap right
+      if (!preview) preview = this._createSnapPreview();
+      Object.assign(preview.style, { left: '50vw', top: menuH + 'px', width: '50vw', height: `calc(100vh - ${menuH}px - ${dockH}px)`, display: 'block' });
+    } else if (y <= menuH + 4) {
+      // Snap maximize
+      if (!preview) preview = this._createSnapPreview();
+      Object.assign(preview.style, { left: '0', top: menuH + 'px', width: '100vw', height: `calc(100vh - ${menuH}px - ${dockH}px)`, display: 'block' });
+    } else {
+      if (preview) preview.style.display = 'none';
+    }
+  }
+
+  _handleSnap(x, y, id) {
+    const preview = document.getElementById('snap-preview');
+    if (preview) { preview.style.display = 'none'; }
+
+    const state = this.windows.get(id);
+    if (!state) return;
+
+    const menuH = 28;
+    const dockH = 78;
+    const snapZone = 8;
+
+    if (x <= snapZone) {
+      state.prevBounds = { left: state.el.style.left, top: state.el.style.top, width: state.el.style.width, height: state.el.style.height };
+      state.el.style.transition = 'all 0.2s ease';
+      Object.assign(state.el.style, { left: '0px', top: menuH + 'px', width: '50vw', height: `calc(100vh - ${menuH}px - ${dockH}px)` });
+    } else if (x >= window.innerWidth - snapZone) {
+      state.prevBounds = { left: state.el.style.left, top: state.el.style.top, width: state.el.style.width, height: state.el.style.height };
+      state.el.style.transition = 'all 0.2s ease';
+      Object.assign(state.el.style, { left: '50vw', top: menuH + 'px', width: '50vw', height: `calc(100vh - ${menuH}px - ${dockH}px)` });
+    } else if (y <= menuH + 4) {
+      this.maximize(id);
+    }
+  }
+
+  _createSnapPreview() {
+    const el = document.createElement('div');
+    el.id = 'snap-preview';
+    el.style.cssText = 'position:fixed;background:rgba(0,122,255,0.15);border:2px solid rgba(0,122,255,0.4);border-radius:10px;z-index:9;pointer-events:none;transition:all 0.15s ease;display:none;';
+    document.getElementById('desktop').appendChild(el);
+    return el;
   }
 }
 
