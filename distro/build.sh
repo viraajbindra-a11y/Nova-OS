@@ -538,18 +538,20 @@ GRUB
 # ============================================
 echo "[8/8] Building ISO (this takes 15-30 minutes)..."
 
-# Fix isolinux paths — live-build looks in /root/isolinux but files are elsewhere
-mkdir -p /root/isolinux
-cp /usr/lib/ISOLINUX/isolinux.bin /root/isolinux/ 2>/dev/null || \
-  cp /usr/lib/syslinux/modules/bios/isolinux.bin /root/isolinux/ 2>/dev/null || \
-  find / -name "isolinux.bin" -exec cp {} /root/isolinux/ \; 2>/dev/null
-cp /usr/lib/syslinux/modules/bios/vesamenu.c32 /root/isolinux/ 2>/dev/null || \
-  cp /usr/share/syslinux/vesamenu.c32 /root/isolinux/ 2>/dev/null || \
-  find / -name "vesamenu.c32" -exec cp {} /root/isolinux/ \; 2>/dev/null
-cp /usr/lib/syslinux/modules/bios/ldlinux.c32 /root/isolinux/ 2>/dev/null || true
-cp /usr/lib/syslinux/modules/bios/libcom32.c32 /root/isolinux/ 2>/dev/null || true
-cp /usr/lib/syslinux/modules/bios/libutil.c32 /root/isolinux/ 2>/dev/null || true
-ls -la /root/isolinux/ || echo "WARNING: isolinux files not found"
+# Fix isolinux — copy bootloader files into the chroot AND the binary config
+for DIR in config/includes.chroot/root/isolinux config/includes.binary/isolinux chroot/root/isolinux; do
+  mkdir -p "$DIR"
+  cp /usr/lib/ISOLINUX/isolinux.bin "$DIR/" 2>/dev/null || true
+  cp /usr/lib/syslinux/modules/bios/vesamenu.c32 "$DIR/" 2>/dev/null || true
+  cp /usr/lib/syslinux/modules/bios/ldlinux.c32 "$DIR/" 2>/dev/null || true
+  cp /usr/lib/syslinux/modules/bios/libcom32.c32 "$DIR/" 2>/dev/null || true
+  cp /usr/lib/syslinux/modules/bios/libutil.c32 "$DIR/" 2>/dev/null || true
+done
+# Also put them where the live-build binary stage looks
+mkdir -p binary/isolinux
+cp /usr/lib/ISOLINUX/isolinux.bin binary/isolinux/ 2>/dev/null || true
+cp /usr/lib/syslinux/modules/bios/*.c32 binary/isolinux/ 2>/dev/null || true
+echo "Isolinux files staged in all locations"
 
 lb build 2>&1 | tail -20
 
