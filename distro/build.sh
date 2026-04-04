@@ -117,9 +117,9 @@ apt-get install -y -qq papirus-icon-theme fonts-inter fonts-noto fonts-noto-colo
 # Development (for NOVA AI)
 apt-get install -y -qq nodejs npm git curl wget python3 || true
 
-# System
+# System (NO lightdm — we boot straight into NOVA OS)
 apt-get install -y -qq sudo dbus-x11 policykit-1 policykit-1-gnome upower acpi acpid \
-  lightdm lightdm-gtk-greeter plymouth imagemagick || true
+  plymouth imagemagick || true
 
 # App installation
 apt-get install -y -qq flatpak gnome-software software-properties-common || true
@@ -431,15 +431,11 @@ if [ -f /opt/nova-os/package.json ]; then
   cd /opt/nova-os && npm install --production --no-optional 2>/dev/null || true
 fi
 
-# Enable services
-systemctl enable lightdm 2>/dev/null || true
+# Enable services (NO lightdm — we auto-login via getty)
 systemctl enable NetworkManager 2>/dev/null || true
 systemctl enable bluetooth 2>/dev/null || true
 systemctl enable cups 2>/dev/null || true
 systemctl enable acpid 2>/dev/null || true
-
-# Add Flathub
-flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
 
 # Set hostname
 echo "nova-os" > /etc/hostname
@@ -448,43 +444,74 @@ echo "127.0.0.1 nova-os" >> /etc/hosts
 # Timezone
 ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 
-# Default apps
-update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper 2>/dev/null || true
-update-alternatives --set x-www-browser /usr/bin/chromium 2>/dev/null || true
+# ---- DIRECT BOOT INTO NOVA OS (no login screen) ----
+# Auto-login on tty1 via systemd override
+mkdir -p /etc/systemd/system/getty@tty1.service.d
+cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'AUTOLOGIN'
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin nova --noclear %I $TERM
+AUTOLOGIN
 
-# LightDM config
-mkdir -p /etc/lightdm
-cat > /etc/lightdm/lightdm.conf << 'LDM'
-[Seat:*]
-autologin-user=nova
-autologin-session=nova-session
-user-session=nova-session
-greeter-session=lightdm-gtk-greeter
-greeter-hide-users=false
-LDM
+# .bash_profile auto-starts X (which runs .xinitrc)
+cat > /home/nova/.bash_profile << 'BASHPROFILE'
+# NOVA OS — Auto-start the desktop on tty1
+if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
+  exec startx -- -nocursor 2>/dev/null
+fi
+BASHPROFILE
+chown nova:nova /home/nova/.bash_profile
 
-# Enable autologin group
-groupadd -f autologin
-usermod -a -G autologin nova 2>/dev/null || true
+# .xinitrc — the ENTIRE desktop is NOVA OS in kiosk Chromium
+cat > /home/nova/.xinitrc << 'XINITRC'
+#!/bin/bash
+# NOVA OS — Desktop Init
+# This IS the operating system. No other desktop involved.
 
-cat > /etc/lightdm/lightdm-gtk-greeter.conf << 'GREETER'
-[greeter]
-theme-name = Arc-Dark
-icon-theme-name = Papirus-Dark
-font-name = Inter 11
-background = /usr/share/nova-os/wallpapers/default.png
-default-user-image = /usr/share/nova-os/logo.png
-indicators = ~host;~spacer;~clock;~spacer;~session;~power
-GREETER
+# Audio
+pulseaudio --start 2>/dev/null &
 
-# Chromium as default browser
-mkdir -p /etc/skel/.config
-echo "[Default Applications]
-text/html=chromium.desktop
-x-scheme-handler/http=chromium.desktop
-x-scheme-handler/https=chromium.desktop
-application/xhtml+xml=chromium.desktop
-" > /etc/skel/.config/mimeapps.list
+# Network
+nm-applet --indicator 2>/dev/null &
+
+# Power management
+xfce4-power-manager 2>/dev/null &
+
+# Set black background while loading
+xsetroot -solid "#0a0a1a"
+
+# Disable screen blanking
+xset s off
+xset -dpms
+xset s noblank
+
+# Start the NOVA OS server
+cd /opt/nova-os
+node server/index.js &
+NOVA_PID=$!
+
+# Wait for server to be ready
+for i in $(seq 1 30); do
+  if curl -s http://localhost:3000 > /dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+
+# Launch NOVA OS fullscreen in Chromium — THIS IS THE OS
+exec chromium \
+  --no-first-run \
+  --disable-infobars \
+  --disable-session-crashed-bubble \
+  --disable-translate \
+  --noerrdialogs \
+  --kiosk \
+  --start-fullscreen \
+  --app=http://localhost:3000 \
+  2>/dev/null
+XINITRC
+chown nova:nova /home/nova/.xinitrc
+chmod +x /home/nova/.xinitrc
 
 # GTK theme
 mkdir -p /etc/skel/.config/gtk-3.0
