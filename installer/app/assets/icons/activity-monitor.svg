@@ -1,0 +1,25 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="120" height="120" rx="26" fill="url(#am-bg)"/>
+  <defs>
+    <linearGradient id="am-bg" x1="0" y1="0" x2="120" y2="120">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#16213e"/>
+    </linearGradient>
+  </defs>
+  <!-- Grid lines -->
+  <line x1="20" y1="40" x2="100" y2="40" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <line x1="20" y1="60" x2="100" y2="60" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <line x1="20" y1="80" x2="100" y2="80" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <!-- CPU line (green) -->
+  <polyline points="20,75 30,68 40,55 50,60 60,42 70,48 80,35 90,40 100,30" stroke="#28c840" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Memory line (yellow) -->
+  <polyline points="20,82 30,78 40,72 50,75 60,65 70,68 80,58 90,62 100,55" stroke="#ffd60a" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+  <!-- Network line (blue) -->
+  <polyline points="20,88 30,85 40,80 50,86 60,78 70,82 80,72 90,76 100,70" stroke="#007aff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+  <!-- Heart rate dots -->
+  <circle cx="100" cy="30" r="3" fill="#28c840"/>
+  <circle cx="100" cy="55" r="2.5" fill="#ffd60a"/>
+  <circle cx="100" cy="70" r="2" fill="#007aff"/>
+  <!-- Label -->
+  <text x="60" y="102" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="10" font-family="Inter, sans-serif" font-weight="600">MONITOR</text>
+</svg>

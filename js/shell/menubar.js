@@ -59,6 +59,8 @@ export function initMenubar() {
       { label: 'System Settings...', shortcut: '\u2318,', action: () => processManager.launch('settings') },
       { label: 'App Store...', action: () => processManager.launch('appstore') },
       { separator: true },
+      { label: 'Activity Monitor', action: () => processManager.launch('activity-monitor') },
+      { label: 'Force Quit...', shortcut: '\u2325\u2318Q', action: () => showForceQuitDialog() },
       { separator: true },
       { label: 'Lock Screen', shortcut: '\u2318L', action: () => lockScreen() },
       { separator: true },
@@ -262,6 +264,84 @@ function updateClock() {
       toggleClockDropdown();
     });
   }
+}
+
+function showForceQuitDialog() {
+  document.querySelectorAll('.about-dialog-overlay').forEach(d => d.remove());
+
+  const overlay = document.createElement('div');
+  overlay.className = 'about-dialog-overlay';
+  overlay.style.cssText = `
+    position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:96000;
+    display:flex;align-items:center;justify-content:center;
+    animation:fadeIn 0.2s ease;
+  `;
+
+  const dialog = document.createElement('div');
+  dialog.style.cssText = `
+    background:rgba(38,38,42,0.95);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);
+    border:1px solid rgba(255,255,255,0.1);border-radius:14px;
+    width:340px;padding:0;overflow:hidden;
+    box-shadow:0 24px 80px rgba(0,0,0,0.6);
+    animation:scaleIn 0.2s cubic-bezier(0.16,1,0.3,1);
+    font-family:var(--font);
+  `;
+
+  const running = processManager.getRunningApps();
+  const appRows = running.map(proc => {
+    const app = proc.app;
+    return `<div class="fq-app-row" data-instance="${proc.instanceId}" style="display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:default;font-size:13px;">
+      <span style="font-size:18px;">${app?.icon || '\uD83D\uDCC4'}</span>
+      <span style="flex:1;">${app?.name || proc.appId}</span>
+    </div>`;
+  }).join('');
+
+  dialog.innerHTML = `
+    <div style="padding:16px 16px 8px;font-size:14px;font-weight:600;">Force Quit Applications</div>
+    <div style="padding:0 16px 8px;font-size:11px;color:rgba(255,255,255,0.4);">Select an application to force quit</div>
+    <div style="max-height:200px;overflow-y:auto;border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.06);">
+      ${appRows || '<div style="padding:16px;text-align:center;color:rgba(255,255,255,0.3);font-size:13px;">No applications running</div>'}
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;">
+      <button id="fq-cancel" style="padding:6px 16px;background:rgba(255,255,255,0.08);color:white;border:none;border-radius:6px;font-size:13px;font-family:var(--font);cursor:pointer;">Cancel</button>
+      <button id="fq-quit" style="padding:6px 16px;background:var(--red);color:white;border:none;border-radius:6px;font-size:13px;font-family:var(--font);cursor:pointer;font-weight:500;" disabled>Force Quit</button>
+    </div>
+  `;
+
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+
+  let selectedInstance = null;
+
+  // Click app rows to select
+  dialog.querySelectorAll('.fq-app-row').forEach(row => {
+    row.addEventListener('click', () => {
+      dialog.querySelectorAll('.fq-app-row').forEach(r => r.style.background = 'none');
+      row.style.background = 'var(--accent)';
+      selectedInstance = row.dataset.instance;
+      dialog.querySelector('#fq-quit').disabled = false;
+    });
+  });
+
+  // Cancel
+  const close = () => overlay.remove();
+  dialog.querySelector('#fq-cancel').addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+  // Force quit
+  dialog.querySelector('#fq-quit').addEventListener('click', () => {
+    if (selectedInstance) {
+      const proc = processManager.running.get(selectedInstance);
+      if (proc) {
+        windowManager.close(proc.windowId);
+      }
+    }
+    close();
+  });
+
+  document.addEventListener('keydown', function handler(e) {
+    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', handler); }
+  });
 }
 
 function initBattery() {

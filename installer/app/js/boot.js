@@ -28,6 +28,7 @@ import { initShortcuts } from './shell/shortcuts.js';
 import { registerWeather } from './apps/weather.js';
 import { registerClock } from './apps/clock.js';
 import { registerReminders } from './apps/reminders.js';
+import { registerActivityMonitor } from './apps/activity-monitor.js';
 import { initLockScreen } from './shell/lock-screen.js';
 import { initScreenshot } from './shell/screenshot.js';
 import { appInstaller } from './kernel/app-installer.js';
@@ -62,6 +63,7 @@ import { appInstaller } from './kernel/app-installer.js';
   registerWeather();
   registerClock();
   registerReminders();
+  registerActivityMonitor();
   await animate(progressBar, 85, 200);
 
   // Init kernel
