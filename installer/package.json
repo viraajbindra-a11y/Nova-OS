@@ -28,16 +28,20 @@
       "app/**/*",
       "icons/**/*"
     ],
+    "icon": "icons/icon.png",
     "mac": {
       "category": "public.app-category.utilities",
-      "target": ["dmg"]
+      "target": ["dmg"],
+      "icon": "icons/icon.png"
     },
     "win": {
-      "target": ["nsis"]
+      "target": ["nsis"],
+      "icon": "icons/icon.png"
     },
     "linux": {
       "target": ["AppImage"],
-      "category": "System"
+      "category": "System",
+      "icon": "icons/icon.png"
     },
     "nsis": {
       "oneClick": true,
@@ -47,8 +51,8 @@
     }
   },
   "devDependencies": {
-    "electron": "^33.0.0",
-    "electron-builder": "^25.0.0"
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.0"
   },
   "dependencies": {
     "express": "^4.21.0"
