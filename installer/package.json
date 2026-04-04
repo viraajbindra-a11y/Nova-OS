@@ -25,7 +25,8 @@
     "files": [
       "main.js",
       "preload.js",
-      "app/**/*"
+      "app/**/*",
+      "icons/**/*"
     ],
     "mac": {
       "category": "public.app-category.utilities",
