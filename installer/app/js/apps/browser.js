@@ -116,30 +116,44 @@ function initBrowser(container, instanceId, options = {}) {
     const old = viewport.querySelector('.browser-home, .browser-error, iframe');
     if (old) old.remove();
 
-    const iframe = document.createElement('iframe');
-    iframe.className = 'browser-iframe';
-    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox');
-    iframe.setAttribute('referrerpolicy', 'no-referrer');
-    iframe.src = url;
+    // Check if running in Electron (can use webview) or browser (must use iframe)
+    const isElectron = window.novaElectron?.isDesktopApp;
 
-    iframe.onload = () => {
-      loadingBar.style.width = '100%';
-      setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
-      try {
-        const title = iframe.contentDocument?.title;
-        if (title) windowManager.setTitle(instanceId, title);
-      } catch (e) {
-        // Cross-origin, can't access title
+    if (isElectron) {
+      // Electron: use webview which can load any site
+      const webview = document.createElement('webview');
+      webview.className = 'browser-iframe';
+      webview.src = url;
+      webview.setAttribute('allowpopups', '');
+      webview.addEventListener('did-finish-load', () => {
+        loadingBar.style.width = '100%';
+        setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
+      });
+      webview.addEventListener('page-title-updated', (e) => {
+        windowManager.setTitle(instanceId, e.title || url);
+      });
+      viewport.appendChild(webview);
+    } else {
+      // Web: use iframe (limited — many sites block this)
+      const iframe = document.createElement('iframe');
+      iframe.className = 'browser-iframe';
+      iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox');
+      iframe.setAttribute('referrerpolicy', 'no-referrer');
+      iframe.src = url;
+
+      iframe.onload = () => {
+        loadingBar.style.width = '100%';
+        setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
         windowManager.setTitle(instanceId, url.replace(/^https?:\/\//, '').split('/')[0]);
-      }
-    };
+      };
 
-    iframe.onerror = () => {
-      loadingBar.style.width = '0%';
-      showError(url);
-    };
+      iframe.onerror = () => {
+        loadingBar.style.width = '0%';
+        showError(url);
+      };
 
-    viewport.appendChild(iframe);
+      viewport.appendChild(iframe);
+    }
     updateNavButtons();
   }
 
@@ -153,7 +167,7 @@ function initBrowser(container, instanceId, options = {}) {
     home.className = 'browser-home';
     home.innerHTML = `
       <div class="browser-home-logo">\uD83C\uDF10</div>
-      <input type="text" class="browser-home-search" placeholder="Search the web..." autofocus>
+      <input type="text" class="browser-home-search" placeholder="${window.novaElectron?.isDesktopApp ? 'Search the web...' : 'Search (limited in web version)...'}" autofocus>
       <div class="browser-home-shortcuts">
         ${bookmarks.map(b => `
           <div class="browser-home-shortcut" data-url="${b.url}">

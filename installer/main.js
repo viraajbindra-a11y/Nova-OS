@@ -75,6 +75,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      webviewTag: true,
     },
     icon: path.join(__dirname, 'icons', 'icon.png'),
     show: false, // Show after loading
