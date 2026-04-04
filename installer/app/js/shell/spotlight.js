@@ -151,6 +151,12 @@ export function initSpotlight() {
       'open draw': 'draw',
       'open app store': 'appstore',
       'open store': 'appstore',
+      'open photos': 'photos',
+      'open weather': 'weather',
+      'open clock': 'clock',
+      'open reminders': 'reminders',
+      'open activity monitor': 'activity-monitor',
+      'open monitor': 'activity-monitor',
     };
 
     for (const [cmd, appId] of Object.entries(appCommands)) {

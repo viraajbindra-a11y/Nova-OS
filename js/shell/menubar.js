@@ -22,6 +22,7 @@ export function initMenubar() {
       calendar: 'Calendar', draw: 'Draw', appstore: 'App Store',
       settings: 'Settings', 'text-editor': 'Text Editor', photos: 'Photos',
       weather: 'Weather', clock: 'Clock', reminders: 'Reminders',
+      'activity-monitor': 'Activity Monitor',
     };
     document.getElementById('menubar-app-name').textContent = appNames[app] || title || 'Finder';
   });
