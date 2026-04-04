@@ -509,12 +509,16 @@ grub-mkimage -O i386-pc -o "$BUILD_DIR/core.img" \
   biosdisk iso9660 part_msdos part_gpt normal boot linux configfile \
   search search_fs_file search_label ls gfxterm all_video
 
-cat /usr/lib/grub/i386-pc/cdboot.img "$BUILD_DIR/core.img" > "$BUILD_DIR/bios.img"
+cat /usr/lib/grub/i386-pc/cdboot.img "$BUILD_DIR/core.img" > "$BINARY/boot/grub/bios.img"
 
 # ============================================
 # 8. Create the ISO with xorriso
 # ============================================
 echo "[8/8] Creating bootable ISO..."
+
+# Verify all boot files exist
+echo "  Checking boot files..."
+ls -la "$BINARY/boot/grub/bios.img" "$BINARY/boot/grub/efi.img" "$BINARY/EFI/BOOT/BOOTx64.EFI" "$BINARY/live/vmlinuz" "$BINARY/live/initrd.img"
 
 xorriso -as mkisofs \
   -o "$OUTPUT_DIR/nova-os.iso" \
