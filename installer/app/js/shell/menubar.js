@@ -28,11 +28,30 @@ export function initMenubar() {
     eventBus.emit('spotlight:toggle');
   });
 
+  // Notification bell — toggle notification center
+  document.getElementById('menubar-notif-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    eventBus.emit('notifications:toggle');
+  });
+
+  // Update notification badge count
+  eventBus.on('notification:shown', ({ count }) => {
+    const badge = document.getElementById('menubar-notif-badge');
+    if (badge) {
+      if (count > 0) {
+        badge.textContent = count > 9 ? '9+' : count;
+        badge.style.display = 'flex';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+  });
+
   // Apple menu click
   document.getElementById('menubar-apple').addEventListener('click', (e) => {
     e.stopPropagation();
     showDropdown(e.target.closest('.menubar-apple'), [
-      { label: 'About NOVA OS', action: () => processManager.launch('settings') },
+      { label: 'About NOVA OS', action: () => showAboutDialog() },
       { separator: true },
       { label: 'System Settings...', shortcut: '\u2318,', action: () => processManager.launch('settings') },
       { label: 'App Store...', action: () => processManager.launch('appstore') },
@@ -111,7 +130,7 @@ function getMenuItems(menu) {
         { label: 'Keyboard Shortcuts', action: () => {
           eventBus.emit('spotlight:toggle');
         }},
-        { label: 'About NOVA OS', action: () => processManager.launch('settings') },
+        { label: 'About NOVA OS', action: () => showAboutDialog() },
       ];
     default:
       return [{ label: 'No items', disabled: true }];
@@ -240,6 +259,78 @@ function updateClock() {
       toggleClockDropdown();
     });
   }
+}
+
+function showAboutDialog() {
+  // Remove any existing about dialog
+  document.querySelectorAll('.about-dialog-overlay').forEach(d => d.remove());
+
+  const overlay = document.createElement('div');
+  overlay.className = 'about-dialog-overlay';
+  overlay.style.cssText = `
+    position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:96000;
+    display:flex;align-items:center;justify-content:center;
+    animation:fadeIn 0.2s ease;
+  `;
+
+  const dialog = document.createElement('div');
+  dialog.style.cssText = `
+    background:rgba(38,38,42,0.95);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);
+    border:1px solid rgba(255,255,255,0.1);border-radius:16px;
+    width:320px;padding:32px 28px;text-align:center;
+    box-shadow:0 24px 80px rgba(0,0,0,0.6);
+    animation:scaleIn 0.2s cubic-bezier(0.16,1,0.3,1);
+    font-family:var(--font);
+  `;
+
+  const userName = localStorage.getItem('nova-username') || 'User';
+
+  dialog.innerHTML = `
+    <div style="margin-bottom:16px;">
+      <svg width="64" height="64" viewBox="0 0 80 80" fill="none">
+        <defs>
+          <linearGradient id="about-grad" x1="0" y1="0" x2="80" y2="80">
+            <stop offset="0%" stop-color="#007aff"/>
+            <stop offset="100%" stop-color="#5856d6"/>
+          </linearGradient>
+        </defs>
+        <circle cx="40" cy="40" r="38" fill="url(#about-grad)"/>
+        <circle cx="40" cy="40" r="36" stroke="rgba(255,255,255,0.2)" stroke-width="1" fill="none"/>
+        <path d="M28 40 L40 28 L52 40 L40 52 Z" fill="white" opacity="0.95"/>
+        <circle cx="40" cy="40" r="6" fill="white"/>
+      </svg>
+    </div>
+    <div style="font-size:22px;font-weight:700;color:white;margin-bottom:4px;">NOVA OS</div>
+    <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:16px;">Version 1.0.0 (Build 2026.04)</div>
+    <div style="font-size:12px;color:rgba(255,255,255,0.5);line-height:1.6;">
+      An AI-native operating system built from scratch.<br>
+      Designed and developed by <strong style="color:rgba(255,255,255,0.8);">${userName}</strong>.
+    </div>
+    <div style="margin-top:6px;font-size:11px;color:rgba(255,255,255,0.3);">
+      Kernel: NOVA Kernel 1.0 &bull; Memory: 8 GB &bull; Arch: x86_64
+    </div>
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.06);">
+      <div style="font-size:10px;color:rgba(255,255,255,0.25);">
+        &copy; 2026 NOVA OS Project. All rights reserved.<br>
+        Built with vanilla JavaScript, CSS, and love.
+      </div>
+    </div>
+    <button id="about-close-btn" style="
+      margin-top:16px;padding:6px 28px;background:var(--accent);color:white;border:none;
+      border-radius:8px;font-size:13px;font-family:var(--font);cursor:pointer;font-weight:500;
+    ">OK</button>
+  `;
+
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+
+  // Close handlers
+  const close = () => overlay.remove();
+  dialog.querySelector('#about-close-btn').addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  document.addEventListener('keydown', function handler(e) {
+    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', handler); }
+  });
 }
 
 function toggleClockDropdown() {

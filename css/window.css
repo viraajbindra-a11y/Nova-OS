@@ -173,6 +173,32 @@
   cursor: ns-resize;
 }
 
+/* Top resize handle */
+.resize-t {
+  top: 0;
+  left: 16px;
+  right: 16px;
+  height: 5px;
+  cursor: ns-resize;
+}
+
+/* Corner resize handles — top */
+.resize-tl {
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+}
+
+.resize-tr {
+  top: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nesw-resize;
+}
+
 /* Maximized state */
 .window.maximized {
   border-radius: 0;
@@ -181,4 +207,41 @@
 
 .window.maximized .resize-handle {
   display: none;
+}
+
+/* Genie minimize animation */
+@keyframes genieMinimize {
+  0% { opacity: 1; transform: scale(1) translateY(0); }
+  60% { opacity: 0.5; transform: scale(0.5, 0.3) translateY(50vh); }
+  100% { opacity: 0; transform: scale(0.05, 0.01) translateY(80vh); }
+}
+
+@keyframes genieRestore {
+  0% { opacity: 0; transform: scale(0.05, 0.01) translateY(80vh); }
+  40% { opacity: 0.5; transform: scale(0.5, 0.3) translateY(50vh); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.window.minimizing {
+  animation: genieMinimize 0.4s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+  pointer-events: none;
+}
+
+.window.restoring {
+  animation: genieRestore 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Accessibility — Focus indicators */
+.win-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.window:focus-within .window-titlebar {
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Window hover shadow lift */
+.window.active:hover {
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.55), 0 0 0 0.5px rgba(255, 255, 255, 0.1);
 }

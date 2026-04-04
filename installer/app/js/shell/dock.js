@@ -29,6 +29,9 @@ export function initDock() {
     const item = document.createElement('div');
     item.className = 'dock-item';
     item.dataset.appId = app.id;
+    item.setAttribute('role', 'button');
+    item.setAttribute('aria-label', `Open ${app.name}`);
+    item.setAttribute('tabindex', '0');
     item.innerHTML = `
       <div class="dock-item-tooltip">${app.name}</div>
       <div class="dock-item-icon">
@@ -37,10 +40,18 @@ export function initDock() {
       <div class="dock-item-dot"></div>
     `;
 
-    item.addEventListener('click', () => {
+    const launchApp = () => {
       item.classList.add('bouncing');
       setTimeout(() => item.classList.remove('bouncing'), 600);
       processManager.launch(app.id);
+    };
+
+    item.addEventListener('click', launchApp);
+    item.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        launchApp();
+      }
     });
 
     container.appendChild(item);

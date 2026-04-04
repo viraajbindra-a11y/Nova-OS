@@ -86,3 +86,33 @@
   font-weight: 500;
   cursor: default;
 }
+
+/* Notification badge */
+.menubar-icon {
+  position: relative;
+}
+
+.menubar-notif-badge {
+  position: absolute;
+  top: -3px;
+  right: 0;
+  min-width: 14px;
+  height: 14px;
+  background: var(--red);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  line-height: 1;
+  pointer-events: none;
+  animation: badgePop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes badgePop {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}

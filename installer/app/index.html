@@ -66,21 +66,21 @@
   <!-- Desktop -->
   <div id="desktop" class="hidden">
     <!-- Menubar -->
-    <div id="menubar">
+    <nav id="menubar" role="menubar" aria-label="Menu bar">
       <div class="menubar-left">
-        <div class="menubar-apple" id="menubar-apple">
-          <svg width="16" height="16" viewBox="0 0 80 80" fill="none">
+        <div class="menubar-apple" id="menubar-apple" role="menuitem" aria-label="NOVA Menu" tabindex="0">
+          <svg width="16" height="16" viewBox="0 0 80 80" fill="none" aria-hidden="true">
             <circle cx="40" cy="40" r="36" stroke="white" stroke-width="3"/>
             <path d="M28 40 L40 28 L52 40 L40 52 Z" fill="white"/>
           </svg>
         </div>
-        <span class="menubar-app-name" id="menubar-app-name">Finder</span>
-        <div class="menubar-menus" id="menubar-menus">
-          <span class="menubar-menu-item">File</span>
-          <span class="menubar-menu-item">Edit</span>
-          <span class="menubar-menu-item">View</span>
-          <span class="menubar-menu-item">Window</span>
-          <span class="menubar-menu-item">Help</span>
+        <span class="menubar-app-name" id="menubar-app-name" aria-live="polite">Finder</span>
+        <div class="menubar-menus" id="menubar-menus" role="menu">
+          <span class="menubar-menu-item" role="menuitem" tabindex="0">File</span>
+          <span class="menubar-menu-item" role="menuitem" tabindex="0">Edit</span>
+          <span class="menubar-menu-item" role="menuitem" tabindex="0">View</span>
+          <span class="menubar-menu-item" role="menuitem" tabindex="0">Window</span>
+          <span class="menubar-menu-item" role="menuitem" tabindex="0">Help</span>
         </div>
       </div>
       <div class="menubar-right">
@@ -98,6 +98,12 @@
             <rect x="19.5" y="3.5" width="2" height="5" rx="0.5" fill="currentColor"/>
           </svg>
         </span>
+        <span class="menubar-icon" id="menubar-notif-btn" title="Notifications">
+          <svg width="14" height="16" viewBox="0 0 14 16" fill="currentColor">
+            <path d="M7 0C7.55 0 8 .45 8 1v.6c2.36.49 4 2.62 4 5.15V10l1.7 1.71c.19.19.3.45.3.71V13a.5.5 0 01-.5.5H.5A.5.5 0 010 13v-.58c0-.26.11-.52.3-.71L2 10V6.75C2 4.22 3.64 2.09 6 1.6V1c0-.55.45-1 1-1zM5.5 14.5h3a1.5 1.5 0 01-3 0z"/>
+          </svg>
+          <span class="menubar-notif-badge" id="menubar-notif-badge" style="display:none;">0</span>
+        </span>
         <span class="menubar-icon" id="menubar-spotlight" title="Spotlight (Cmd+Space)">
           <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
             <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.5"/>
@@ -109,10 +115,10 @@
     </div>
 
     <!-- Desktop Icons -->
-    <div id="desktop-icons"></div>
+    <div id="desktop-icons" role="list" aria-label="Desktop icons"></div>
 
     <!-- Windows Container -->
-    <div id="windows-container"></div>
+    <div id="windows-container" role="main" aria-label="Application windows"></div>
 
     <!-- Spotlight -->
     <div id="spotlight" class="hidden">
@@ -131,7 +137,7 @@
     </div>
 
     <!-- Dock -->
-    <div id="dock">
+    <div id="dock" role="toolbar" aria-label="Application dock">
       <div class="dock-container" id="dock-container"></div>
     </div>
   </div>

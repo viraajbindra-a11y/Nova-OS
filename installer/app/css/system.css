@@ -285,3 +285,83 @@ html, body {
   50% { transform: translateY(-4px); }
   75% { transform: translateY(-10px); }
 }
+
+/* ===== Accessibility ===== */
+
+/* Focus-visible indicators for keyboard navigation */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Remove default focus outlines when using mouse */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Skip-to-content for screen readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Keyboard focus styles for dock items */
+.dock-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
+/* Keyboard focus styles for menubar items */
+.menubar-menu-item:focus-visible,
+.menubar-icon:focus-visible,
+.menubar-apple:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --border: rgba(255, 255, 255, 0.2);
+    --border-light: rgba(255, 255, 255, 0.3);
+    --text-secondary: #cccccc;
+    --text-tertiary: #999999;
+  }
+
+  .window {
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* Tooltip styling */
+[title] {
+  position: relative;
+}
+
+/* Smooth transitions for interactive elements */
+button, .dock-item, .menubar-menu-item, .menubar-icon {
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+/* Text selection improvement */
+input, textarea, [contenteditable] {
+  user-select: text;
+  -webkit-user-select: text;
+}

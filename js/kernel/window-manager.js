@@ -36,19 +36,24 @@ class WindowManager {
     el.id = `window-${id}`;
     el.style.cssText = `left:${x}px;top:${y}px;width:${width}px;height:${height}px;z-index:${++this.topZ}`;
     el.dataset.windowId = id;
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-label', title);
 
     el.innerHTML = `
       <div class="window-titlebar" data-window="${id}">
         <div class="window-buttons">
-          <button class="win-btn close" data-action="close" title="Close"></button>
-          <button class="win-btn minimize" data-action="minimize" title="Minimize"></button>
-          <button class="win-btn maximize" data-action="maximize" title="Maximize"></button>
+          <button class="win-btn close" data-action="close" title="Close" aria-label="Close window"></button>
+          <button class="win-btn minimize" data-action="minimize" title="Minimize" aria-label="Minimize window"></button>
+          <button class="win-btn maximize" data-action="maximize" title="Maximize" aria-label="Maximize window"></button>
         </div>
         <span class="window-title">${title}</span>
       </div>
       <div class="window-content" id="window-content-${id}"></div>
+      <div class="resize-handle resize-t" data-dir="t"></div>
       <div class="resize-handle resize-r" data-dir="r"></div>
       <div class="resize-handle resize-b" data-dir="b"></div>
+      <div class="resize-handle resize-tl" data-dir="tl"></div>
+      <div class="resize-handle resize-tr" data-dir="tr"></div>
       <div class="resize-handle resize-br" data-dir="br"></div>
       <div class="resize-handle resize-bl" data-dir="bl"></div>
       <div class="resize-handle resize-l" data-dir="l"></div>
@@ -130,21 +135,15 @@ class WindowManager {
     const state = this.windows.get(id);
     if (!state) return;
 
-    // Animate to dock
     const el = state.el;
-    const dockCenter = window.innerWidth / 2;
-    const dockY = window.innerHeight - 40;
-    el.style.transition = 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease';
+    // Use genie animation from CSS
     el.style.transformOrigin = 'center bottom';
-    el.style.transform = `scale(0.1) translateY(${dockY - el.offsetTop}px)`;
-    el.style.opacity = '0';
+    el.classList.add('minimizing');
 
     setTimeout(() => {
       el.style.display = 'none';
-      el.style.transition = '';
-      el.style.transform = '';
-      el.style.opacity = '';
-    }, 350);
+      el.classList.remove('minimizing');
+    }, 400);
 
     state.minimized = true;
     eventBus.emit('window:minimized', { id });
@@ -166,16 +165,13 @@ class WindowManager {
     const state = this.windows.get(id);
     if (!state) return;
     const el = state.el;
-    el.style.transform = 'scale(0.1)';
-    el.style.opacity = '0';
     el.style.display = '';
+    el.style.transformOrigin = 'center bottom';
+    el.classList.add('restoring');
 
-    requestAnimationFrame(() => {
-      el.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease';
-      el.style.transform = 'scale(1)';
-      el.style.opacity = '1';
-      setTimeout(() => { el.style.transition = ''; }, 300);
-    });
+    setTimeout(() => {
+      el.classList.remove('restoring');
+    }, 350);
 
     state.minimized = false;
     this.focus(id);
@@ -227,6 +223,7 @@ class WindowManager {
     if (!state) return;
     state.title = title;
     state.el.querySelector('.window-title').textContent = title;
+    state.el.setAttribute('aria-label', title);
   }
 
   _setupDrag(el, id) {
@@ -303,6 +300,13 @@ class WindowManager {
             if (newW > minW) {
               el.style.width = newW + 'px';
               el.style.left = (startL + dx) + 'px';
+            }
+          }
+          if (dir.includes('t') && !dir.includes('ex')) {
+            const newH = Math.max(minH, startH - dy);
+            if (newH > minH) {
+              el.style.height = newH + 'px';
+              el.style.top = Math.max(28, startT + dy) + 'px';
             }
           }
         };
