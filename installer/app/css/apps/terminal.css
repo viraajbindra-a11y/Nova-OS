@@ -1,0 +1,128 @@
+/* Terminal */
+.terminal-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.95);
+  font-family: var(--mono);
+}
+
+.terminal-tabs {
+  display: flex;
+  align-items: center;
+  background: rgba(30, 30, 30, 0.8);
+  border-bottom: 1px solid var(--border);
+  padding: 0 8px;
+  min-height: 30px;
+}
+
+.terminal-tab {
+  padding: 5px 14px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  cursor: default;
+  border-radius: 4px 4px 0 0;
+  position: relative;
+}
+
+.terminal-tab.active {
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.terminal-tab-add {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 8px;
+  margin-left: 4px;
+}
+
+.terminal-output {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #e0e0e0;
+}
+
+.terminal-line {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.terminal-line.command {
+  color: #4fc3f7;
+}
+
+.terminal-line.error {
+  color: #ef5350;
+}
+
+.terminal-line.success {
+  color: #66bb6a;
+}
+
+.terminal-line.warning {
+  color: #ffa726;
+}
+
+.terminal-line.system {
+  color: #9e9e9e;
+  font-style: italic;
+}
+
+.terminal-input-line {
+  display: flex;
+  align-items: center;
+  padding: 4px 14px 10px;
+  gap: 8px;
+}
+
+.terminal-prompt {
+  color: #66bb6a;
+  font-size: 13px;
+  white-space: nowrap;
+  font-family: var(--mono);
+}
+
+.terminal-input {
+  flex: 1;
+  background: none;
+  border: none;
+  color: #e0e0e0;
+  font-size: 13px;
+  font-family: var(--mono);
+  outline: none;
+  caret-color: #4fc3f7;
+}
+
+.terminal-ai-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 122, 255, 0.15);
+  color: var(--accent);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: var(--font);
+  margin-top: 4px;
+  cursor: pointer;
+}
+
+.terminal-ai-hint:hover {
+  background: rgba(0, 122, 255, 0.25);
+}
+
+.terminal-welcome {
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+
+.terminal-welcome strong {
+  color: var(--accent);
+}

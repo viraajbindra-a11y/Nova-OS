@@ -1,0 +1,247 @@
+/* Web Browser */
+.browser-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-primary);
+}
+
+.browser-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.browser-nav-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.browser-nav-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.browser-nav-btn:disabled {
+  opacity: 0.3;
+}
+
+.browser-url-bar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 10px;
+  gap: 6px;
+}
+
+.browser-url-bar:focus-within {
+  border-color: var(--accent);
+}
+
+.browser-url-lock {
+  font-size: 12px;
+  color: var(--green);
+}
+
+.browser-url-input {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font);
+  padding: 6px 0;
+  outline: none;
+}
+
+.browser-url-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.browser-tabs {
+  display: flex;
+  align-items: center;
+  background: rgba(25, 25, 25, 0.8);
+  border-bottom: 1px solid var(--border);
+  padding: 0 4px;
+  min-height: 32px;
+  gap: 1px;
+}
+
+.browser-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  cursor: default;
+  border-radius: 6px 6px 0 0;
+  max-width: 180px;
+  min-width: 80px;
+  position: relative;
+}
+
+.browser-tab.active {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.browser-tab-title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.browser-tab-close {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 2px;
+  line-height: 1;
+  border-radius: 3px;
+}
+
+.browser-tab-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.browser-tab-add {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 18px;
+  padding: 2px 8px;
+}
+
+.browser-tab-add:hover {
+  color: var(--text-primary);
+}
+
+.browser-viewport {
+  flex: 1;
+  position: relative;
+  background: white;
+}
+
+.browser-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.browser-home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background: var(--bg-primary);
+  gap: 20px;
+}
+
+.browser-home-logo {
+  font-size: 48px;
+  opacity: 0.5;
+}
+
+.browser-home-search {
+  width: 400px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-family: var(--font);
+  outline: none;
+  text-align: center;
+}
+
+.browser-home-search:focus {
+  border-color: var(--accent);
+}
+
+.browser-home-shortcuts {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.browser-home-shortcut {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.browser-home-shortcut:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.browser-home-shortcut-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.browser-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 1;
+}
+
+.browser-loading-bar {
+  height: 100%;
+  background: var(--accent);
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+.browser-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  gap: 12px;
+  padding: 40px;
+  text-align: center;
+}
+
+.browser-error-icon {
+  font-size: 48px;
+  opacity: 0.5;
+}

@@ -1,0 +1,195 @@
+/* Finder */
+.finder {
+  display: flex;
+  height: 100%;
+}
+
+.finder-sidebar {
+  width: 180px;
+  min-width: 180px;
+  background: rgba(30, 30, 30, 0.6);
+  border-right: 1px solid var(--border);
+  padding: 8px 0;
+  overflow-y: auto;
+}
+
+.finder-sidebar-section {
+  padding: 8px 14px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.finder-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px;
+  cursor: default;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-radius: 0;
+}
+
+.finder-sidebar-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.finder-sidebar-item.active {
+  background: rgba(0, 122, 255, 0.2);
+  color: var(--text-primary);
+}
+
+.finder-sidebar-icon {
+  font-size: 15px;
+  width: 20px;
+  text-align: center;
+}
+
+.finder-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.finder-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(40, 40, 40, 0.4);
+}
+
+.finder-nav-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.finder-nav-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.finder-nav-btn:disabled {
+  opacity: 0.3;
+}
+
+.finder-path {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.finder-search {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font);
+  width: 160px;
+  outline: none;
+}
+
+.finder-search:focus {
+  border-color: var(--accent);
+}
+
+.finder-files {
+  flex: 1;
+  padding: 8px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 4px;
+  align-content: start;
+}
+
+.finder-file {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  cursor: default;
+  gap: 4px;
+}
+
+.finder-file:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.finder-file.selected {
+  background: rgba(0, 122, 255, 0.2);
+}
+
+.finder-file-icon {
+  font-size: 36px;
+  line-height: 1;
+}
+
+.finder-file-name {
+  font-size: 11px;
+  text-align: center;
+  word-break: break-word;
+  line-height: 1.3;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* List view */
+.finder-files.list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.finder-files.list-view .finder-file {
+  flex-direction: row;
+  gap: 10px;
+  padding: 4px 12px;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.finder-files.list-view .finder-file-icon {
+  font-size: 20px;
+  width: 24px;
+  text-align: center;
+}
+
+.finder-files.list-view .finder-file-name {
+  font-size: 13px;
+  max-width: none;
+  text-align: left;
+}
+
+.finder-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+
+.finder-statusbar {
+  padding: 4px 14px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  border-top: 1px solid var(--border);
+  background: rgba(40, 40, 40, 0.4);
+}
