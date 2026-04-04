@@ -25,6 +25,9 @@ import { initControlCenter } from './shell/control-center.js';
 import { initLaunchpad } from './shell/launchpad.js';
 import { registerPhotos } from './apps/photos.js';
 import { initShortcuts } from './shell/shortcuts.js';
+import { registerWeather } from './apps/weather.js';
+import { registerClock } from './apps/clock.js';
+import { registerReminders } from './apps/reminders.js';
 
 // Boot sequence
 (async function boot() {
@@ -53,6 +56,9 @@ import { initShortcuts } from './shell/shortcuts.js';
   registerCalendar();
   registerAppStore();
   registerPhotos();
+  registerWeather();
+  registerClock();
+  registerReminders();
   await animate(progressBar, 85, 200);
 
   // Init kernel
