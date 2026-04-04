@@ -1,6 +1,7 @@
 #!/bin/bash
 # NOVA OS — Build Script
 # Creates a bootable ISO with NOVA OS as a real Linux desktop environment.
+# Uses GRUB bootloader (EFI + BIOS) — no syslinux/isolinux dependency.
 # Run on Ubuntu/Debian: sudo bash distro/build.sh
 
 set -e
@@ -24,227 +25,129 @@ cd "$BUILD_DIR"
 echo "[1/8] Installing build tools..."
 apt-get update -qq
 apt-get install -y -qq \
-  live-build debootstrap syslinux isolinux xorriso \
-  squashfs-tools grub-pc-bin grub-efi-amd64-bin mtools dosfstools \
-  debian-archive-keyring 2>/dev/null
+  debootstrap xorriso squashfs-tools grub-pc-bin grub-efi-amd64-bin \
+  mtools dosfstools debian-archive-keyring 2>/dev/null
 
 # ============================================
-# 2. Configure live-build
+# 2. Bootstrap a minimal Debian system
 # ============================================
-echo "[2/8] Configuring..."
-# Symlink Debian keyring so debootstrap finds it
-ln -sf /usr/share/keyrings/debian-archive-keyring.gpg /etc/apt/trusted.gpg.d/debian-archive-keyring.gpg 2>/dev/null || true
-
-lb config \
-  --mode debian \
-  --distribution bookworm \
-  --parent-distribution bookworm \
-  --parent-mirror-bootstrap "http://deb.debian.org/debian" \
-  --parent-mirror-chroot "http://deb.debian.org/debian" \
-  --parent-mirror-chroot-security "false" \
-  --mirror-bootstrap "http://deb.debian.org/debian" \
-  --mirror-chroot "http://deb.debian.org/debian" \
-  --mirror-chroot-security "false" \
-  --mirror-binary "http://deb.debian.org/debian" \
-  --mirror-binary-security "false" \
-  --security "false" \
-  --linux-packages "none" \
-  --archive-areas "main contrib non-free non-free-firmware" \
-  --architectures amd64 \
-  --binary-images iso-hybrid \
-  --bootappend-live "boot=live quiet splash" \
-  --debian-installer false \
-  --memtest none \
-  --iso-application "NOVA OS" \
-  --iso-publisher "NOVA OS Project" \
-  --iso-volume "NOVA-OS-1.0"
-
-# Manually add security repo with correct suite name (bookworm-security, not bookworm/updates)
-mkdir -p config/archives
-echo "deb http://deb.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware" > config/archives/security.list.chroot
-echo "deb http://deb.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware" > config/archives/security.list.binary
-cp /usr/share/keyrings/debian-archive-keyring.gpg config/archives/security.key.chroot 2>/dev/null || true
-cp /usr/share/keyrings/debian-archive-keyring.gpg config/archives/security.key.binary 2>/dev/null || true
+echo "[2/8] Bootstrapping Debian Bookworm (this takes a few minutes)..."
+CHROOT="$BUILD_DIR/chroot"
+debootstrap --arch=amd64 --components=main,contrib,non-free,non-free-firmware \
+  bookworm "$CHROOT" http://deb.debian.org/debian
 
 # ============================================
-# 3. Package list — REAL applications
+# 3. Configure the chroot
 # ============================================
-echo "[3/8] Setting up packages..."
-cat > config/package-lists/nova.list.chroot << 'PACKAGES'
-# === KERNEL ===
-linux-image-amd64
-live-boot
+echo "[3/8] Configuring system..."
 
-# === DISPLAY SERVER & WINDOW MANAGER ===
-xorg
-xinit
-openbox
-picom
-hsetroot
+# Mount required filesystems
+mount --bind /dev "$CHROOT/dev"
+mount --bind /dev/pts "$CHROOT/dev/pts"
+mount -t proc proc "$CHROOT/proc"
+mount -t sysfs sysfs "$CHROOT/sys"
 
-# === NOVA DESKTOP SHELL ===
-polybar
-rofi
-plank
-dunst
-feh
-lxappearance
+# Set up resolv.conf for network access in chroot
+cp /etc/resolv.conf "$CHROOT/etc/resolv.conf"
 
-# === REAL BROWSER ===
-chromium
-
-# === REAL TERMINAL ===
-xfce4-terminal
-
-# === REAL FILE MANAGER ===
-thunar
-thunar-archive-plugin
-tumbler
-
-# === TEXT EDITOR ===
-mousepad
-geany
-
-# === REAL APPS ===
-xfce4-screenshooter
-galculator
-eog
-vlc
-evince
-xarchiver
-libreoffice-writer
-libreoffice-calc
-libreoffice-impress
-shotwell
-transmission-gtk
-simple-scan
-cheese
-
-# === SYSTEM TOOLS ===
-xfce4-power-manager
-xfce4-settings
-xfce4-taskmanager
-gvfs
-gvfs-backends
-gvfs-fuse
-udisks2
-gparted
-baobab
-gnome-disk-utility
-gnome-system-monitor
-xfce4-notifyd
-xdg-utils
-xdg-user-dirs
-dconf-cli
-at-spi2-core
-
-# === PRINTING ===
-cups
-cups-client
-system-config-printer
-printer-driver-all
-
-# === BLUETOOTH ===
-bluez
-bluez-tools
-blueman
-
-# === AUDIO ===
-pulseaudio
-pulseaudio-module-bluetooth
-pavucontrol
-alsa-utils
-
-# === NETWORKING ===
-network-manager
-network-manager-gnome
-network-manager-openvpn
-wpasupplicant
-wireless-tools
-firmware-iwlwifi
-firmware-realtek
-firmware-atheros
-firmware-misc-nonfree
-firmware-brcm80211
-
-# === DRAG AND DROP / CLIPBOARD ===
-xclip
-xsel
-xdotool
-
-# === TRASH / FILE OPERATIONS ===
-trash-cli
-gvfs-backends
-
-# === APPEARANCE ===
-papirus-icon-theme
-fonts-inter
-fonts-noto
-fonts-noto-color-emoji
-fonts-noto-cjk
-arc-theme
-adwaita-icon-theme
-gtk2-engines-murrine
-qt5-style-plugins
-
-# === DEVELOPMENT (for NOVA AI and apps) ===
-nodejs
-npm
-git
-curl
-wget
-python3
-python3-pip
-
-# === SYSTEM ===
-sudo
-dbus-x11
-policykit-1
-policykit-1-gnome
-upower
-acpi
-acpid
-unclutter
-lightdm
-lightdm-gtk-greeter
-lightdm-gtk-greeter-settings
-plymouth
-plymouth-themes
-
-# === APP INSTALLATION ===
-flatpak
-gnome-software
-gnome-software-plugin-flatpak
-software-properties-common
-apt-transport-https
-
-# === MULTIMEDIA CODECS ===
-ffmpeg
-gstreamer1.0-plugins-base
-gstreamer1.0-plugins-good
-gstreamer1.0-plugins-bad
-gstreamer1.0-plugins-ugly
-gstreamer1.0-libav
-
-# === DISPLAY DRIVERS ===
-xserver-xorg-video-intel
-xserver-xorg-video-amdgpu
-xserver-xorg-video-nouveau
-mesa-utils
-
-# === BOOTLOADER ===
-isolinux
-syslinux
-syslinux-common
-grub-efi-amd64
-grub-pc-bin
-PACKAGES
+# Add security and other repos
+cat > "$CHROOT/etc/apt/sources.list" << 'SOURCES'
+deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+SOURCES
 
 # ============================================
-# 4. Copy NOVA OS desktop environment files
+# 4. Install packages inside chroot
 # ============================================
-echo "[4/8] Installing NOVA OS desktop..."
-CHROOT="config/includes.chroot"
+echo "[4/8] Installing packages (this takes 10-20 minutes)..."
+
+cat > "$CHROOT/tmp/install-packages.sh" << 'INSTALL_SCRIPT'
+#!/bin/bash
+set -e
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update -qq
+
+# Install kernel + live boot
+apt-get install -y -qq linux-image-amd64 live-boot systemd-sysv
+
+# Display server + window manager
+apt-get install -y -qq xorg xinit openbox picom hsetroot
+
+# NOVA Desktop Shell
+apt-get install -y -qq polybar rofi plank dunst feh lxappearance
+
+# Real browser
+apt-get install -y -qq chromium || apt-get install -y -qq firefox-esr || true
+
+# Terminal + file manager + text editor
+apt-get install -y -qq xfce4-terminal thunar thunar-archive-plugin tumbler mousepad geany
+
+# Real apps
+apt-get install -y -qq xfce4-screenshooter galculator eog vlc evince xarchiver shotwell
+
+# LibreOffice (big but essential for a real OS)
+apt-get install -y -qq libreoffice-writer libreoffice-calc libreoffice-impress || true
+
+# System tools
+apt-get install -y -qq xfce4-power-manager gvfs gvfs-backends gvfs-fuse udisks2 \
+  gnome-disk-utility xdg-utils xdg-user-dirs dconf-cli at-spi2-core
+
+# Printing
+apt-get install -y -qq cups cups-client system-config-printer || true
+
+# Bluetooth
+apt-get install -y -qq bluez bluez-tools blueman || true
+
+# Audio
+apt-get install -y -qq pulseaudio pulseaudio-module-bluetooth pavucontrol alsa-utils
+
+# Networking
+apt-get install -y -qq network-manager network-manager-gnome wpasupplicant \
+  firmware-iwlwifi firmware-realtek firmware-atheros firmware-misc-nonfree || true
+
+# Clipboard + tools
+apt-get install -y -qq xclip xsel xdotool trash-cli
+
+# Appearance
+apt-get install -y -qq papirus-icon-theme fonts-inter fonts-noto fonts-noto-color-emoji \
+  arc-theme adwaita-icon-theme gtk2-engines-murrine || true
+
+# Development (for NOVA AI)
+apt-get install -y -qq nodejs npm git curl wget python3 || true
+
+# System
+apt-get install -y -qq sudo dbus-x11 policykit-1 policykit-1-gnome upower acpi acpid \
+  lightdm lightdm-gtk-greeter plymouth || true
+
+# App installation
+apt-get install -y -qq flatpak gnome-software software-properties-common || true
+
+# Multimedia codecs
+apt-get install -y -qq ffmpeg gstreamer1.0-plugins-base gstreamer1.0-plugins-good || true
+
+# Display drivers
+apt-get install -y -qq xserver-xorg-video-intel xserver-xorg-video-amdgpu \
+  xserver-xorg-video-nouveau mesa-utils || true
+
+# Bootloader (GRUB for both EFI and BIOS)
+apt-get install -y -qq grub-efi-amd64-bin grub-pc-bin grub-common || true
+
+# Clean up
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+
+echo "Package installation complete."
+INSTALL_SCRIPT
+
+chmod +x "$CHROOT/tmp/install-packages.sh"
+chroot "$CHROOT" /tmp/install-packages.sh
+
+# ============================================
+# 5. Install NOVA OS desktop environment
+# ============================================
+echo "[5/8] Installing NOVA OS desktop..."
 
 # NOVA session file (display manager sees this)
 mkdir -p "$CHROOT/usr/share/xsessions"
@@ -279,23 +182,9 @@ cp -r "$PROJECT_ROOT/server" "$CHROOT/opt/nova-os/" 2>/dev/null || true
 cp "$PROJECT_ROOT/package.json" "$CHROOT/opt/nova-os/" 2>/dev/null || true
 cp -r "$PROJECT_ROOT/assets" "$CHROOT/opt/nova-os/" 2>/dev/null || true
 
-# Wallpapers
+# Wallpaper (simple solid color fallback — no PIL needed)
 mkdir -p "$CHROOT/usr/share/nova-os/wallpapers"
-# Generate a default wallpaper with Python
-cat > /tmp/gen-wallpaper.py << 'PYGEN'
-from PIL import Image, ImageDraw
-img = Image.new('RGB', (3840, 2160), (26, 26, 46))
-draw = ImageDraw.Draw(img)
-for y in range(2160):
-    for x in range(0, 3840, 4):
-        r = int(26 + y * 15 / 2160 + x * 8 / 3840)
-        g = int(20 + y * 10 / 2160)
-        b = int(46 + y * 25 / 2160 + x * 12 / 3840)
-        draw.rectangle([x, y, x+3, y], fill=(r, g, b))
-img.save('/tmp/nova-wallpaper.png')
-print("Wallpaper generated")
-PYGEN
-python3 /tmp/gen-wallpaper.py 2>/dev/null && cp /tmp/nova-wallpaper.png "$CHROOT/usr/share/nova-os/wallpapers/default.png" || echo "Wallpaper generation skipped (PIL not available)"
+# We'll use hsetroot for solid color if no wallpaper image exists
 
 # Dunst notification config
 cat > "$CHROOT/etc/nova-os/dunstrc" << 'DUNST'
@@ -356,10 +245,8 @@ ZoomEnabled=true
 ZoomPercent=130
 PLANKCFG
 
-# Desktop shortcuts for quick access
+# Desktop shortcuts
 mkdir -p "$CHROOT/etc/skel/Desktop"
-
-# Create XDG user dirs
 mkdir -p "$CHROOT/etc/skel/Documents"
 mkdir -p "$CHROOT/etc/skel/Downloads"
 mkdir -p "$CHROOT/etc/skel/Pictures"
@@ -368,7 +255,7 @@ mkdir -p "$CHROOT/etc/skel/Videos"
 mkdir -p "$CHROOT/etc/skel/.local/share/Trash/files"
 mkdir -p "$CHROOT/etc/skel/.local/share/Trash/info"
 
-# Welcome file on desktop
+# Welcome file
 cat > "$CHROOT/etc/skel/Desktop/Welcome.txt" << 'WELCOME'
 Welcome to NOVA OS!
 
@@ -394,51 +281,23 @@ SHORTCUTS:
 - Super+L: Lock screen
 - Super+Left/Right: Snap windows to half screen
 - Alt+F4: Close window
-- Ctrl+Left/Right: Switch desktops
-
-AI:
-- NOVA AI assistant is built into the system
-- Open the NOVA web app for AI features
 
 Enjoy NOVA OS!
 WELCOME
 
 # ============================================
-# 5. LightDM config (login screen)
+# 6. System setup inside chroot
 # ============================================
-echo "[5/8] Configuring login screen..."
-mkdir -p "$CHROOT/etc/lightdm"
-cat > "$CHROOT/etc/lightdm/lightdm.conf" << 'LDM'
-[Seat:*]
-autologin-user=nova
-autologin-session=NOVA OS
-user-session=NOVA OS
-greeter-session=lightdm-gtk-greeter
-LDM
+echo "[6/8] Configuring system..."
 
-cat > "$CHROOT/etc/lightdm/lightdm-gtk-greeter.conf" << 'GREETER'
-[greeter]
-theme-name = Arc-Dark
-icon-theme-name = Papirus-Dark
-font-name = Inter 11
-background = #1a1a2e
-indicators = ~host;~spacer;~clock;~spacer;~session;~power
-GREETER
-
-# ============================================
-# 6. System setup hook
-# ============================================
-echo "[6/8] Creating system hooks..."
-mkdir -p config/hooks/normal
-
-cat > config/hooks/normal/0100-nova-setup.hook.chroot << 'HOOK'
+cat > "$CHROOT/tmp/setup-system.sh" << 'SETUP_SCRIPT'
 #!/bin/bash
 set -e
 
 # Create nova user
 useradd -m -s /bin/bash -G audio,video,sudo,netdev,plugdev,cdrom nova 2>/dev/null || true
 echo "nova:nova" | chpasswd
-echo "nova ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/nova
+echo "nova ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/nova
 chmod 0440 /etc/sudoers.d/nova
 
 # Set NOVA as default session
@@ -457,21 +316,40 @@ systemctl enable bluetooth 2>/dev/null || true
 systemctl enable cups 2>/dev/null || true
 systemctl enable acpid 2>/dev/null || true
 
-# Add Flathub for flatpak apps
+# Add Flathub
 flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
 
 # Set hostname
 echo "nova-os" > /etc/hostname
 echo "127.0.0.1 nova-os" >> /etc/hosts
 
-# Set timezone
+# Timezone
 ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 
-# Set default apps
+# Default apps
 update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal.wrapper 2>/dev/null || true
 update-alternatives --set x-www-browser /usr/bin/chromium 2>/dev/null || true
 
-# Set Chromium as default browser
+# LightDM config
+mkdir -p /etc/lightdm
+cat > /etc/lightdm/lightdm.conf << 'LDM'
+[Seat:*]
+autologin-user=nova
+autologin-session=NOVA OS
+user-session=NOVA OS
+greeter-session=lightdm-gtk-greeter
+LDM
+
+cat > /etc/lightdm/lightdm-gtk-greeter.conf << 'GREETER'
+[greeter]
+theme-name = Arc-Dark
+icon-theme-name = Papirus-Dark
+font-name = Inter 11
+background = #1a1a2e
+indicators = ~host;~spacer;~clock;~spacer;~session;~power
+GREETER
+
+# Chromium as default browser
 mkdir -p /etc/skel/.config
 echo "[Default Applications]
 text/html=chromium.desktop
@@ -480,7 +358,7 @@ x-scheme-handler/https=chromium.desktop
 application/xhtml+xml=chromium.desktop
 " > /etc/skel/.config/mimeapps.list
 
-# GTK theme settings
+# GTK theme
 mkdir -p /etc/skel/.config/gtk-3.0
 echo "[Settings]
 gtk-theme-name=Arc-Dark
@@ -490,13 +368,13 @@ gtk-cursor-theme-name=Adwaita
 gtk-application-prefer-dark-theme=1
 " > /etc/skel/.config/gtk-3.0/settings.ini
 
-# GTK2
 echo 'gtk-theme-name="Arc-Dark"
 gtk-icon-theme-name="Papirus-Dark"
 gtk-font-name="Inter 11"
 ' > /etc/skel/.gtkrc-2.0
 
 # XDG user dirs
+mkdir -p /etc/skel/.config
 echo 'XDG_DESKTOP_DIR="$HOME/Desktop"
 XDG_DOCUMENTS_DIR="$HOME/Documents"
 XDG_DOWNLOAD_DIR="$HOME/Downloads"
@@ -505,25 +383,8 @@ XDG_PICTURES_DIR="$HOME/Pictures"
 XDG_VIDEOS_DIR="$HOME/Videos"
 ' > /etc/skel/.config/user-dirs.dirs
 
-# Disable unnecessary services
-systemctl disable ssh 2>/dev/null || true
-systemctl disable apache2 2>/dev/null || true
-
-# Set correct ownership
-chown -R nova:nova /home/nova
-chown -R nova:nova /opt/nova-os 2>/dev/null || true
-
-echo "NOVA OS setup complete."
-HOOK
-chmod +x config/hooks/normal/0100-nova-setup.hook.chroot
-
-# ============================================
-# 7. GRUB config
-# ============================================
-echo "[7/8] Configuring bootloader..."
-CHROOT="config/includes.chroot"
-mkdir -p "$CHROOT/etc/default"
-cat > "$CHROOT/etc/default/grub" << 'GRUB'
+# GRUB config
+cat > /etc/default/grub << 'GRUB'
 GRUB_DEFAULT=0
 GRUB_TIMEOUT=3
 GRUB_DISTRIBUTOR="NOVA OS"
@@ -533,31 +394,148 @@ GRUB_TERMINAL_OUTPUT="gfxterm"
 GRUB_GFXMODE=auto
 GRUB
 
+# Disable unnecessary services
+systemctl disable ssh 2>/dev/null || true
+systemctl disable apache2 2>/dev/null || true
+
+# Set ownership
+chown -R nova:nova /home/nova
+chown -R nova:nova /opt/nova-os 2>/dev/null || true
+
+echo "System setup complete."
+SETUP_SCRIPT
+
+chmod +x "$CHROOT/tmp/setup-system.sh"
+chroot "$CHROOT" /tmp/setup-system.sh
+
 # ============================================
-# 8. Build the ISO
+# 7. Build the ISO manually with xorriso + GRUB
 # ============================================
-echo "[8/8] Building ISO (this takes 15-30 minutes)..."
+echo "[7/8] Building ISO image..."
 
-# Fix isolinux — copy bootloader files into the chroot AND the binary config
-for DIR in config/includes.chroot/root/isolinux config/includes.binary/isolinux chroot/root/isolinux; do
-  mkdir -p "$DIR"
-  cp /usr/lib/ISOLINUX/isolinux.bin "$DIR/" 2>/dev/null || true
-  cp /usr/lib/syslinux/modules/bios/vesamenu.c32 "$DIR/" 2>/dev/null || true
-  cp /usr/lib/syslinux/modules/bios/ldlinux.c32 "$DIR/" 2>/dev/null || true
-  cp /usr/lib/syslinux/modules/bios/libcom32.c32 "$DIR/" 2>/dev/null || true
-  cp /usr/lib/syslinux/modules/bios/libutil.c32 "$DIR/" 2>/dev/null || true
-done
-# Also put them where the live-build binary stage looks
-mkdir -p binary/isolinux
-cp /usr/lib/ISOLINUX/isolinux.bin binary/isolinux/ 2>/dev/null || true
-cp /usr/lib/syslinux/modules/bios/*.c32 binary/isolinux/ 2>/dev/null || true
-echo "Isolinux files staged in all locations"
+# Unmount chroot filesystems
+umount "$CHROOT/dev/pts" 2>/dev/null || true
+umount "$CHROOT/dev" 2>/dev/null || true
+umount "$CHROOT/proc" 2>/dev/null || true
+umount "$CHROOT/sys" 2>/dev/null || true
 
-lb build 2>&1 | tail -20
+# Clean up temp files
+rm -f "$CHROOT/tmp/install-packages.sh" "$CHROOT/tmp/setup-system.sh"
+rm -f "$CHROOT/etc/resolv.conf"
 
-# Move output
-if ls *.hybrid.iso 1>/dev/null 2>&1 || ls *.iso 1>/dev/null 2>&1; then
-  mv *.iso "$OUTPUT_DIR/nova-os.iso" 2>/dev/null || mv *.hybrid.iso "$OUTPUT_DIR/nova-os.iso" 2>/dev/null
+# Create the binary directory structure
+BINARY="$BUILD_DIR/binary"
+mkdir -p "$BINARY/live"
+mkdir -p "$BINARY/boot/grub"
+mkdir -p "$BINARY/EFI/BOOT"
+
+# Create squashfs of the filesystem
+echo "  Creating squashfs filesystem (this takes several minutes)..."
+mksquashfs "$CHROOT" "$BINARY/live/filesystem.squashfs" \
+  -comp xz -Xbcj x86 -b 1M -no-duplicates -no-recovery \
+  -e boot 2>&1 | tail -3
+
+# Copy kernel and initrd
+VMLINUZ=$(ls "$CHROOT/boot/vmlinuz-"* 2>/dev/null | sort -V | tail -1)
+INITRD=$(ls "$CHROOT/boot/initrd.img-"* 2>/dev/null | sort -V | tail -1)
+
+if [ -z "$VMLINUZ" ] || [ -z "$INITRD" ]; then
+  echo "ERROR: Kernel or initrd not found in chroot!"
+  ls -la "$CHROOT/boot/" 2>/dev/null
+  exit 1
+fi
+
+cp "$VMLINUZ" "$BINARY/live/vmlinuz"
+cp "$INITRD" "$BINARY/live/initrd.img"
+echo "  Kernel: $(basename $VMLINUZ)"
+echo "  Initrd: $(basename $INITRD)"
+
+# Create GRUB config for BIOS boot
+cat > "$BINARY/boot/grub/grub.cfg" << 'GRUBCFG'
+set default=0
+set timeout=3
+
+insmod all_video
+insmod gfxterm
+set gfxmode=auto
+terminal_output gfxterm
+
+set menu_color_normal=white/black
+set menu_color_highlight=black/light-gray
+
+menuentry "NOVA OS — Start" {
+    linux /live/vmlinuz boot=live quiet splash
+    initrd /live/initrd.img
+}
+
+menuentry "NOVA OS — Safe Mode" {
+    linux /live/vmlinuz boot=live nomodeset
+    initrd /live/initrd.img
+}
+
+menuentry "NOVA OS — To RAM (copy to memory)" {
+    linux /live/vmlinuz boot=live toram quiet splash
+    initrd /live/initrd.img
+}
+GRUBCFG
+
+# Create EFI boot image
+echo "  Creating EFI boot image..."
+cat > /tmp/grub-embed.cfg << 'EMBED'
+search --set=root --file /live/vmlinuz
+set prefix=($root)/boot/grub
+configfile $prefix/grub.cfg
+EMBED
+
+# Build the EFI GRUB image
+grub-mkimage -O x86_64-efi -o "$BINARY/EFI/BOOT/BOOTx64.EFI" \
+  -p /boot/grub -c /tmp/grub-embed.cfg \
+  boot linux normal configfile part_gpt part_msdos fat ext2 \
+  iso9660 search search_fs_file search_label ls gfxterm gfxmenu \
+  all_video efi_gop efi_uga video_bochs video_cirrus
+
+# Create EFI partition image (FAT12/16 for the ESP)
+EFI_IMG="$BINARY/boot/grub/efi.img"
+dd if=/dev/zero of="$EFI_IMG" bs=1M count=4
+mkfs.vfat "$EFI_IMG"
+mmd -i "$EFI_IMG" ::/EFI
+mmd -i "$EFI_IMG" ::/EFI/BOOT
+mcopy -i "$EFI_IMG" "$BINARY/EFI/BOOT/BOOTx64.EFI" ::/EFI/BOOT/
+
+# Create BIOS boot image
+echo "  Creating BIOS boot image..."
+grub-mkimage -O i386-pc -o "$BUILD_DIR/core.img" \
+  -p /boot/grub \
+  biosdisk iso9660 part_msdos part_gpt normal boot linux configfile \
+  search search_fs_file search_label ls gfxterm all_video
+
+cat /usr/lib/grub/i386-pc/cdboot.img "$BUILD_DIR/core.img" > "$BUILD_DIR/bios.img"
+
+# ============================================
+# 8. Create the ISO with xorriso
+# ============================================
+echo "[8/8] Creating bootable ISO..."
+
+xorriso -as mkisofs \
+  -o "$OUTPUT_DIR/nova-os.iso" \
+  -V "NOVA-OS-1.0" \
+  -A "NOVA OS" \
+  -publisher "NOVA OS Project" \
+  -isohybrid-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
+  -b boot/grub/bios.img \
+    -no-emul-boot \
+    -boot-load-size 4 \
+    -boot-info-table \
+    --grub2-boot-info \
+  -eltorito-alt-boot \
+  -e boot/grub/efi.img \
+    -no-emul-boot \
+    -isohybrid-gpt-basdat \
+  -r -J \
+  "$BINARY" 2>&1 | tail -5
+
+# Verify output
+if [ -f "$OUTPUT_DIR/nova-os.iso" ]; then
   ISO_SIZE=$(du -h "$OUTPUT_DIR/nova-os.iso" | cut -f1)
   echo ""
   echo "============================================"
@@ -567,7 +545,7 @@ if ls *.hybrid.iso 1>/dev/null 2>&1 || ls *.iso 1>/dev/null 2>&1; then
   echo "============================================"
   echo ""
   echo "  This is a REAL operating system."
-  echo "  Flash to USB → Boot → Use."
+  echo "  Flash to USB -> Boot -> Use."
   echo ""
   echo "  Included apps:"
   echo "    - Chromium (full browser)"
@@ -583,13 +561,12 @@ if ls *.hybrid.iso 1>/dev/null 2>&1 || ls *.iso 1>/dev/null 2>&1; then
   echo "    - Software Center (install more apps)"
   echo "    - Bluetooth manager"
   echo "    - Printer setup"
-  echo "    - System monitor"
-  echo "    - NOVA AI assistant"
   echo "    - NOVA dock + menubar"
+  echo "    - NOVA AI assistant"
   echo ""
   echo "  Flash: sudo dd if=$OUTPUT_DIR/nova-os.iso of=/dev/sdX bs=4M status=progress"
   echo "  Or use Balena Etcher"
 else
-  echo "ERROR: Build failed"
+  echo "ERROR: ISO creation failed!"
   exit 1
 fi
