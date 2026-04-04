@@ -1,0 +1,73 @@
+/* Desktop */
+#desktop {
+  position: fixed;
+  inset: 0;
+  background: url('../assets/wallpapers/default.jpg') center/cover no-repeat;
+  overflow: hidden;
+}
+
+/* Fallback gradient if wallpaper image fails */
+#desktop {
+  background-color: #1a1a2e;
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(72, 15, 120, 0.4) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(0, 82, 180, 0.3) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 80%, rgba(120, 20, 80, 0.25) 0%, transparent 50%);
+}
+
+#desktop-icons {
+  position: absolute;
+  top: calc(var(--menubar-height) + 12px);
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 1;
+}
+
+.desktop-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 80px;
+  padding: 8px 4px;
+  border-radius: var(--radius-md);
+  cursor: default;
+  gap: 4px;
+}
+
+.desktop-icon:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.desktop-icon.selected {
+  background: rgba(0, 122, 255, 0.3);
+}
+
+.desktop-icon-img {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  line-height: 1;
+}
+
+.desktop-icon-label {
+  font-size: 11px;
+  text-align: center;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  word-break: break-word;
+  line-height: 1.2;
+}
+
+#windows-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#windows-container > * {
+  pointer-events: auto;
+}

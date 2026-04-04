@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NOVA OS</title>
+  <link rel="stylesheet" href="css/system.css">
+  <link rel="stylesheet" href="css/desktop.css">
+  <link rel="stylesheet" href="css/menubar.css">
+  <link rel="stylesheet" href="css/dock.css">
+  <link rel="stylesheet" href="css/window.css">
+  <link rel="stylesheet" href="css/spotlight.css">
+  <link rel="stylesheet" href="css/apps/finder.css">
+  <link rel="stylesheet" href="css/apps/notes.css">
+  <link rel="stylesheet" href="css/apps/terminal.css">
+  <link rel="stylesheet" href="css/apps/calculator.css">
+  <link rel="stylesheet" href="css/apps/settings.css">
+  <link rel="stylesheet" href="css/apps/text-editor.css">
+  <link rel="stylesheet" href="css/apps/draw.css">
+</head>
+<body>
+  <!-- Boot Screen -->
+  <div id="boot-screen">
+    <div class="boot-logo">
+      <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+        <circle cx="40" cy="40" r="36" stroke="white" stroke-width="2" opacity="0.9"/>
+        <path d="M28 40 L40 28 L52 40 L40 52 Z" fill="white" opacity="0.9"/>
+        <circle cx="40" cy="40" r="6" fill="white"/>
+      </svg>
+      <div class="boot-text">NOVA OS</div>
+    </div>
+    <div class="boot-progress">
+      <div class="boot-progress-bar"></div>
+    </div>
+  </div>
+
+  <!-- Login Screen -->
+  <div id="login-screen" class="hidden">
+    <div class="login-time" id="login-time"></div>
+    <div class="login-date" id="login-date"></div>
+    <div class="login-avatar">
+      <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+        <circle cx="40" cy="40" r="38" fill="rgba(255,255,255,0.15)"/>
+        <circle cx="40" cy="32" r="14" fill="rgba(255,255,255,0.6)"/>
+        <ellipse cx="40" cy="62" rx="22" ry="16" fill="rgba(255,255,255,0.6)"/>
+      </svg>
+    </div>
+    <div class="login-name">User</div>
+    <div class="login-input-wrap">
+      <input type="password" id="login-password" class="login-input" placeholder="Enter Password" autofocus>
+    </div>
+    <div class="login-hint">Press Enter or click to log in (any password works)</div>
+  </div>
+
+  <!-- Desktop -->
+  <div id="desktop" class="hidden">
+    <!-- Menubar -->
+    <div id="menubar">
+      <div class="menubar-left">
+        <div class="menubar-apple" id="menubar-apple">
+          <svg width="16" height="16" viewBox="0 0 80 80" fill="none">
+            <circle cx="40" cy="40" r="36" stroke="white" stroke-width="3"/>
+            <path d="M28 40 L40 28 L52 40 L40 52 Z" fill="white"/>
+          </svg>
+        </div>
+        <span class="menubar-app-name" id="menubar-app-name">Finder</span>
+        <div class="menubar-menus" id="menubar-menus">
+          <span class="menubar-menu-item">File</span>
+          <span class="menubar-menu-item">Edit</span>
+          <span class="menubar-menu-item">View</span>
+          <span class="menubar-menu-item">Window</span>
+          <span class="menubar-menu-item">Help</span>
+        </div>
+      </div>
+      <div class="menubar-right">
+        <span class="menubar-icon" id="menubar-wifi" title="Wi-Fi">
+          <svg width="16" height="14" viewBox="0 0 16 14" fill="currentColor">
+            <path d="M8 12.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
+            <path d="M4.93 8.82a4.5 4.5 0 016.14 0" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+            <path d="M2.4 6.3a8 8 0 0111.2 0" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="menubar-icon" id="menubar-battery" title="Battery">
+          <svg width="22" height="12" viewBox="0 0 22 12" fill="none">
+            <rect x="0.5" y="0.5" width="18" height="11" rx="2" stroke="currentColor"/>
+            <rect x="2" y="2" width="14" height="7" rx="1" fill="currentColor"/>
+            <rect x="19.5" y="3.5" width="2" height="5" rx="0.5" fill="currentColor"/>
+          </svg>
+        </span>
+        <span class="menubar-icon" id="menubar-spotlight" title="Spotlight (Cmd+Space)">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.5"/>
+            <line x1="10.5" y1="10.5" x2="14" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="menubar-clock" id="menubar-clock"></span>
+      </div>
+    </div>
+
+    <!-- Desktop Icons -->
+    <div id="desktop-icons"></div>
+
+    <!-- Windows Container -->
+    <div id="windows-container"></div>
+
+    <!-- Spotlight -->
+    <div id="spotlight" class="hidden">
+      <div class="spotlight-backdrop"></div>
+      <div class="spotlight-panel">
+        <div class="spotlight-search">
+          <svg class="spotlight-icon" width="20" height="20" viewBox="0 0 15 15" fill="none">
+            <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.5"/>
+            <line x1="10.5" y1="10.5" x2="14" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <input type="text" id="spotlight-input" placeholder="Ask NOVA anything..." autocomplete="off">
+          <div class="spotlight-badge">AI</div>
+        </div>
+        <div id="spotlight-results" class="spotlight-results"></div>
+      </div>
+    </div>
+
+    <!-- Dock -->
+    <div id="dock">
+      <div class="dock-container" id="dock-container"></div>
+    </div>
+  </div>
+
+  <!-- Context Menu -->
+  <div id="context-menu" class="hidden">
+    <div class="context-menu-items" id="context-menu-items"></div>
+  </div>
+
+  <script type="module" src="js/boot.js"></script>
+</body>
+</html>

@@ -1,0 +1,287 @@
+/* NOVA OS — System-wide styles */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* Colors */
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #2d2d2d;
+  --bg-tertiary: #3a3a3a;
+  --bg-elevated: rgba(40, 40, 40, 0.85);
+  --bg-glass: rgba(30, 30, 30, 0.75);
+  --text-primary: #ffffff;
+  --text-secondary: #aaaaaa;
+  --text-tertiary: #666666;
+  --accent: #007aff;
+  --accent-hover: #0062cc;
+  --accent-light: rgba(0, 122, 255, 0.15);
+  --red: #ff5f57;
+  --yellow: #febc2e;
+  --green: #28c840;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-light: rgba(255, 255, 255, 0.12);
+  --shadow-window: 0 20px 60px rgba(0, 0, 0, 0.35), 0 0 0 0.5px rgba(255, 255, 255, 0.06);
+  --shadow-window-active: 0 24px 80px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+  --shadow-dock: 0 10px 40px rgba(0, 0, 0, 0.4);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --menubar-height: 28px;
+  --dock-height: 68px;
+  --dock-margin: 6px;
+
+  /* Font */
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: #000;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Boot Screen */
+#boot-screen {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+}
+
+.boot-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.boot-text {
+  font-size: 18px;
+  font-weight: 300;
+  letter-spacing: 6px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.boot-progress {
+  margin-top: 40px;
+  width: 200px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.boot-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* Login Screen */
+#login-screen {
+  position: fixed;
+  inset: 0;
+  background: #2e2e5e;
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(160, 80, 240, 0.55) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 20%, rgba(60, 140, 255, 0.5) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 85%, rgba(220, 60, 160, 0.4) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(80, 60, 140, 0.3) 0%, transparent 70%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+#login-screen > * {
+  position: relative;
+  z-index: 1;
+}
+
+.login-time {
+  font-size: 72px;
+  font-weight: 600;
+  letter-spacing: -1px;
+  margin-bottom: 4px;
+}
+
+.login-date {
+  font-size: 18px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 48px;
+}
+
+.login-avatar {
+  margin-bottom: 12px;
+}
+
+.login-name {
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.login-input-wrap {
+  width: 220px;
+}
+
+.login-input {
+  width: 100%;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  color: white;
+  font-size: 14px;
+  font-family: var(--font);
+  outline: none;
+  text-align: center;
+}
+
+.login-input:focus {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.login-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.login-hint {
+  margin-top: 12px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* Selection */
+::selection {
+  background: var(--accent);
+  color: white;
+}
+
+/* Context Menu */
+#context-menu {
+  position: fixed;
+  z-index: 100000;
+}
+
+.context-menu-items {
+  background: var(--bg-elevated);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  min-width: 200px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
+.context-menu-item {
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: default;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.context-menu-item:hover {
+  background: var(--accent);
+}
+
+.context-menu-item.disabled {
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.context-menu-separator {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 8px;
+}
+
+.context-menu-shortcut {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-left: 24px;
+}
+
+.context-menu-item:hover .context-menu-shortcut {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes windowOpen {
+  from { opacity: 0; transform: scale(0.88); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes windowClose {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.88); }
+}
+
+@keyframes dockBounce {
+  0%, 100% { transform: translateY(0); }
+  25% { transform: translateY(-16px); }
+  50% { transform: translateY(-4px); }
+  75% { transform: translateY(-10px); }
+}

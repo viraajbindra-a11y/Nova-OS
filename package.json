@@ -1,0 +1,13 @@
+{
+  "name": "nova-os",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "NOVA OS — AI-Native Operating System",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}
