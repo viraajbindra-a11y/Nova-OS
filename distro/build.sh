@@ -537,6 +537,20 @@ GRUB
 # 8. Build the ISO
 # ============================================
 echo "[8/8] Building ISO (this takes 15-30 minutes)..."
+
+# Fix isolinux paths — live-build looks in /root/isolinux but files are elsewhere
+mkdir -p /root/isolinux
+cp /usr/lib/ISOLINUX/isolinux.bin /root/isolinux/ 2>/dev/null || \
+  cp /usr/lib/syslinux/modules/bios/isolinux.bin /root/isolinux/ 2>/dev/null || \
+  find / -name "isolinux.bin" -exec cp {} /root/isolinux/ \; 2>/dev/null
+cp /usr/lib/syslinux/modules/bios/vesamenu.c32 /root/isolinux/ 2>/dev/null || \
+  cp /usr/share/syslinux/vesamenu.c32 /root/isolinux/ 2>/dev/null || \
+  find / -name "vesamenu.c32" -exec cp {} /root/isolinux/ \; 2>/dev/null
+cp /usr/lib/syslinux/modules/bios/ldlinux.c32 /root/isolinux/ 2>/dev/null || true
+cp /usr/lib/syslinux/modules/bios/libcom32.c32 /root/isolinux/ 2>/dev/null || true
+cp /usr/lib/syslinux/modules/bios/libutil.c32 /root/isolinux/ 2>/dev/null || true
+ls -la /root/isolinux/ || echo "WARNING: isolinux files not found"
+
 lb build 2>&1 | tail -20
 
 # Move output
