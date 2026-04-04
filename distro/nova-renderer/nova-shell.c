@@ -1007,6 +1007,33 @@ static gboolean on_window_focus_in(GtkWidget *widget, GdkEvent *event, gpointer 
     return FALSE;
 }
 
+/* ─── App window callbacks (pure C, no C++ lambdas) ─── */
+
+static gboolean on_app_context_menu(WebKitWebView *v, WebKitContextMenu *m,
+                                     GdkEvent *e, WebKitHitTestResult *h,
+                                     gpointer d)
+{
+    return TRUE; /* Suppress browser context menu */
+}
+
+static void on_app_window_destroy(gpointer data)
+{
+    NovaWindow *nw = (NovaWindow *)data;
+    nw->window = NULL;
+    nw->webview = NULL;
+}
+
+static void on_app_load_changed(WebKitWebView *view, WebKitLoadEvent event, gpointer data)
+{
+    if (event == WEBKIT_LOAD_FINISHED) {
+        webkit_web_view_run_javascript(view,
+            "window.__NOVA_NATIVE__ = true;"
+            "window.__NOVA_RENDERER__ = 'nova-shell';"
+            "document.documentElement.classList.add('nova-native');",
+            NULL, NULL, NULL);
+    }
+}
+
 static void nova_launch_app(NovaApp *app)
 {
     if (window_count >= MAX_WINDOWS) return;
@@ -1134,9 +1161,7 @@ static void nova_launch_app(NovaApp *app)
 
     /* Suppress default context menu */
     g_signal_connect(nwin->webview, "context-menu",
-        G_CALLBACK(+[](WebKitWebView *v, WebKitContextMenu *m,
-                        GdkEvent *e, WebKitHitTestResult *h,
-                        gpointer d) -> gboolean { return TRUE; }), NULL);
+        G_CALLBACK(on_app_context_menu), NULL);
 
     gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(nwin->webview), TRUE, TRUE, 0);
 
@@ -1146,11 +1171,7 @@ static void nova_launch_app(NovaApp *app)
 
     /* Handle window close via WM */
     g_signal_connect_swapped(nwin->window, "destroy",
-        G_CALLBACK(+[](gpointer data) {
-            NovaWindow *nw = (NovaWindow *)data;
-            nw->window = NULL;
-            nw->webview = NULL;
-        }), nwin);
+        G_CALLBACK(on_app_window_destroy), nwin);
 
     /* Enable resize */
     gtk_window_set_resizable(GTK_WINDOW(nwin->window), TRUE);
@@ -1165,15 +1186,7 @@ static void nova_launch_app(NovaApp *app)
 
     /* Inject NOVA native mode flag after load */
     g_signal_connect(nwin->webview, "load-changed",
-        G_CALLBACK(+[](WebKitWebView *view, WebKitLoadEvent event, gpointer data) {
-            if (event == WEBKIT_LOAD_FINISHED) {
-                webkit_web_view_run_javascript(view,
-                    "window.__NOVA_NATIVE__ = true;"
-                    "window.__NOVA_RENDERER__ = 'nova-shell';"
-                    "document.documentElement.classList.add('nova-native');",
-                    NULL, NULL, NULL);
-            }
-        }), NULL);
+        G_CALLBACK(on_app_load_changed), NULL);
 
     webkit_web_view_load_uri(nwin->webview, full_url);
 
