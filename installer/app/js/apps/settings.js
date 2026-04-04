@@ -24,6 +24,12 @@ const wallpapers = [
   { id: 'gradient-sunset', name: 'Sunset', colors: 'linear-gradient(135deg, #1a0a2e, #4a1942, #7b2d5f, #b0413e)' },
   { id: 'gradient-forest', name: 'Forest', colors: 'linear-gradient(135deg, #0a1a0a, #1b3a1b, #2d5a2d, #1a3a2a)' },
   { id: 'gradient-space', name: 'Deep Space', colors: 'radial-gradient(ellipse at 30% 50%, #1a0533 0%, #0a0a1a 50%, #000000 100%)' },
+  { id: 'gradient-ember', name: 'Ember', colors: 'linear-gradient(135deg, #1a0a0a, #4a1515, #8b2500, #cc5500)' },
+  { id: 'gradient-arctic', name: 'Arctic', colors: 'linear-gradient(135deg, #0a1628, #1a3a5c, #3a7abd, #87ceeb)' },
+  { id: 'gradient-neon', name: 'Neon City', colors: 'linear-gradient(135deg, #0a0020, #1a0050, #3a00a0, #ff00ff33)' },
+  { id: 'gradient-dusk', name: 'Dusk', colors: 'linear-gradient(135deg, #2c1654, #553380, #7c5baa, #ffb347)' },
+  { id: 'gradient-mono', name: 'Monochrome', colors: 'linear-gradient(135deg, #111, #222, #333, #222)' },
+  { id: 'gradient-rose', name: 'Rose Gold', colors: 'linear-gradient(135deg, #2a1a1a, #4a2a2a, #8b5a5a, #daa)' },
 ];
 
 function initSettings(container) {
@@ -33,6 +39,8 @@ function initSettings(container) {
   const sections = {
     appearance: { icon: '\uD83C\uDFA8', name: 'Appearance' },
     desktop: { icon: '\uD83D\uDDA5\uFE0F', name: 'Desktop & Dock' },
+    keyboard: { icon: '\u2328\uFE0F', name: 'Keyboard' },
+    sound: { icon: '\uD83D\uDD0A', name: 'Sound' },
     ai: { icon: '\u2728', name: 'AI Assistant' },
     about: { icon: '\u2139\uFE0F', name: 'About NOVA OS' },
   };
@@ -67,6 +75,8 @@ function initSettings(container) {
     switch (activeSection) {
       case 'appearance': renderAppearance(); break;
       case 'desktop': renderDesktop(); break;
+      case 'keyboard': renderKeyboard(); break;
+      case 'sound': renderSound(); break;
       case 'ai': renderAI(); break;
       case 'about': renderAbout(); break;
     }
@@ -226,6 +236,106 @@ function initSettings(container) {
         </div>
       </div>
     `;
+  }
+
+  function renderKeyboard() {
+    const shortcuts = [
+      ['Cmd+Space', 'Open Spotlight'],
+      ['Cmd+N', 'New Finder window'],
+      ['Cmd+T', 'New Terminal'],
+      ['Cmd+W', 'Close window'],
+      ['Cmd+M', 'Minimize window'],
+      ['Cmd+H', 'Hide all windows'],
+      ['Cmd+Q', 'Quit app'],
+      ['Cmd+,', 'Open Settings'],
+      ['Cmd+L', 'Lock screen'],
+      ['Cmd+Shift+Left', 'Snap window left'],
+      ['Cmd+Shift+Right', 'Snap window right'],
+      ['Cmd+Shift+Up', 'Maximize window'],
+      ['Alt+Tab', 'Cycle windows'],
+      ['Ctrl+Alt+T', 'Open Terminal'],
+      ['Ctrl+Alt+F', 'Open File Manager'],
+      ['Ctrl+Alt+B', 'Open Browser'],
+      ['F4', 'Open Launchpad'],
+      ['F11', 'Toggle fullscreen'],
+      ['Cmd+Shift+3', 'Screenshot'],
+    ];
+
+    main.innerHTML = `
+      <div class="settings-section-title">Keyboard Shortcuts</div>
+      <div class="settings-group">
+        ${shortcuts.map(([key, desc]) => `
+          <div class="settings-row" style="padding:6px 0;">
+            <div class="settings-row-label" style="flex:1;font-size:13px;">${desc}</div>
+            <div style="display:flex;gap:4px;">
+              ${key.split('+').map(k => `<kbd style="background:rgba(255,255,255,0.08);padding:3px 8px;border-radius:5px;font-size:11px;font-family:var(--font);color:var(--text-secondary);border:1px solid rgba(255,255,255,0.1);">${k}</kbd>`).join('<span style="color:rgba(255,255,255,0.2);line-height:24px;">+</span>')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function renderSound() {
+    const volume = localStorage.getItem('nova-volume') || '80';
+    const soundEffects = localStorage.getItem('nova-sound-effects') !== 'false';
+
+    main.innerHTML = `
+      <div class="settings-section-title">Sound</div>
+      <div class="settings-group">
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">System Volume</div>
+            <div class="settings-row-desc">Main output volume</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:16px;">🔈</span>
+            <input type="range" min="0" max="100" value="${volume}" style="width:120px;accent-color:var(--accent);" id="volume-slider">
+            <span style="font-size:16px;">🔊</span>
+            <span style="font-size:12px;color:var(--text-tertiary);width:30px;" id="volume-label">${volume}%</span>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Sound Effects</div>
+            <div class="settings-row-desc">Play sounds for system actions</div>
+          </div>
+          <button class="settings-toggle${soundEffects ? ' on' : ''}" id="toggle-sound-fx"></button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Notification Sounds</div>
+            <div class="settings-row-desc">Play a sound when notifications arrive</div>
+          </div>
+          <button class="settings-toggle on" id="toggle-notif-sound"></button>
+        </div>
+      </div>
+      <div class="settings-group" style="margin-top:16px;">
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Output Device</div>
+          </div>
+          <select class="settings-select">
+            <option>Built-in Speakers</option>
+            <option disabled>Bluetooth Audio</option>
+          </select>
+        </div>
+      </div>
+    `;
+
+    main.querySelector('#volume-slider').addEventListener('input', function() {
+      localStorage.setItem('nova-volume', this.value);
+      main.querySelector('#volume-label').textContent = this.value + '%';
+    });
+
+    main.querySelector('#toggle-sound-fx').addEventListener('click', function() {
+      this.classList.toggle('on');
+      localStorage.setItem('nova-sound-effects', this.classList.contains('on'));
+    });
+
+    main.querySelector('#toggle-notif-sound')?.addEventListener('click', function() {
+      this.classList.toggle('on');
+    });
   }
 
   function renderAbout() {
