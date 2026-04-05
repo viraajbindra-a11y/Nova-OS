@@ -111,7 +111,7 @@ jobs:
   release:
     needs: [version, build]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
