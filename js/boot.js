@@ -32,6 +32,12 @@ import { registerActivityMonitor } from './apps/activity-monitor.js';
 import { initLockScreen } from './shell/lock-screen.js';
 import { initScreenshot } from './shell/screenshot.js';
 import { appInstaller } from './kernel/app-installer.js';
+import { initMissionControl } from './shell/mission-control.js';
+import { initAppSwitcher } from './shell/app-switcher.js';
+import { initEmojiPicker } from './shell/emoji-picker.js';
+import { initWidgets } from './shell/widgets.js';
+import { initHotCorners } from './shell/hot-corners.js';
+import { initQuickLook } from './shell/quick-look.js';
 
 // Boot sequence
 (async function boot() {
@@ -177,6 +183,14 @@ import { appInstaller } from './kernel/app-installer.js';
   initLockScreen();
   initScreenshot();
   appInstaller.loadInstalled();
+
+  // ─── Phase 1+ features (Mission Control, App Switcher, etc.) ───
+  initMissionControl();
+  initAppSwitcher();
+  initEmojiPicker();
+  initHotCorners();
+  initQuickLook();
+  initWidgets();
 
   // Desktop ready
   await sleep(300);

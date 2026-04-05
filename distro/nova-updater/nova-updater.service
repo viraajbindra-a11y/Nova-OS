@@ -1,0 +1,10 @@
+[Unit]
+Description=NOVA OS Update Check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nova-update
+StandardOutput=journal
+StandardError=journal

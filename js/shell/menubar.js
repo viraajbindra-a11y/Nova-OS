@@ -57,6 +57,7 @@ export function initMenubar() {
     showDropdown(e.target.closest('.menubar-apple'), [
       { label: 'About NOVA OS', action: () => showAboutDialog() },
       { separator: true },
+      { label: 'Check for Updates...', action: () => checkForUpdates() },
       { label: 'System Settings...', shortcut: '\u2318,', action: () => processManager.launch('settings') },
       { label: 'App Store...', action: () => processManager.launch('appstore') },
       { separator: true },
@@ -450,6 +451,56 @@ function showAboutDialog() {
   document.addEventListener('keydown', function handler(e) {
     if (e.key === 'Escape') { close(); document.removeEventListener('keydown', handler); }
   });
+}
+
+async function checkForUpdates() {
+  const { notifications } = await import('../kernel/notifications.js');
+
+  notifications.show({
+    title: 'Checking for updates…',
+    body: 'Contacting NOVA update server',
+    icon: '\uD83D\uDD04',
+    duration: 3000,
+  });
+
+  try {
+    const res = await fetch('/api/update/check', { method: 'POST' });
+    const data = await res.json();
+
+    if (data.status === 'up-to-date') {
+      notifications.show({
+        title: 'NOVA OS is up to date',
+        body: `Running commit ${data.current?.slice(0, 7) || 'latest'}`,
+        icon: '\u2705',
+      });
+    } else if (data.status === 'updated') {
+      notifications.show({
+        title: 'NOVA OS updated!',
+        body: `Updated to ${data.latest?.slice(0, 7)}. Refresh to see changes.`,
+        icon: '\uD83C\uDF89',
+        duration: 10000,
+        actions: [{ label: 'Refresh Now', onClick: () => location.reload() }],
+      });
+    } else if (data.status === 'update-available') {
+      notifications.show({
+        title: 'Update available',
+        body: `New version: ${data.latest?.slice(0, 7)}. Installing…`,
+        icon: '\u2B07\uFE0F',
+      });
+    } else {
+      notifications.show({
+        title: 'Update check failed',
+        body: data.error || 'Unknown error',
+        icon: '\u26A0\uFE0F',
+      });
+    }
+  } catch (err) {
+    notifications.show({
+      title: 'Update check failed',
+      body: 'Could not reach the update server. Are you online?',
+      icon: '\u26A0\uFE0F',
+    });
+  }
 }
 
 function toggleClockDropdown() {

@@ -19,6 +19,50 @@ app.use(express.json());
 // Run with: ANTHROPIC_API_KEY=sk-ant-... npm start
 const API_KEY = process.env.ANTHROPIC_API_KEY || '';
 
+// ─── Update Check / Trigger ───
+// Used by the "Check for Updates..." menu item. On the ISO this runs
+// /usr/bin/nova-update (root via passwordless sudo). On dev machines
+// it just checks the remote SHA against the bundled web app.
+app.post('/api/update/check', async (req, res) => {
+  try {
+    const { exec } = await import('child_process');
+    const fs = await import('fs');
+
+    // 1. Fetch latest SHA from GitHub
+    const ghRes = await fetch('https://api.github.com/repos/viraajbindra-a11y/Nova-OS/commits/main');
+    if (!ghRes.ok) {
+      return res.status(502).json({ status: 'error', error: 'GitHub unreachable' });
+    }
+    const latest = (await ghRes.json()).sha;
+
+    // 2. Read current SHA (if running on ISO, /var/lib/nova-updater/last-sha)
+    let current = '';
+    try {
+      current = fs.readFileSync('/var/lib/nova-updater/last-sha', 'utf-8').trim();
+    } catch (e) { /* not on ISO */ }
+
+    if (current && current === latest) {
+      return res.json({ status: 'up-to-date', current, latest });
+    }
+
+    // 3. On ISO: kick off the updater
+    if (fs.existsSync('/usr/bin/nova-update')) {
+      res.json({ status: 'update-available', current, latest });
+      exec('sudo -n /usr/bin/nova-update', (err, stdout, stderr) => {
+        if (err) console.error('nova-update failed:', stderr);
+        else console.log('nova-update finished:', stdout);
+      });
+      return;
+    }
+
+    // 4. Dev machine: just report the SHA
+    res.json({ status: 'update-available', current: 'dev', latest });
+  } catch (error) {
+    console.error('Update check error:', error.message);
+    res.status(500).json({ status: 'error', error: error.message });
+  }
+});
+
 // AI proxy endpoint
 app.post('/api/ai', async (req, res) => {
   try {

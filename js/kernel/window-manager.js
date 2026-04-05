@@ -350,7 +350,7 @@ class WindowManager {
     let preview = document.getElementById('snap-preview');
     const menuH = 28;
     const dockH = 78;
-    const snapZone = 8;
+    const snapZone = 24;
 
     if (x <= snapZone) {
       // Snap left
@@ -378,7 +378,7 @@ class WindowManager {
 
     const menuH = 28;
     const dockH = 78;
-    const snapZone = 8;
+    const snapZone = 24;
 
     if (x <= snapZone) {
       state.prevBounds = { left: state.el.style.left, top: state.el.style.top, width: state.el.style.width, height: state.el.style.height };

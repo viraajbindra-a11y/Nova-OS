@@ -208,6 +208,21 @@ BUILD_RENDERER
 chmod +x "$CHROOT/tmp/build-renderer.sh"
 chroot "$CHROOT" /tmp/build-renderer.sh
 
+# ── NOVA Auto-Updater ──
+# Installs nova-update script + systemd timer that checks GitHub hourly.
+# When new commits land on main, the ISO pulls them and updates itself.
+echo "  Installing NOVA auto-updater..."
+cp "$SCRIPT_DIR/nova-updater/nova-update" "$CHROOT/usr/bin/nova-update"
+chmod +x "$CHROOT/usr/bin/nova-update"
+cp "$SCRIPT_DIR/nova-updater/nova-updater.service" "$CHROOT/etc/systemd/system/nova-updater.service"
+cp "$SCRIPT_DIR/nova-updater/nova-updater.timer"   "$CHROOT/etc/systemd/system/nova-updater.timer"
+cp "$SCRIPT_DIR/nova-updater/nova-server.service"  "$CHROOT/etc/systemd/system/nova-server.service"
+# Enable via symlinks (systemctl enable doesn't work inside chroot without dbus)
+mkdir -p "$CHROOT/etc/systemd/system/timers.target.wants"
+ln -sf /etc/systemd/system/nova-updater.timer "$CHROOT/etc/systemd/system/timers.target.wants/nova-updater.timer"
+mkdir -p "$CHROOT/etc/systemd/system/multi-user.target.wants"
+ln -sf /etc/systemd/system/nova-server.service "$CHROOT/etc/systemd/system/multi-user.target.wants/nova-server.service"
+
 # ---- NOVA OS Branding ----
 
 # Generate NOVA wallpaper with ImageMagick (dark gradient with logo)
@@ -425,6 +440,8 @@ set -e
 useradd -m -s /bin/bash -G audio,video,sudo,netdev,plugdev,cdrom nova 2>/dev/null || true
 echo "nova:nova" | chpasswd
 echo "nova ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/nova
+# Specifically allow passwordless nova-update (for API endpoint)
+echo "nova ALL=(ALL) NOPASSWD: /usr/bin/nova-update" >> /etc/sudoers.d/nova
 chmod 0440 /etc/sudoers.d/nova
 
 # Install NOVA OS node modules
@@ -490,13 +507,9 @@ xset s noblank
 exec > /tmp/nova-startup.log 2>&1
 set -x
 
-# Start the NOVA OS server (serves the web app content)
-cd /opt/nova-os
-node server/index.js &
-NOVA_PID=$!
-echo "Started server PID $NOVA_PID"
-
-# Wait for server to be ready
+# The NOVA server is managed by systemd (nova-server.service).
+# Just wait for it to be ready.
+echo "Waiting for NOVA server..."
 for i in $(seq 1 30); do
   if curl -s http://localhost:3000 > /dev/null 2>&1; then
     echo "Server ready after ${i}s"

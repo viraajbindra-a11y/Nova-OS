@@ -1,0 +1,144 @@
+#!/bin/bash
+# NOVA OS — System Updater
+#
+# Checks GitHub for a newer version of the NOVA OS web app and
+# installs it in-place. Safe to run as root via systemd timer,
+# or manually from the Terminal app.
+#
+# The NOVA OS web app (html/css/js/assets) IS the operating system
+# — everything from the desktop shell to the apps is in there. So
+# updating the web app IS updating NOVA OS.
+
+set -e
+
+NOVA_DIR="/opt/nova-os"
+REPO="viraajbindra-a11y/Nova-OS"
+BRANCH="main"
+LOG="/var/log/nova-update.log"
+STATE="/var/lib/nova-updater/last-sha"
+
+mkdir -p /var/lib/nova-updater
+mkdir -p "$(dirname "$LOG")"
+
+log() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG"
+}
+
+notify() {
+  # Send a desktop notification to the nova user (if X is running)
+  if pgrep -u nova Xorg >/dev/null 2>&1 || pgrep -u nova xinit >/dev/null 2>&1; then
+    sudo -u nova DISPLAY=:0 notify-send "NOVA OS" "$1" 2>/dev/null || true
+  fi
+}
+
+log "Checking for updates…"
+
+# Check internet
+if ! curl -s --max-time 5 https://api.github.com > /dev/null; then
+  log "No internet — skipping update check."
+  exit 0
+fi
+
+# Get latest commit SHA on main
+LATEST_SHA=$(curl -s "https://api.github.com/repos/$REPO/commits/$BRANCH" | \
+  grep -m1 '"sha"' | cut -d'"' -f4)
+
+if [ -z "$LATEST_SHA" ]; then
+  log "Couldn't fetch latest commit SHA — skipping."
+  exit 0
+fi
+
+CURRENT_SHA=""
+[ -f "$STATE" ] && CURRENT_SHA=$(cat "$STATE")
+
+if [ "$LATEST_SHA" = "$CURRENT_SHA" ]; then
+  log "Already up to date ($LATEST_SHA)."
+  exit 0
+fi
+
+log "Update available: $CURRENT_SHA → $LATEST_SHA"
+notify "Downloading update…"
+
+# Download the repo tarball (no git needed)
+TMPDIR=$(mktemp -d)
+trap "rm -rf $TMPDIR" EXIT
+
+cd "$TMPDIR"
+if ! curl -sL "https://github.com/$REPO/archive/$BRANCH.tar.gz" -o nova.tar.gz; then
+  log "Download failed — aborting."
+  notify "Update failed: download error"
+  exit 1
+fi
+
+tar xzf nova.tar.gz
+EXTRACTED=$(ls -d Nova-OS-* 2>/dev/null | head -1)
+
+if [ -z "$EXTRACTED" ] || [ ! -d "$EXTRACTED" ]; then
+  log "Bad archive — aborting."
+  notify "Update failed: bad archive"
+  exit 1
+fi
+
+# Verify the extracted files look right
+if [ ! -f "$EXTRACTED/index.html" ] || [ ! -d "$EXTRACTED/js" ]; then
+  log "Archive missing key files — aborting."
+  notify "Update failed: corrupt archive"
+  exit 1
+fi
+
+log "Installing update…"
+
+# Stop the NOVA server if it's running
+systemctl stop nova-server.service 2>/dev/null || true
+pkill -f "node.*server/index.js" 2>/dev/null || true
+sleep 1
+
+# Back up the current install (keep 1 backup)
+if [ -d "$NOVA_DIR" ]; then
+  rm -rf "$NOVA_DIR.bak"
+  cp -a "$NOVA_DIR" "$NOVA_DIR.bak"
+fi
+
+# Sync the new files in place (preserving node_modules)
+NODE_MODULES_BACKUP=""
+if [ -d "$NOVA_DIR/node_modules" ]; then
+  NODE_MODULES_BACKUP="$TMPDIR/node_modules"
+  mv "$NOVA_DIR/node_modules" "$NODE_MODULES_BACKUP"
+fi
+
+# Remove old files, copy new
+rm -rf "$NOVA_DIR/index.html" "$NOVA_DIR/css" "$NOVA_DIR/js" "$NOVA_DIR/server" \
+       "$NOVA_DIR/assets" "$NOVA_DIR/package.json" "$NOVA_DIR/package-lock.json"
+
+cp "$EXTRACTED/index.html"     "$NOVA_DIR/" 2>/dev/null || true
+cp -r "$EXTRACTED/css"         "$NOVA_DIR/" 2>/dev/null || true
+cp -r "$EXTRACTED/js"          "$NOVA_DIR/" 2>/dev/null || true
+cp -r "$EXTRACTED/server"      "$NOVA_DIR/" 2>/dev/null || true
+cp -r "$EXTRACTED/assets"      "$NOVA_DIR/" 2>/dev/null || true
+cp "$EXTRACTED/package.json"   "$NOVA_DIR/" 2>/dev/null || true
+cp "$EXTRACTED/package-lock.json" "$NOVA_DIR/" 2>/dev/null || true
+
+# Restore node_modules
+if [ -n "$NODE_MODULES_BACKUP" ]; then
+  mv "$NODE_MODULES_BACKUP" "$NOVA_DIR/node_modules"
+fi
+
+# Run npm install if package.json changed (in case of new deps)
+if [ -f "$NOVA_DIR/package.json" ]; then
+  cd "$NOVA_DIR"
+  npm install --omit=dev --no-audit --no-fund 2>&1 | tail -5 || log "npm install had warnings"
+fi
+
+chown -R nova:nova "$NOVA_DIR"
+
+# Save the new SHA
+echo "$LATEST_SHA" > "$STATE"
+
+# Restart the NOVA server
+systemctl start nova-server.service 2>/dev/null || \
+  sudo -u nova bash -c "cd $NOVA_DIR && nohup node server/index.js > /tmp/nova-server.log 2>&1 &"
+
+log "Update complete: now at $LATEST_SHA"
+notify "NOVA OS updated! Refresh your browser to see changes."
+
+exit 0

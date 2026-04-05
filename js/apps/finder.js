@@ -174,6 +174,8 @@ async function initFinder(container, instanceId, startPath) {
 
       const el = document.createElement('div');
       el.className = 'finder-file';
+      el.dataset.filePath = file.path;
+      el.tabIndex = 0;
       el.innerHTML = `
         <div class="finder-file-icon">${icon}</div>
         <div class="finder-file-name">${name}</div>

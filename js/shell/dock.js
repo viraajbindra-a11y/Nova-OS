@@ -60,6 +60,38 @@ export function initDock() {
   eventBus.on('app:launched', updateRunningDots);
   eventBus.on('app:terminated', updateRunningDots);
   eventBus.on('window:closed', () => setTimeout(updateRunningDots, 200));
+
+  // ─── Dock Magnification ───
+  setupDockMagnification(container);
+}
+
+function setupDockMagnification(container) {
+  const MAX_SCALE = 1.5;
+  const FALLOFF = 140; // px of influence around cursor
+
+  container.addEventListener('mousemove', (e) => {
+    const items = container.querySelectorAll('.dock-item');
+    items.forEach(item => {
+      const rect = item.getBoundingClientRect();
+      const center = rect.left + rect.width / 2;
+      const distance = Math.abs(e.clientX - center);
+
+      if (distance > FALLOFF) {
+        item.style.transform = 'scale(1)';
+        return;
+      }
+      const t = 1 - distance / FALLOFF;
+      const scale = 1 + (MAX_SCALE - 1) * t * t; // quadratic falloff
+      item.style.transform = `scale(${scale}) translateY(${-6 * t}px)`;
+      item.style.transformOrigin = 'bottom center';
+    });
+  });
+
+  container.addEventListener('mouseleave', () => {
+    container.querySelectorAll('.dock-item').forEach(item => {
+      item.style.transform = 'scale(1)';
+    });
+  });
 }
 
 function updateRunningDots() {
