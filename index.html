@@ -4,6 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NOVA OS</title>
+  <script>
+    // ── NOVA OS HiDPI auto-scale ─────────────────────────────────
+    // Linux ships a 96 DPI default, so content looks tiny on high-DPI
+    // displays like the Surface Pro 6 (267 DPI). Scale the whole UI
+    // proportionally to viewport width to restore sensible UI sizing.
+    (function () {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const dpr = window.devicePixelRatio || 1;
+      let zoom = 1;
+      // Surface Pro 6: 2736x1824, want ~1.75-2.0x
+      // Surface Pro 7/8/9: 2880x1920, want ~2.0x
+      // 4K desktop (3840x2160), want ~1.5x (it's bigger physically)
+      if (w >= 3600)       zoom = 1.6;
+      else if (w >= 2700)  zoom = 2.0;
+      else if (w >= 2400)  zoom = 1.75;
+      else if (w >= 2000)  zoom = 1.5;
+      else if (w >= 1800 && dpr >= 1.5) zoom = 1.4;
+      if (zoom > 1) {
+        document.documentElement.style.zoom = zoom;
+        // Expose for apps that need to compensate
+        window.__NOVA_UI_ZOOM__ = zoom;
+      }
+    })();
+  </script>
   <link rel="stylesheet" href="css/system.css">
   <link rel="stylesheet" href="css/desktop.css">
   <link rel="stylesheet" href="css/menubar.css">

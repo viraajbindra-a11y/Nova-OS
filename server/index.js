@@ -212,6 +212,21 @@ app.get('/app/:appId', (req, res) => {
   <div id="desktop" style="display:none"></div>
   <div id="windows-container"></div>
   <script>
+    // HiDPI auto-scale (same as main index.html)
+    (function () {
+      const w = window.innerWidth;
+      const dpr = window.devicePixelRatio || 1;
+      let zoom = 1;
+      if (w >= 3600)       zoom = 1.6;
+      else if (w >= 2700)  zoom = 2.0;
+      else if (w >= 2400)  zoom = 1.75;
+      else if (w >= 2000)  zoom = 1.5;
+      else if (w >= 1800 && dpr >= 1.5) zoom = 1.4;
+      if (zoom > 1) {
+        document.documentElement.style.zoom = zoom;
+        window.__NOVA_UI_ZOOM__ = zoom;
+      }
+    })();
     window.__NOVA_NATIVE__ = true;
     window.__NOVA_LAUNCH_APP__ = '${appId}';
   </script>

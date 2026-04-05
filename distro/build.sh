@@ -556,6 +556,17 @@ xsetroot -cursor_name left_ptr
 export XCURSOR_THEME=DMZ-White
 export XCURSOR_SIZE=24
 
+# ── HiDPI detection (for Surface Pro and other high-DPI laptops) ──
+# If the screen is high-DPI, scale GTK apps up via GDK_SCALE.
+SCREEN_WIDTH=$(xdpyinfo 2>/dev/null | awk '/dimensions/ {print $2}' | cut -dx -f1)
+if [ -n "$SCREEN_WIDTH" ] && [ "$SCREEN_WIDTH" -ge 2400 ]; then
+  export GDK_SCALE=2
+  export GDK_DPI_SCALE=0.9
+  export QT_SCALE_FACTOR=1.5
+  xrandr --dpi 192 2>/dev/null || true
+  echo "HiDPI mode enabled (screen width: $SCREEN_WIDTH)"
+fi
+
 # ── VM guest agents (for mouse integration in UTM/QEMU/VMware/VirtualBox) ──
 spice-vdagent -x 2>/dev/null &
 vmware-user 2>/dev/null &
