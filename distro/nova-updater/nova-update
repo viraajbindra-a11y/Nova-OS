@@ -33,14 +33,14 @@ notify() {
 
 log "Checking for updates…"
 
-# Check internet
-if ! curl -s --max-time 5 https://api.github.com > /dev/null; then
+# Check internet (force IPv4 — some home networks have broken IPv6)
+if ! curl -4 -s --max-time 5 https://api.github.com > /dev/null; then
   log "No internet — skipping update check."
   exit 0
 fi
 
 # Get latest commit SHA on main
-LATEST_SHA=$(curl -s "https://api.github.com/repos/$REPO/commits/$BRANCH" | \
+LATEST_SHA=$(curl -4 -s "https://api.github.com/repos/$REPO/commits/$BRANCH" | \
   grep -m1 '"sha"' | cut -d'"' -f4)
 
 if [ -z "$LATEST_SHA" ]; then
@@ -64,7 +64,7 @@ TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT
 
 cd "$TMPDIR"
-if ! curl -sL "https://github.com/$REPO/archive/$BRANCH.tar.gz" -o nova.tar.gz; then
+if ! curl -4 -sL "https://github.com/$REPO/archive/$BRANCH.tar.gz" -o nova.tar.gz; then
   log "Download failed — aborting."
   notify "Update failed: download error"
   exit 1

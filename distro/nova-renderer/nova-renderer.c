@@ -212,8 +212,33 @@ int main(int argc, char *argv[])
     /* Disable browser-like things */
     webkit_settings_set_enable_back_forward_navigation_gestures(settings, FALSE);
 
-    /* ─── Create WebView ─── */
-    webview = WEBKIT_WEB_VIEW(webkit_web_view_new_with_settings(settings));
+    /* ─── Persistent WebsiteDataManager ─── */
+    /* By default, WebKitGTK creates an ephemeral context where localStorage,
+     * IndexedDB, and cookies are lost when the process exits. We need
+     * persistent storage so the NOVA OS setup wizard, user preferences,
+     * file system, and vault survive reboots. */
+    const gchar *home = g_get_home_dir();
+    gchar *data_dir = g_build_filename(home, ".local", "share", "nova-renderer", NULL);
+    gchar *cache_dir = g_build_filename(home, ".cache", "nova-renderer", NULL);
+    g_mkdir_with_parents(data_dir, 0755);
+    g_mkdir_with_parents(cache_dir, 0755);
+
+    WebKitWebsiteDataManager *data_manager = webkit_website_data_manager_new(
+        "base-data-directory", data_dir,
+        "base-cache-directory", cache_dir,
+        NULL);
+
+    WebKitWebContext *web_context = webkit_web_context_new_with_website_data_manager(data_manager);
+
+    g_print("[NOVA Renderer] Data dir: %s\n", data_dir);
+    g_free(data_dir);
+    g_free(cache_dir);
+
+    /* ─── Create WebView with persistent context ─── */
+    webview = WEBKIT_WEB_VIEW(g_object_new(WEBKIT_TYPE_WEB_VIEW,
+        "settings", settings,
+        "web-context", web_context,
+        NULL));
 
     /* Make webview background transparent (NOVA OS handles its own bg) */
     GdkRGBA transparent = {0, 0, 0, 0};

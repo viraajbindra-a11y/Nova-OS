@@ -4,6 +4,12 @@
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import dns from 'dns';
+
+// Force IPv4 DNS resolution first — many networks (including some home
+// Wi-Fi) have broken IPv6. Node's default undici fetch prefers IPv6 and
+// hangs indefinitely on failed connections. This makes fetch actually work.
+dns.setDefaultResultOrder('ipv4first');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
