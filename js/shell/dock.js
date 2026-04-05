@@ -18,6 +18,8 @@ const dockApps = [
   { id: 'reminders', name: 'Reminders' },
   { id: 'draw', name: 'Draw' },
   { id: 'vault', name: 'Vault' },
+  { id: 'screen-recorder', name: 'Screen Recorder' },
+  { id: 'trash', name: 'Trash' },
   { id: 'appstore', name: 'App Store' },
   { id: 'settings', name: 'Settings' },
 ];

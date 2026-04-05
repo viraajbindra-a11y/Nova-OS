@@ -130,6 +130,12 @@ export function initShortcuts() {
       eventBus.emit('screenshot:take', 'selection');
     }
 
+    // Cmd+Shift+5 — Screen Recorder
+    if (meta && e.shiftKey && e.key === '5') {
+      e.preventDefault();
+      processManager.launch('screen-recorder');
+    }
+
     // === System ===
     // Cmd+L — Lock screen
     if (meta && e.key === 'l' && !inWindowContent) {

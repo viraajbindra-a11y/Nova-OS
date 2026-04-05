@@ -128,14 +128,14 @@ function initBrowser(container, instanceId, options = {}) {
       // Update BrowserView bounds when window moves/resizes
       setupBrowserViewTracking(viewport);
     } else {
-      // Web fallback: iframe (limited)
+      // Web fallback: use our server-side proxy (strips X-Frame-Options)
       const old = viewport.querySelector('.browser-home, .browser-error, iframe');
       if (old) old.remove();
 
       const iframe = document.createElement('iframe');
       iframe.className = 'browser-iframe';
       iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox');
-      iframe.src = url;
+      iframe.src = `/api/browser/proxy?url=${encodeURIComponent(url)}`;
       iframe.onload = () => {
         loadingBar.style.width = '100%';
         setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
@@ -144,6 +144,18 @@ function initBrowser(container, instanceId, options = {}) {
       viewport.appendChild(iframe);
     }
   }
+
+  // Listen for link clicks from within proxied pages (they postMessage us)
+  const navHandler = (e) => {
+    if (e.data?.type === 'nova-browser-nav' && e.data.url) {
+      navigate(e.data.url);
+    }
+  };
+  window.addEventListener('message', navHandler);
+
+  // Cleanup when window closes
+  const cleanup = () => window.removeEventListener('message', navHandler);
+  container.addEventListener('DOMNodeRemoved', cleanup, { once: true });
 
   function setupBrowserViewTracking(viewport) {
     // Continuously update BrowserView position to match the window

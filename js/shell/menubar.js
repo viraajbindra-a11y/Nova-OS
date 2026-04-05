@@ -23,6 +23,8 @@ export function initMenubar() {
       settings: 'Settings', 'text-editor': 'Text Editor', photos: 'Photos',
       weather: 'Weather', clock: 'Clock', reminders: 'Reminders',
       'activity-monitor': 'Activity Monitor', vault: 'Vault',
+      'screen-recorder': 'Screen Recorder', trash: 'Trash',
+      installer: 'Installer',
     };
     document.getElementById('menubar-app-name').textContent = appNames[app] || title || 'Finder';
   });

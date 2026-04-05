@@ -1,0 +1,255 @@
+#!/bin/bash
+# NOVA OS — Disk Installer
+#
+# Run from the live ISO to install NOVA OS permanently to the internal drive.
+# Usage (as root):
+#   sudo nova-install
+#
+# Interactive TUI — shows available disks, confirms before wiping, installs
+# via squashfs extraction + GRUB setup.
+
+set -e
+
+if [ "$EUID" -ne 0 ]; then
+  echo "Must run as root. Try: sudo nova-install"
+  exit 1
+fi
+
+bold() { printf "\033[1m%s\033[0m" "$1"; }
+red()  { printf "\033[31m%s\033[0m" "$1"; }
+grn()  { printf "\033[32m%s\033[0m" "$1"; }
+ylw()  { printf "\033[33m%s\033[0m" "$1"; }
+blu()  { printf "\033[34m%s\033[0m" "$1"; }
+
+clear
+cat << 'BANNER'
+
+  ███╗   ██╗ ██████╗ ██╗   ██╗ █████╗      ██████╗ ███████╗
+  ████╗  ██║██╔═══██╗██║   ██║██╔══██╗    ██╔═══██╗██╔════╝
+  ██╔██╗ ██║██║   ██║██║   ██║███████║    ██║   ██║███████╗
+  ██║╚██╗██║██║   ██║╚██╗ ██╔╝██╔══██║    ██║   ██║╚════██║
+  ██║ ╚████║╚██████╔╝ ╚████╔╝ ██║  ██║    ╚██████╔╝███████║
+  ╚═╝  ╚═══╝ ╚═════╝   ╚═══╝  ╚═╝  ╚═╝     ╚═════╝ ╚══════╝
+
+                     D I S K   I N S T A L L E R
+
+BANNER
+
+echo "  Welcome to the NOVA OS installer."
+echo "  This will install NOVA OS permanently to a disk on this computer."
+echo
+echo "  $(red "WARNING:") The target disk will be $(red "COMPLETELY ERASED").$(red " All data will be lost.")"
+echo
+
+# ─── List disks ───
+echo "  $(bold "Available disks:")"
+echo
+lsblk -d -o NAME,SIZE,MODEL,TRAN | grep -v "loop\|sr0\|zram" | tail -n +2 | nl -w3 -s". " | while read -r line; do
+  echo "    $line"
+done
+
+DISKS=($(lsblk -d -n -o NAME | grep -v "loop\|sr0\|zram"))
+NUM_DISKS=${#DISKS[@]}
+
+if [ "$NUM_DISKS" -eq 0 ]; then
+  echo "  $(red "No disks found."). Exiting."
+  exit 1
+fi
+
+echo
+read -p "  Choose disk number to install to: " -r DISK_NUM
+DISK_IDX=$((DISK_NUM - 1))
+
+if [ -z "${DISKS[$DISK_IDX]}" ]; then
+  echo "  $(red "Invalid selection.")"
+  exit 1
+fi
+
+TARGET="/dev/${DISKS[$DISK_IDX]}"
+TARGET_SIZE=$(lsblk -b -d -o SIZE -n "$TARGET")
+TARGET_SIZE_GB=$((TARGET_SIZE / 1024 / 1024 / 1024))
+
+echo
+echo "  Selected: $(bold "$TARGET") (${TARGET_SIZE_GB} GB)"
+echo
+echo "  $(red "╔══════════════════════════════════════════════════════╗")"
+echo "  $(red "║  THIS WILL DELETE EVERYTHING ON $TARGET              ║")"
+echo "  $(red "║  Make sure you have backups of anything important!  ║")"
+echo "  $(red "╚══════════════════════════════════════════════════════╝")"
+echo
+read -p "  Type $(bold "YES") (in capitals) to continue: " -r CONFIRM
+if [ "$CONFIRM" != "YES" ]; then
+  echo "  Installation cancelled."
+  exit 0
+fi
+
+# ─── Username & password ───
+echo
+read -p "  Your name: " USERNAME
+USERNAME="${USERNAME:-nova}"
+while true; do
+  read -s -p "  Password: " PASSWORD
+  echo
+  read -s -p "  Password (again): " PASSWORD2
+  echo
+  [ "$PASSWORD" = "$PASSWORD2" ] && break
+  echo "  $(red "Passwords don't match. Try again.")"
+done
+
+# ─── Detect boot mode ───
+if [ -d /sys/firmware/efi ]; then
+  BOOT_MODE="UEFI"
+else
+  BOOT_MODE="BIOS"
+fi
+echo
+echo "  Boot mode: $(bold "$BOOT_MODE")"
+
+# ─── Install ───
+echo
+echo "  $(ylw "Installing NOVA OS to $TARGET")..."
+echo
+
+# Unmount anything currently using the target
+echo "  [1/7] Unmounting target..."
+umount ${TARGET}* 2>/dev/null || true
+swapoff ${TARGET}* 2>/dev/null || true
+
+# Wipe partition table
+echo "  [2/7] Wiping existing partitions..."
+wipefs -a "$TARGET" > /dev/null 2>&1 || true
+dd if=/dev/zero of="$TARGET" bs=1M count=10 > /dev/null 2>&1
+
+# Create new partition table
+echo "  [3/7] Creating partitions..."
+if [ "$BOOT_MODE" = "UEFI" ]; then
+  # GPT: ESP (512M) + root (rest)
+  parted -s "$TARGET" mklabel gpt
+  parted -s "$TARGET" mkpart ESP fat32 1MiB 513MiB
+  parted -s "$TARGET" set 1 esp on
+  parted -s "$TARGET" mkpart primary ext4 513MiB 100%
+else
+  # MBR: boot (512M) + root (rest)
+  parted -s "$TARGET" mklabel msdos
+  parted -s "$TARGET" mkpart primary ext4 1MiB 513MiB
+  parted -s "$TARGET" set 1 boot on
+  parted -s "$TARGET" mkpart primary ext4 513MiB 100%
+fi
+
+sleep 1
+partprobe "$TARGET"
+
+# Figure out partition names (handles both sda1 and nvme0n1p1 styles)
+if [[ "$TARGET" =~ nvme|mmcblk ]]; then
+  BOOT_PART="${TARGET}p1"
+  ROOT_PART="${TARGET}p2"
+else
+  BOOT_PART="${TARGET}1"
+  ROOT_PART="${TARGET}2"
+fi
+
+# Format
+echo "  [4/7] Formatting filesystems..."
+if [ "$BOOT_MODE" = "UEFI" ]; then
+  mkfs.vfat -F32 "$BOOT_PART" > /dev/null 2>&1
+else
+  mkfs.ext4 -F "$BOOT_PART" > /dev/null 2>&1
+fi
+mkfs.ext4 -F -L NOVA-ROOT "$ROOT_PART" > /dev/null 2>&1
+
+# Mount
+MOUNT="/mnt/nova-install"
+mkdir -p "$MOUNT"
+mount "$ROOT_PART" "$MOUNT"
+if [ "$BOOT_MODE" = "UEFI" ]; then
+  mkdir -p "$MOUNT/boot/efi"
+  mount "$BOOT_PART" "$MOUNT/boot/efi"
+else
+  mkdir -p "$MOUNT/boot"
+  mount "$BOOT_PART" "$MOUNT/boot"
+fi
+
+# Copy filesystem from the running live system
+echo "  [5/7] Copying NOVA OS files (this takes a few minutes)..."
+rsync -aAX --info=progress2 \
+  --exclude={"/dev/*","/proc/*","/sys/*","/tmp/*","/run/*","/mnt/*","/media/*","/lost+found","/swapfile","/cdrom"} \
+  / "$MOUNT/" 2>/dev/null | tail -1
+
+# Create essential directories
+for d in dev proc sys tmp run mnt media; do
+  mkdir -p "$MOUNT/$d"
+done
+
+# ─── Configure the new system ───
+echo "  [6/7] Configuring system..."
+
+# fstab
+UUID_ROOT=$(blkid -s UUID -o value "$ROOT_PART")
+UUID_BOOT=$(blkid -s UUID -o value "$BOOT_PART")
+cat > "$MOUNT/etc/fstab" << FSTAB
+# NOVA OS fstab (generated by nova-install)
+UUID=$UUID_ROOT  /         ext4  defaults,noatime  0 1
+FSTAB
+if [ "$BOOT_MODE" = "UEFI" ]; then
+  echo "UUID=$UUID_BOOT  /boot/efi  vfat  umask=0077      0 2" >> "$MOUNT/etc/fstab"
+else
+  echo "UUID=$UUID_BOOT  /boot      ext4  defaults        0 2" >> "$MOUNT/etc/fstab"
+fi
+
+# Set hostname
+echo "nova-os" > "$MOUNT/etc/hostname"
+
+# Bind-mount virtual filesystems for chroot
+for fs in dev dev/pts proc sys; do
+  mount --bind "/$fs" "$MOUNT/$fs"
+done
+
+# Create the user account in the installed system
+chroot "$MOUNT" /bin/bash << CHROOTSH
+set -e
+# Remove live user if it exists
+userdel -r nova 2>/dev/null || true
+# Create user
+useradd -m -s /bin/bash -G audio,video,sudo,netdev,plugdev,cdrom "$USERNAME"
+echo "$USERNAME:$PASSWORD" | chpasswd
+echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/$USERNAME
+chmod 0440 /etc/sudoers.d/$USERNAME
+# Copy skeleton to new user
+cp -r /etc/skel/. /home/$USERNAME/ 2>/dev/null || true
+chown -R $USERNAME:$USERNAME /home/$USERNAME
+# Update auto-login to new user
+mkdir -p /etc/systemd/system/getty@tty1.service.d
+cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << AUTO
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin $USERNAME --noclear %I \$TERM
+AUTO
+CHROOTSH
+
+# ─── Install GRUB ───
+echo "  [7/7] Installing bootloader..."
+if [ "$BOOT_MODE" = "UEFI" ]; then
+  chroot "$MOUNT" grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id="NOVA OS" --recheck 2>&1 | tail -2
+else
+  chroot "$MOUNT" grub-install --target=i386-pc "$TARGET" --recheck 2>&1 | tail -2
+fi
+chroot "$MOUNT" update-grub 2>&1 | tail -2
+
+# Unmount
+for fs in sys proc dev/pts dev; do
+  umount "$MOUNT/$fs" 2>/dev/null || true
+done
+umount -R "$MOUNT" 2>/dev/null || true
+
+echo
+echo "  $(grn "╔══════════════════════════════════════════════════════╗")"
+echo "  $(grn "║         INSTALLATION COMPLETED SUCCESSFULLY          ║")"
+echo "  $(grn "╚══════════════════════════════════════════════════════╝")"
+echo
+echo "  NOVA OS has been installed to $(bold "$TARGET")."
+echo "  Remove the USB drive and reboot to boot into your new system."
+echo
+read -p "  Reboot now? [Y/n]: " -r REBOOT
+if [ "$REBOOT" != "n" ] && [ "$REBOOT" != "N" ]; then
+  reboot
+fi

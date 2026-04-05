@@ -160,6 +160,14 @@ export function initSpotlight() {
       'open vault': 'vault',
       'open passwords': 'vault',
       'open password manager': 'vault',
+      'record screen': 'screen-recorder',
+      'screen recorder': 'screen-recorder',
+      'open screen recorder': 'screen-recorder',
+      'open trash': 'trash',
+      'empty trash': 'trash',
+      'install nova': 'installer',
+      'install nova os': 'installer',
+      'installer': 'installer',
     };
 
     for (const [cmd, appId] of Object.entries(appCommands)) {

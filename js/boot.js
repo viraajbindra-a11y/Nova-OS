@@ -44,7 +44,12 @@ import { initNightShift } from './shell/night-shift.js';
 import { initFocusMode } from './shell/focus-mode.js';
 import { initIdleLock } from './shell/idle-lock.js';
 import { registerVault } from './apps/vault.js';
+import { registerScreenRecorder } from './apps/screen-recorder.js';
+import { registerTrash } from './apps/trash.js';
+import { registerInstaller } from './apps/installer.js';
 import { verifyPassword } from './kernel/crypto.js';
+import { sounds } from './kernel/sound.js';
+import { initVolumeHud } from './shell/volume-hud.js';
 
 // Boot sequence
 (async function boot() {
@@ -102,6 +107,9 @@ import { verifyPassword } from './kernel/crypto.js';
   registerReminders();
   registerActivityMonitor();
   registerVault();
+  registerScreenRecorder();
+  registerTrash();
+  registerInstaller();
   await animate(progressBar, 85, 200);
 
   // Init kernel
@@ -251,6 +259,10 @@ import { verifyPassword } from './kernel/crypto.js';
   initNightShift();
   initFocusMode();
   initIdleLock();
+  initVolumeHud();
+
+  // Boot chime
+  setTimeout(() => sounds.boot(), 100);
 
   // Desktop ready
   await sleep(300);

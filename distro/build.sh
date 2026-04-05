@@ -95,6 +95,9 @@ apt-get install -y -qq xfce4-terminal thunar thunar-archive-plugin tumbler mouse
 # Real apps
 apt-get install -y -qq xfce4-screenshooter galculator eog vlc evince xarchiver shotwell
 
+# Disk installer dependencies (for nova-install)
+apt-get install -y -qq parted rsync dosfstools e2fsprogs util-linux 2>/dev/null || true
+
 # LibreOffice (big but essential for a real OS)
 apt-get install -y -qq libreoffice-writer libreoffice-calc libreoffice-impress || true
 
@@ -246,6 +249,26 @@ which nova-renderer && echo "  nova-renderer: $(which nova-renderer)"
 BUILD_RENDERER
 chmod +x "$CHROOT/tmp/build-renderer.sh"
 chroot "$CHROOT" /tmp/build-renderer.sh
+
+# ── NOVA Disk Installer ──
+# Lets users install NOVA OS from the live ISO to their internal drive.
+echo "  Installing NOVA disk installer..."
+cp "$SCRIPT_DIR/nova-installer/nova-install" "$CHROOT/usr/bin/nova-install"
+chmod +x "$CHROOT/usr/bin/nova-install"
+
+# Desktop icon pointing at the installer (auto-launches Install NOVA OS app)
+mkdir -p "$CHROOT/etc/skel/Desktop"
+cat > "$CHROOT/etc/skel/Desktop/Install NOVA OS.desktop" << 'DESKTOP'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Install NOVA OS
+Comment=Install NOVA OS permanently to this computer
+Exec=xfce4-terminal -T "Install NOVA OS" -e "sudo nova-install"
+Icon=system-software-install
+Terminal=false
+Categories=System;
+DESKTOP
 
 # ── NOVA Auto-Updater ──
 # Installs nova-update script + systemd timer that checks GitHub hourly.
@@ -479,8 +502,8 @@ set -e
 useradd -m -s /bin/bash -G audio,video,sudo,netdev,plugdev,cdrom nova 2>/dev/null || true
 echo "nova:nova" | chpasswd
 echo "nova ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/nova
-# Specifically allow passwordless nova-update (for API endpoint)
-echo "nova ALL=(ALL) NOPASSWD: /usr/bin/nova-update" >> /etc/sudoers.d/nova
+# Specifically allow passwordless nova-update + nova-install (for API endpoint)
+echo "nova ALL=(ALL) NOPASSWD: /usr/bin/nova-update, /usr/bin/nova-install" >> /etc/sudoers.d/nova
 chmod 0440 /etc/sudoers.d/nova
 
 # Install NOVA OS node modules
