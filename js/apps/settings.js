@@ -45,7 +45,7 @@ function initSettings(container) {
     keyboard: { icon: '\u2328\uFE0F', name: 'Keyboard' },
     sound: { icon: '\uD83D\uDD0A', name: 'Sound' },
     ai: { icon: '\u2728', name: 'AI Assistant' },
-    about: { icon: '\u2139\uFE0F', name: 'About Zenith OS' },
+    about: { icon: '\u2139\uFE0F', name: 'About Astrion OS' },
   };
 
   container.innerHTML = `
@@ -149,11 +149,22 @@ function initSettings(container) {
         });
       });
 
-      // Zoom buttons (saves to localStorage, renderer reads on next start)
+      // Zoom buttons — writes config file + restarts renderer
       main.querySelectorAll('.zoom-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          localStorage.setItem('nova-ui-zoom', btn.dataset.zoom);
-          renderDisplay();
+        btn.addEventListener('click', async () => {
+          const zoom = parseFloat(btn.dataset.zoom);
+          btn.textContent = 'Applying...';
+          localStorage.setItem('nova-ui-zoom', String(zoom));
+          try {
+            await fetch('/api/display/set-zoom', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ zoom }),
+            });
+            // Renderer will restart and apply the new zoom
+          } catch {
+            renderDisplay();
+          }
         });
       });
 

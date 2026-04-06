@@ -1,13 +1,13 @@
 #!/bin/bash
-# Zenith OS — Build Script
-# Creates a bootable ISO with Zenith OS as a real Linux desktop environment.
+# Astrion OS — Build Script
+# Creates a bootable ISO with Astrion OS as a real Linux desktop environment.
 # Uses GRUB bootloader (EFI + BIOS) — no syslinux/isolinux dependency.
 # Run on Ubuntu/Debian: sudo bash distro/build.sh
 
 set -e
 
 echo "============================================"
-echo "  Zenith OS — Building Real Operating System"
+echo "  Astrion OS — Building Real Operating System"
 echo "============================================"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -83,7 +83,7 @@ apt-get install -y -qq dmz-cursor-theme adwaita-icon-theme \
 # NOVA native renderer dependencies (WebKitGTK + GTK3 + build tools)
 apt-get install -y -qq libwebkit2gtk-4.0-dev libgtk-3-dev gcc pkg-config make
 
-# Utilities only (no polybar, no plank, no rofi — Zenith OS has its own native shell)
+# Utilities only (no polybar, no plank, no rofi — Astrion OS has its own native shell)
 apt-get install -y -qq dunst feh
 
 # Keep a lightweight browser for external web browsing (not the shell)
@@ -128,7 +128,7 @@ apt-get install -y -qq papirus-icon-theme fonts-inter fonts-noto fonts-noto-colo
 # Development (for NOVA AI)
 apt-get install -y -qq nodejs npm git curl wget python3 || true
 
-# System (NO lightdm — we boot straight into Zenith OS)
+# System (NO lightdm — we boot straight into Astrion OS)
 apt-get install -y -qq sudo dbus-x11 policykit-1 policykit-1-gnome upower acpi acpid \
   plymouth imagemagick ca-certificates ntpdate systemd-timesyncd || true
 
@@ -159,7 +159,7 @@ apt-get install -y -qq grub-efi-amd64-bin grub-pc-bin grub-common || true
 # ═══════════════════════════════════════════════════
 # Waydroid — Android runtime for Linux
 # Lets users run Android apps (including Google Play Store)
-# inside Zenith OS. Needs first-run init to download Android image.
+# inside Astrion OS. Needs first-run init to download Android image.
 # https://waydro.id
 # ═══════════════════════════════════════════════════
 echo "Installing Waydroid (Android runtime)..."
@@ -210,9 +210,9 @@ chmod +x "$CHROOT/tmp/install-packages.sh"
 chroot "$CHROOT" /tmp/install-packages.sh
 
 # ============================================
-# 5. Install Zenith OS desktop environment
+# 5. Install Astrion OS desktop environment
 # ============================================
-echo "[5/8] Installing Zenith OS desktop..."
+echo "[5/8] Installing Astrion OS desktop..."
 
 # NOVA session file (display manager sees this)
 mkdir -p "$CHROOT/usr/share/xsessions"
@@ -276,15 +276,15 @@ echo "  Installing NOVA disk installer..."
 cp "$SCRIPT_DIR/nova-installer/nova-install" "$CHROOT/usr/bin/nova-install"
 chmod +x "$CHROOT/usr/bin/nova-install"
 
-# Desktop icon pointing at the installer (auto-launches Install Zenith OS app)
+# Desktop icon pointing at the installer (auto-launches Install Astrion OS app)
 mkdir -p "$CHROOT/etc/skel/Desktop"
-cat > "$CHROOT/etc/skel/Desktop/Install Zenith OS.desktop" << 'DESKTOP'
+cat > "$CHROOT/etc/skel/Desktop/Install Astrion OS.desktop" << 'DESKTOP'
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Install Zenith OS
-Comment=Install Zenith OS permanently to this computer
-Exec=xfce4-terminal -T "Install Zenith OS" -e "sudo nova-install"
+Name=Install Astrion OS
+Comment=Install Astrion OS permanently to this computer
+Exec=xfce4-terminal -T "Install Astrion OS" -e "sudo nova-install"
 Icon=system-software-install
 Terminal=false
 Categories=System;
@@ -305,14 +305,14 @@ ln -sf /etc/systemd/system/nova-updater.timer "$CHROOT/etc/systemd/system/timers
 mkdir -p "$CHROOT/etc/systemd/system/multi-user.target.wants"
 ln -sf /etc/systemd/system/nova-server.service "$CHROOT/etc/systemd/system/multi-user.target.wants/nova-server.service"
 
-# ---- Zenith OS Branding ----
+# ---- Astrion OS Branding ----
 
 # Generate NOVA wallpaper with ImageMagick (dark gradient with logo)
 mkdir -p "$CHROOT/usr/share/nova-os/wallpapers"
 
 cat > "$CHROOT/tmp/gen-wallpaper.sh" << 'WALLPAPER_SCRIPT'
 #!/bin/bash
-# Generate Zenith OS wallpaper using ImageMagick
+# Generate Astrion OS wallpaper using ImageMagick
 if command -v convert &>/dev/null; then
   # Dark gradient wallpaper (1920x1080)
   convert -size 1920x1080 \
@@ -337,13 +337,13 @@ WALLPAPER_SCRIPT
 chmod +x "$CHROOT/tmp/gen-wallpaper.sh"
 chroot "$CHROOT" /tmp/gen-wallpaper.sh
 
-# Plymouth boot splash theme (Zenith OS branded)
+# Plymouth boot splash theme (Astrion OS branded)
 mkdir -p "$CHROOT/usr/share/plymouth/themes/nova-os"
 
 cat > "$CHROOT/usr/share/plymouth/themes/nova-os/nova-os.plymouth" << 'PLYMOUTH'
 [Plymouth Theme]
-Name=Zenith OS
-Description=Zenith OS Boot Splash
+Name=Astrion OS
+Description=Astrion OS Boot Splash
 ModuleName=script
 
 [script]
@@ -352,7 +352,7 @@ ScriptFile=/usr/share/plymouth/themes/nova-os/nova-os.script
 PLYMOUTH
 
 cat > "$CHROOT/usr/share/plymouth/themes/nova-os/nova-os.script" << 'PLYSCRIPT'
-# Zenith OS Plymouth Script
+# Astrion OS Plymouth Script
 Window.SetBackgroundTopColor(0.04, 0.04, 0.10);
 Window.SetBackgroundBottomColor(0.06, 0.06, 0.18);
 
@@ -363,8 +363,8 @@ logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
 logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2 - 40);
 logo.sprite.SetOpacity(1);
 
-# Zenith OS text
-nova_text.image = Image.Text("Z E N I T H  O S", 0.85, 0.85, 0.85, 1, "Inter 18");
+# Astrion OS text
+nova_text.image = Image.Text("A S T R I O N  O S", 0.85, 0.85, 0.85, 1, "Inter 18");
 nova_text.sprite = Sprite(nova_text.image);
 nova_text.sprite.SetX(Window.GetWidth() / 2 - nova_text.image.GetWidth() / 2);
 nova_text.sprite.SetY(Window.GetHeight() / 2 + 50);
@@ -481,7 +481,7 @@ mkdir -p "$CHROOT/etc/skel/.local/share/Trash/info"
 
 # Welcome file
 cat > "$CHROOT/etc/skel/Desktop/Welcome.txt" << 'WELCOME'
-Welcome to Zenith OS!
+Welcome to Astrion OS!
 
 This is a real operating system. Here's what you can do:
 
@@ -506,7 +506,7 @@ SHORTCUTS:
 - Super+Left/Right: Snap windows to half screen
 - Alt+F4: Close window
 
-Enjoy Zenith OS!
+Enjoy Astrion OS!
 WELCOME
 
 # ============================================
@@ -541,13 +541,13 @@ systemctl enable qemu-guest-agent 2>/dev/null || true
 systemctl enable systemd-timesyncd 2>/dev/null || true
 
 # Set hostname
-echo "zenith-os" > /etc/hostname
-echo "127.0.0.1 zenith-os" >> /etc/hosts
+echo "astrion-os" > /etc/hostname
+echo "127.0.0.1 astrion-os" >> /etc/hosts
 
 # Timezone
 ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 
-# ---- DIRECT BOOT INTO Zenith OS (no login screen) ----
+# ---- DIRECT BOOT INTO Astrion OS (no login screen) ----
 # Auto-login on tty1 via systemd override
 mkdir -p /etc/systemd/system/getty@tty1.service.d
 cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'AUTOLOGIN'
@@ -558,17 +558,17 @@ AUTOLOGIN
 
 # .bash_profile auto-starts X (which runs .xinitrc)
 cat > /home/nova/.bash_profile << 'BASHPROFILE'
-# Zenith OS — Auto-start the desktop on tty1
+# Astrion OS — Auto-start the desktop on tty1
 if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
   exec startx 2>/dev/null
 fi
 BASHPROFILE
 chown nova:nova /home/nova/.bash_profile
 
-# .xinitrc — Zenith OS boots directly into its own native renderer
+# .xinitrc — Astrion OS boots directly into its own native renderer
 cat > /home/nova/.xinitrc << 'XINITRC'
 #!/bin/bash
-# Zenith OS — Desktop Init
+# Astrion OS — Desktop Init
 # This IS the operating system. Our own native renderer, not Chromium.
 
 # ── Cursor ──
@@ -577,10 +577,16 @@ xsetroot -cursor_name left_ptr
 export XCURSOR_THEME=DMZ-White
 export XCURSOR_SIZE=24
 
-# ── HiDPI ──
-# Do NOT set GDK_SCALE or GDK_DPI_SCALE — they conflict with WebKit's
-# own zoom. All DPI scaling is handled by nova-renderer's
-# webkit_web_view_set_zoom_level() which scales everything uniformly.
+# ── Auto-fix system clock via NTP (uses UDP, not HTTPS — no SSL cert needed) ──
+sudo ntpdate -u pool.ntp.org 2>/dev/null &
+
+# ── Auto-reconnect saved Wi-Fi profiles ──
+nmcli device wifi rescan 2>/dev/null &
+sleep 1
+SAVED_CONN=$(nmcli -t -f NAME connection show 2>/dev/null | head -1)
+if [ -n "$SAVED_CONN" ]; then
+  nmcli connection up "$SAVED_CONN" 2>/dev/null &
+fi
 
 # ── VM guest agents (for mouse integration in UTM/QEMU/VMware/VirtualBox) ──
 spice-vdagent -x 2>/dev/null &
@@ -617,7 +623,7 @@ date
 
 # ── Start NOVA server ──
 # systemd should already be running nova-server.service. If not, start it here.
-echo "Checking Zenith server..."
+echo "Checking Astrion server..."
 if ! curl -s --max-time 2 http://localhost:3000 > /dev/null 2>&1; then
   echo "Server not running — trying to start via systemctl..."
   sudo systemctl start nova-server.service 2>&1 || true
@@ -645,7 +651,7 @@ for i in $(seq 1 30); do
     echo "WARNING: server never came up — showing error screen"
     # Write an error HTML to /tmp and point renderer at it
     cat > /tmp/nova-error.html << 'ERRHTML'
-<!DOCTYPE html><html><head><title>Zenith OS Error</title>
+<!DOCTYPE html><html><head><title>Astrion OS Error</title>
 <style>
 body { margin:0; background:#0a0a1a; color:white; font-family:system-ui,sans-serif;
        display:flex; align-items:center; justify-content:center; height:100vh; }
@@ -656,8 +662,8 @@ code { display:block; background:rgba(255,255,255,0.08); padding:12px; border-ra
        font-family:monospace; font-size:12px; margin-top:20px; text-align:left; }
 </style></head><body>
 <div class="box">
-  <h1>Zenith OS could not start</h1>
-  <p>The Zenith server did not respond. Try rebooting, or open a terminal
+  <h1>Astrion OS could not start</h1>
+  <p>The Astrion server did not respond. Try rebooting, or open a terminal
      (Ctrl+Alt+F2) and run:</p>
   <code>sudo systemctl status nova-server<br>journalctl -u nova-server -n 50</code>
 </div></body></html>
@@ -665,7 +671,7 @@ ERRHTML
   fi
 done
 
-# Launch Zenith OS fullscreen via nova-renderer
+# Launch Astrion OS fullscreen via nova-renderer
 if command -v nova-renderer >/dev/null 2>&1; then
   echo "Launching nova-renderer..."
   # If the error screen exists (server never came up), point the renderer at it
@@ -715,21 +721,21 @@ XDG_VIDEOS_DIR="$HOME/Videos"
 cat > /etc/default/grub << 'GRUB'
 GRUB_DEFAULT=0
 GRUB_TIMEOUT=3
-GRUB_DISTRIBUTOR="Zenith OS"
+GRUB_DISTRIBUTOR="Astrion OS"
 GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3"
 GRUB_CMDLINE_LINUX=""
 GRUB_TERMINAL_OUTPUT="gfxterm"
 GRUB_GFXMODE=auto
 GRUB
 
-# Zenith OS Plymouth theme
+# Astrion OS Plymouth theme
 plymouth-set-default-theme nova-os 2>/dev/null || \
   update-alternatives --set default.plymouth /usr/share/plymouth/themes/nova-os/nova-os.plymouth 2>/dev/null || true
 
 # OS release branding
 cat > /etc/os-release << 'OSREL'
-PRETTY_NAME="Zenith OS 1.0"
-NAME="Zenith OS"
+PRETTY_NAME="Astrion OS 1.0"
+NAME="Astrion OS"
 VERSION_ID="1.0"
 VERSION="1.0 (Andromeda)"
 VERSION_CODENAME=andromeda
@@ -741,15 +747,15 @@ OSREL
 
 # LSB release
 cat > /etc/lsb-release << 'LSB'
-DISTRIB_ID=Zenith-OS
+DISTRIB_ID=Astrion-OS
 DISTRIB_RELEASE=1.0
 DISTRIB_CODENAME=andromeda
-DISTRIB_DESCRIPTION="Zenith OS 1.0 (Andromeda)"
+DISTRIB_DESCRIPTION="Astrion OS 1.0 (Andromeda)"
 LSB
 
 # Issue banner
-echo "Zenith OS 1.0 \\n \\l" > /etc/issue
-echo "Zenith OS 1.0" > /etc/issue.net
+echo "Astrion OS 1.0 \\n \\l" > /etc/issue
+echo "Astrion OS 1.0" > /etc/issue.net
 
 # Disable unnecessary services
 systemctl disable ssh 2>/dev/null || true
@@ -818,7 +824,7 @@ insmod png
 set gfxmode=1920x1080,1280x720,auto
 terminal_output gfxterm
 
-# Zenith OS dark theme
+# Astrion OS dark theme
 set color_normal=light-gray/black
 set color_highlight=white/dark-gray
 set menu_color_normal=light-gray/black
@@ -826,21 +832,21 @@ set menu_color_highlight=white/dark-gray
 
 # Title
 echo ""
-echo "    Z E N I T H   O S"
-echo "    ──────────────────"
+echo "    A S T R I O N   O S"
+echo "    ────────────────────"
 echo ""
 
-menuentry "  Zenith OS" {
+menuentry "  Astrion OS" {
     linux /live/vmlinuz boot=live quiet splash loglevel=3
     initrd /live/initrd.img
 }
 
-menuentry "  Zenith OS — Safe Mode (no GPU acceleration)" {
+menuentry "  Astrion OS — Safe Mode (no GPU acceleration)" {
     linux /live/vmlinuz boot=live nomodeset
     initrd /live/initrd.img
 }
 
-menuentry "  Zenith OS — Load to RAM (faster, needs 4GB+)" {
+menuentry "  Astrion OS — Load to RAM (faster, needs 4GB+)" {
     linux /live/vmlinuz boot=live toram quiet splash
     initrd /live/initrd.img
 }
@@ -893,9 +899,9 @@ ls -la "$BINARY/boot/grub/bios.img" "$BINARY/boot/grub/efi.img" "$BINARY/EFI/BOO
 
 xorriso -as mkisofs \
   -o "$OUTPUT_DIR/nova-os.iso" \
-  -V "Zenith-OS-1.0" \
-  -A "Zenith OS" \
-  -publisher "Zenith OS Project" \
+  -V "Astrion-OS-1.0" \
+  -A "Astrion OS" \
+  -publisher "Astrion OS Project" \
   -isohybrid-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
   -b boot/grub/bios.img \
     -no-emul-boot \
@@ -914,16 +920,16 @@ if [ -f "$OUTPUT_DIR/nova-os.iso" ]; then
   ISO_SIZE=$(du -h "$OUTPUT_DIR/nova-os.iso" | cut -f1)
   echo ""
   echo "============================================"
-  echo "  Zenith OS built successfully!"
+  echo "  Astrion OS built successfully!"
   echo "  Size: $ISO_SIZE"
   echo "  File: $OUTPUT_DIR/nova-os.iso"
   echo "============================================"
   echo ""
   echo "  This is a REAL operating system with its OWN renderer."
-  echo "  No Chromium. No browser UI. 100% native Zenith OS."
+  echo "  No Chromium. No browser UI. 100% native Astrion OS."
   echo "  Flash to USB -> Boot -> Use."
   echo ""
-  echo "  Zenith Native Shell:"
+  echo "  Astrion Native Shell:"
   echo "    - nova-shell (C/GTK3 native desktop environment)"
   echo "    - Native menubar, dock, window manager"
   echo "    - WebKitGTK app renderer (NOT a browser)"
@@ -941,7 +947,7 @@ if [ -f "$OUTPUT_DIR/nova-os.iso" ]; then
   echo "    - Calculator"
   echo "    - Image viewer + PDF reader"
   echo "    - Software Center (install more apps)"
-  echo "    - Zenith AI assistant"
+  echo "    - Astrion AI assistant"
   echo ""
   echo "  Flash: sudo dd if=$OUTPUT_DIR/nova-os.iso of=/dev/sdX bs=4M status=progress"
   echo "  Or use Balena Etcher"

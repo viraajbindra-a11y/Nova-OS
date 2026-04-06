@@ -18,7 +18,7 @@
 #include <signal.h>
 
 #define NOVA_DEFAULT_URL "http://localhost:3000"
-#define NOVA_TITLE       "Zenith OS"
+#define NOVA_TITLE       "Astrion OS"
 #define NOVA_VERSION     "1.0"
 
 static GtkWidget *window = NULL;
@@ -101,7 +101,7 @@ static void on_load_changed(WebKitWebView *view, WebKitLoadEvent event, gpointer
             "window.__NOVA_VERSION__ = '" NOVA_VERSION "';"
             "window.__NOVA_RENDERER__ = 'nova-renderer';"
             "document.documentElement.classList.add('nova-native');"
-            "console.log('[Zenith Renderer] Native mode active');";
+            "console.log('[Astrion Renderer] Native mode active');";
         webkit_web_view_run_javascript(view, js, NULL, NULL, NULL);
     }
 }
@@ -109,7 +109,7 @@ static void on_load_changed(WebKitWebView *view, WebKitLoadEvent event, gpointer
 /* Handle web process crash — auto-reload */
 static void on_web_process_crashed(WebKitWebView *view, gpointer data)
 {
-    g_warning("[Zenith Renderer] Web process crashed, reloading...");
+    g_warning("[Astrion Renderer] Web process crashed, reloading...");
     webkit_web_view_reload(view);
 }
 
@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
         } else if (strcmp(argv[i], "--windowed") == 0) {
             windowed = TRUE;
         } else if (strcmp(argv[i], "--help") == 0) {
-            g_print("Zenith OS Renderer v" NOVA_VERSION "\n");
+            g_print("Astrion OS Renderer v" NOVA_VERSION "\n");
             g_print("Usage: nova-renderer [OPTIONS]\n\n");
             g_print("Options:\n");
             g_print("  --url URL    Load a specific URL (default: %s)\n", NOVA_DEFAULT_URL);
@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
     GdkScreen *screen = gdk_screen_get_default();
     int screen_w = gdk_screen_get_width(screen);
     int screen_h = gdk_screen_get_height(screen);
-    g_print("[Zenith Renderer] Screen size: %dx%d\n", screen_w, screen_h);
+    g_print("[Astrion Renderer] Screen size: %dx%d\n", screen_w, screen_h);
 
     /* ─── Create the window ─── */
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -217,7 +217,7 @@ int main(int argc, char *argv[])
 
     /* Set user agent to NOVA OS (not a browser) */
     webkit_settings_set_user_agent(settings,
-        "Zenith-OS/1.0 (Native; Linux x86_64) NovaRenderer/1.0");
+        "Astrion-OS/1.0 (Native; Linux x86_64) NovaRenderer/1.0");
 
     /* Developer mode */
     webkit_settings_set_enable_developer_extras(settings, dev_mode);
@@ -243,7 +243,7 @@ int main(int argc, char *argv[])
 
     WebKitWebContext *web_context = webkit_web_context_new_with_website_data_manager(data_manager);
 
-    g_print("[Zenith Renderer] Data dir: %s\n", data_dir);
+    g_print("[Astrion Renderer] Data dir: %s\n", data_dir);
     g_free(data_dir);
     g_free(cache_dir);
 
@@ -277,33 +277,51 @@ int main(int argc, char *argv[])
     }
 
     /* ─── Load NOVA OS ─── */
-    g_print("[Zenith Renderer] Starting Zenith OS...\n");
-    g_print("[Zenith Renderer] Loading: %s\n", url);
+    g_print("[Astrion Renderer] Starting Astrion OS...\n");
+    g_print("[Astrion Renderer] Loading: %s\n", url);
     if (dev_mode) {
-        g_print("[Zenith Renderer] Developer mode enabled (Ctrl+Shift+I)\n");
+        g_print("[Astrion Renderer] Developer mode enabled (Ctrl+Shift+I)\n");
     }
 
     webkit_web_view_load_uri(webview, url);
 
     /* ─── HiDPI scaling ─── */
     /* CSS zoom doesn't work in WebKitGTK, so we use the proper WebKit
-     * zoom API. This is equivalent to Ctrl+Plus in a browser. */
+     * zoom API. This is equivalent to Ctrl+Plus in a browser.
+     * Priority: 1) config file 2) screen-size auto-detection */
     {
-        GdkScreen *scr = gdk_screen_get_default();
-        int sw = gdk_screen_get_width(scr);
-        int sh = gdk_screen_get_height(scr);
-        g_print("[Zenith Renderer] Screen: %dx%d\n", sw, sh);
-        if (sw >= 3600)       webkit_web_view_set_zoom_level(webview, 1.5);
-        else if (sw >= 2700)  webkit_web_view_set_zoom_level(webview, 1.5);
-        else if (sw >= 2400)  webkit_web_view_set_zoom_level(webview, 1.4);
-        else if (sw >= 2000)  webkit_web_view_set_zoom_level(webview, 1.3);
-        else if (sw >= 1800)  webkit_web_view_set_zoom_level(webview, 1.15);
-        g_print("[Zenith Renderer] Zoom: %.1f\n", webkit_web_view_get_zoom_level(webview));
+        double zoom = 0;
+
+        /* 1) Check config file (~/.config/nova-renderer/zoom) */
+        gchar *zoom_path = g_build_filename(g_get_home_dir(), ".config", "nova-renderer", "zoom", NULL);
+        FILE *zf = fopen(zoom_path, "r");
+        if (zf) {
+            char buf[32];
+            if (fgets(buf, sizeof(buf), zf)) {
+                zoom = atof(buf);
+                g_print("[Astrion Renderer] Zoom from config: %.2f\n", zoom);
+            }
+            fclose(zf);
+        }
+        g_free(zoom_path);
+
+        /* 2) Auto-detect from screen size if no config */
+        if (zoom <= 0) {
+            if (screen_w >= 3600)       zoom = 1.5;
+            else if (screen_w >= 2700)  zoom = 1.5;
+            else if (screen_w >= 2400)  zoom = 1.4;
+            else if (screen_w >= 2000)  zoom = 1.3;
+            else if (screen_w >= 1800)  zoom = 1.15;
+            else                        zoom = 1.0;
+        }
+
+        webkit_web_view_set_zoom_level(webview, zoom);
+        g_print("[Astrion Renderer] Zoom: %.2f (screen: %dx%d)\n", zoom, screen_w, screen_h);
     }
 
     /* ─── Run the main loop ─── */
     gtk_main();
 
-    g_print("[Zenith Renderer] Shutdown complete.\n");
+    g_print("[Astrion Renderer] Shutdown complete.\n");
     return 0;
 }

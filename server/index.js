@@ -145,7 +145,7 @@ app.post('/api/ai', async (req, res) => {
       body: JSON.stringify({
         model: model || 'claude-haiku-4-5-20251001',
         max_tokens: max_tokens || 1024,
-        system: system || 'You are Zenith, a helpful AI assistant built into Zenith OS.',
+        system: system || 'You are Astrion, a helpful AI assistant built into Astrion OS.',
         messages: messages || [],
       }),
     });
@@ -175,7 +175,7 @@ app.get('/app/:appId', (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Zenith OS — ${appId}</title>
+  <title>Astrion OS — ${appId}</title>
   <link rel="stylesheet" href="/css/system.css">
   <link rel="stylesheet" href="/css/desktop.css">
   <link rel="stylesheet" href="/css/window.css">
@@ -253,7 +253,7 @@ app.get('/api/browser/proxy', async (req, res) => {
   try {
     const upstream = await fetch(targetUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Zenith/1.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Astrion/1.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
       },
@@ -745,6 +745,23 @@ app.get('/api/display/info', async (req, res) => {
   res.json({ output, current, resolutions });
 });
 
+app.post('/api/display/set-zoom', async (req, res) => {
+  const { zoom } = req.body;
+  if (!zoom || zoom < 0.5 || zoom > 4) return res.status(400).json({ error: 'zoom must be 0.5-4.0' });
+  try {
+    const fs = await import('fs/promises');
+    const homedir = process.env.HOME || '/home/nova';
+    const configDir = `${homedir}/.config/nova-renderer`;
+    await fs.mkdir(configDir, { recursive: true });
+    await fs.writeFile(`${configDir}/zoom`, String(zoom));
+    res.json({ ok: true, zoom, message: 'Zoom saved. Restarting renderer...' });
+    // Restart renderer so it picks up new zoom
+    setTimeout(() => runShell('killall', ['nova-renderer']).catch(() => {}), 500);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/display/set-resolution', async (req, res) => {
   const { resolution } = req.body;
   if (!resolution) return res.status(400).json({ error: 'resolution required' });
@@ -775,5 +792,5 @@ app.post('/api/system/sleep', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Zenith OS server running at http://localhost:${PORT}`);
+  console.log(`Astrion OS server running at http://localhost:${PORT}`);
 });
