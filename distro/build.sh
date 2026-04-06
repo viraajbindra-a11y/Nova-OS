@@ -764,7 +764,7 @@ systemctl disable ssh 2>/dev/null || true
 systemctl disable apache2 2>/dev/null || true
 
 # Set ownership
-chown -R astrion:astrion /home/nova
+chown -R astrion:astrion /home/astrion
 chown -R astrion:astrion /opt/nova-os 2>/dev/null || true
 
 echo "System setup complete."
