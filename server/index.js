@@ -834,6 +834,18 @@ app.post('/api/system/set-time', async (req, res) => {
   res.json({ ok: r.code === 0 });
 });
 
+app.post('/api/system/set-timezone', async (req, res) => {
+  const { timezone } = req.body;
+  if (!timezone) return res.status(400).json({ error: 'timezone required' });
+  // Set timezone via timedatectl or symlink
+  const r1 = await runShell('sudo', ['-n', 'timedatectl', 'set-timezone', timezone]);
+  if (r1.code !== 0) {
+    // Fallback: manual symlink
+    await runShell('sudo', ['-n', 'ln', '-sf', `/usr/share/zoneinfo/${timezone}`, '/etc/localtime']);
+  }
+  res.json({ ok: true, timezone });
+});
+
 app.post('/api/system/shutdown', async (req, res) => {
   res.json({ ok: true });
   setTimeout(() => runShell('sudo', ['-n', 'shutdown', '-h', 'now']), 500);

@@ -21,8 +21,8 @@ export function initScreensaver() {
     }, { passive: true });
   });
 
-  // Check every 30s
-  checkInterval = setInterval(checkIdle, 30000);
+  // Check every 10s
+  checkInterval = setInterval(checkIdle, 10000);
 }
 
 function checkIdle() {

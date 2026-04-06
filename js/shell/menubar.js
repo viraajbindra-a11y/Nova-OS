@@ -288,6 +288,18 @@ async function syncTime() {
     } catch {}
   }
 
+  // Set system timezone based on browser's detected timezone
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz) {
+      fetch('/api/system/set-timezone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timezone: tz }),
+      }).catch(() => {});
+    }
+  } catch {}
+
   // Re-sync every 10 minutes
   setTimeout(syncTime, 600000);
 }
@@ -441,9 +453,9 @@ function initBattery() {
     updateDisplay();
   }
 
-  // Initial read + poll every 30 seconds
+  // Initial read + poll every 10 seconds
   fetchBattery();
-  setInterval(fetchBattery, 30000);
+  setInterval(fetchBattery, 10000);
 
   // Fallback drain for web-only mode
   setInterval(() => {

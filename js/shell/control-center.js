@@ -121,15 +121,25 @@ function open() {
       // Clicking Wi-Fi tile: open the real Wi-Fi picker
       if (key === 'wifi') {
         close();
-        const { openWifiPicker } = await import('./wifi-picker.js');
-        openWifiPicker();
+        try {
+          const mod = await import('./wifi-picker.js');
+          if (mod.openWifiPicker) mod.openWifiPicker();
+          else console.error('openWifiPicker not found in module');
+        } catch (e) {
+          console.error('Failed to open Wi-Fi picker:', e);
+        }
         return;
       }
       // Clicking Bluetooth tile: open the real Bluetooth picker
       if (key === 'bluetooth') {
         close();
-        const { openBluetoothPicker } = await import('./bluetooth-picker.js');
-        openBluetoothPicker();
+        try {
+          const mod = await import('./bluetooth-picker.js');
+          if (mod.openBluetoothPicker) mod.openBluetoothPicker();
+          else console.error('openBluetoothPicker not found');
+        } catch (e) {
+          console.error('Failed to open Bluetooth picker:', e);
+        }
         return;
       }
       if (key === 'airdrop') { airdropOn = !airdropOn; }

@@ -153,17 +153,28 @@ function initSettings(container) {
       main.querySelectorAll('.zoom-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
           const zoom = parseFloat(btn.dataset.zoom);
-          btn.textContent = 'Applying...';
+          btn.textContent = 'Saving...';
           localStorage.setItem('nova-ui-zoom', String(zoom));
           try {
-            await fetch('/api/display/set-zoom', {
+            const res = await fetch('/api/display/set-zoom', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ zoom }),
             });
-            // Renderer will restart and apply the new zoom
+            const data = await res.json();
+            if (data.ok) {
+              btn.textContent = 'Restarting...';
+              // Give server time to write config, then renderer restarts
+              setTimeout(() => {
+                // Page will reload when renderer restarts
+              }, 1000);
+            } else {
+              btn.textContent = 'Failed';
+              setTimeout(() => renderDisplay(), 1500);
+            }
           } catch {
-            renderDisplay();
+            btn.textContent = 'Error';
+            setTimeout(() => renderDisplay(), 1500);
           }
         });
       });

@@ -137,38 +137,35 @@ function initBrowser(container, instanceId, options = {}) {
 
       // Update BrowserView bounds when window moves/resizes
       setupBrowserViewTracking(viewport);
-    } else if (window.__NOVA_NATIVE__) {
-      // On ISO: launch our custom Astrion Browser (WebKitGTK, fast, native)
+    } else {
+      // Launch Astrion Browser (native) or fall back to iframe proxy
       const old = viewport.querySelector('.browser-home, .browser-error, iframe');
       if (old) old.remove();
 
+      // Try native browser first (works on ISO)
       fetch('/api/browser/open', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),
+      }).then(r => r.json()).then(data => {
+        if (data.ok) {
+          loadingBar.style.width = '100%';
+          setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
+          windowManager.setTitle(instanceId, url.replace(/^https?:\/\//, '').split('/')[0]);
+        }
+      }).catch(() => {
+        // Native browser not available — use iframe proxy
+        const iframe = document.createElement('iframe');
+        iframe.className = 'browser-iframe';
+        iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox');
+        iframe.src = `/api/browser/proxy?url=${encodeURIComponent(url)}`;
+        iframe.onload = () => {
+          loadingBar.style.width = '100%';
+          setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
+          windowManager.setTitle(instanceId, url.replace(/^https?:\/\//, '').split('/')[0]);
+        };
+        viewport.appendChild(iframe);
       });
-
-      loadingBar.style.width = '100%';
-      setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
-      windowManager.setTitle(instanceId, url.replace(/^https?:\/\//, '').split('/')[0]);
-
-      // Show quick-access home in this window while browser opens natively
-      showHome();
-    } else {
-      // Web version: use server-side proxy (strips X-Frame-Options)
-      const old = viewport.querySelector('.browser-home, .browser-error, iframe');
-      if (old) old.remove();
-
-      const iframe = document.createElement('iframe');
-      iframe.className = 'browser-iframe';
-      iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox');
-      iframe.src = `/api/browser/proxy?url=${encodeURIComponent(url)}`;
-      iframe.onload = () => {
-        loadingBar.style.width = '100%';
-        setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
-        windowManager.setTitle(instanceId, url.replace(/^https?:\/\//, '').split('/')[0]);
-      };
-      viewport.appendChild(iframe);
     }
   }
 
