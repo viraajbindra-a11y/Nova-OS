@@ -149,7 +149,7 @@ apt-get install -y -qq intel-microcode amd64-microcode || true
 # All Linux firmware blobs (Wi-Fi, Bluetooth, audio codecs, GPU, etc.)
 apt-get install -y -qq firmware-linux firmware-linux-nonfree firmware-misc-nonfree \
   firmware-iwlwifi firmware-realtek firmware-atheros firmware-libertas \
-  firmware-bnx2 firmware-bnx2x firmware-brcm80211 firmware-ipw2x00 \
+  firmware-bnx2 firmware-bnx2x firmware-brcm80211 \
   firmware-ralink firmware-zd1211 firmware-ti-connectivity \
   firmware-intel-sound firmware-sof-signed firmware-amd-graphics || true
 
@@ -252,6 +252,7 @@ echo "  Compiling NOVA native renderer..."
 mkdir -p "$CHROOT/opt/nova-os/renderer"
 cp "$SCRIPT_DIR/nova-renderer/nova-shell.c" "$CHROOT/opt/nova-os/renderer/"
 cp "$SCRIPT_DIR/nova-renderer/nova-renderer.c" "$CHROOT/opt/nova-os/renderer/"
+cp "$SCRIPT_DIR/nova-renderer/astrion-browser.c" "$CHROOT/opt/nova-os/renderer/"
 cp "$SCRIPT_DIR/nova-renderer/Makefile" "$CHROOT/opt/nova-os/renderer/"
 cp "$SCRIPT_DIR/nova-renderer/nova-start.sh" "$CHROOT/opt/nova-os/renderer/"
 
