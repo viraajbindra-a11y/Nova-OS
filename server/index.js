@@ -130,7 +130,38 @@ app.post('/api/update/check', async (req, res) => {
   }
 });
 
-// AI proxy endpoint
+// ─── Ollama proxy (local or remote LLM) ───
+app.post('/api/ai/ollama', async (req, res) => {
+  const { url, model, system, messages } = req.body;
+  const ollamaUrl = url || 'http://localhost:11434';
+
+  try {
+    const response = await fetch(`${ollamaUrl}/api/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: model || 'llama3.2',
+        messages: [
+          { role: 'system', content: system || 'You are Astrion, a helpful AI assistant.' },
+          ...messages,
+        ],
+        stream: false,
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Ollama error: ' + response.statusText });
+    }
+
+    const data = await response.json();
+    res.json({ reply: data.message?.content || '', model: data.model });
+  } catch (error) {
+    res.status(502).json({ error: 'Could not reach Ollama at ' + ollamaUrl + ': ' + error.message });
+  }
+});
+
+// AI proxy endpoint (Anthropic)
 app.post('/api/ai', async (req, res) => {
   try {
     const { system, messages, model, max_tokens } = req.body;
