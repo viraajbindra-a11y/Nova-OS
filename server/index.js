@@ -721,6 +721,43 @@ app.post('/api/android/launch-app', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── Display / Resolution ───
+app.get('/api/display/info', async (req, res) => {
+  const r = await runShell('xrandr', ['--current']);
+  const lines = r.stdout.split('\n');
+
+  // Find connected output + current resolution
+  let output = '', current = '', resolutions = [];
+  for (const line of lines) {
+    const connMatch = line.match(/^(\S+)\s+connected/);
+    if (connMatch) output = connMatch[1];
+    const resMatch = line.match(/^\s+(\d+x\d+)\s+([\d.]+)(\*?)(\+?)/);
+    if (resMatch && output) {
+      resolutions.push({
+        resolution: resMatch[1],
+        rate: resMatch[2],
+        active: resMatch[3] === '*',
+      });
+      if (resMatch[3] === '*') current = resMatch[1];
+    }
+  }
+
+  res.json({ output, current, resolutions });
+});
+
+app.post('/api/display/set-resolution', async (req, res) => {
+  const { resolution } = req.body;
+  if (!resolution) return res.status(400).json({ error: 'resolution required' });
+
+  // Get connected output name
+  const info = await runShell('xrandr', ['--current']);
+  const outputMatch = info.stdout.match(/^(\S+)\s+connected/m);
+  const output = outputMatch ? outputMatch[1] : 'eDP-1';
+
+  const r = await runShell('xrandr', ['--output', output, '--mode', resolution]);
+  res.json({ ok: r.code === 0, output: r.stdout || r.stderr });
+});
+
 // ─── System Actions ───
 app.post('/api/system/shutdown', async (req, res) => {
   res.json({ ok: true });

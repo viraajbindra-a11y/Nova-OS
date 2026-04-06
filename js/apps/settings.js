@@ -40,11 +40,12 @@ function initSettings(container) {
 
   const sections = {
     appearance: { icon: '\uD83C\uDFA8', name: 'Appearance' },
+    display: { icon: '\uD83D\uDCBB', name: 'Display' },
     desktop: { icon: '\uD83D\uDDA5\uFE0F', name: 'Desktop & Dock' },
     keyboard: { icon: '\u2328\uFE0F', name: 'Keyboard' },
     sound: { icon: '\uD83D\uDD0A', name: 'Sound' },
     ai: { icon: '\u2728', name: 'AI Assistant' },
-    about: { icon: '\u2139\uFE0F', name: 'About NOVA OS' },
+    about: { icon: '\u2139\uFE0F', name: 'About Zenith OS' },
   };
 
   container.innerHTML = `
@@ -76,11 +77,88 @@ function initSettings(container) {
   function renderSection() {
     switch (activeSection) {
       case 'appearance': renderAppearance(); break;
+      case 'display': renderDisplay(); break;
       case 'desktop': renderDesktop(); break;
       case 'keyboard': renderKeyboard(); break;
       case 'sound': renderSound(); break;
       case 'ai': renderAI(); break;
       case 'about': renderAbout(); break;
+    }
+  }
+
+  async function renderDisplay() {
+    const main = container.querySelector('#settings-main');
+    main.innerHTML = `<div style="padding:24px;"><div style="font-size:13px; color:rgba(255,255,255,0.4);">Loading display info...</div></div>`;
+
+    try {
+      const res = await fetch('/api/display/info');
+      const info = await res.json();
+
+      main.innerHTML = `
+        <div style="padding:24px;">
+          <h2 style="font-size:20px; font-weight:600; margin:0 0 4px;">Display</h2>
+          <p style="font-size:12px; color:rgba(255,255,255,0.4); margin:0 0 24px;">Output: ${info.output || 'Unknown'} \u00B7 Current: ${info.current || 'auto'}</p>
+
+          <div style="font-size:13px; font-weight:600; margin-bottom:12px;">Resolution</div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:8px; margin-bottom:28px;">
+            ${(info.resolutions || []).map(r => `
+              <button class="res-btn" data-res="${r.resolution}" style="
+                padding:12px; border-radius:10px; cursor:pointer; font-family:var(--font);
+                border:2px solid ${r.active ? 'var(--accent)' : 'rgba(255,255,255,0.08)'};
+                background:${r.active ? 'rgba(0,122,255,0.15)' : 'rgba(255,255,255,0.04)'};
+                color:white; font-size:13px; font-weight:${r.active ? '600' : '400'};
+                text-align:center;
+              ">
+                ${r.resolution}
+                <div style="font-size:10px; color:rgba(255,255,255,0.4); margin-top:2px;">${r.rate} Hz${r.active ? ' \u2713' : ''}</div>
+              </button>
+            `).join('')}
+          </div>
+
+          <div style="font-size:13px; font-weight:600; margin-bottom:12px;">UI Zoom</div>
+          <div style="display:flex; gap:8px; margin-bottom:28px;">
+            ${[1.0, 1.25, 1.5, 1.75, 2.0].map(z => {
+              const currentZoom = parseFloat(localStorage.getItem('nova-ui-zoom') || '1.5');
+              const active = Math.abs(currentZoom - z) < 0.01;
+              return `<button class="zoom-btn" data-zoom="${z}" style="
+                padding:10px 18px; border-radius:8px; cursor:pointer; font-family:var(--font);
+                border:2px solid ${active ? 'var(--accent)' : 'rgba(255,255,255,0.08)'};
+                background:${active ? 'rgba(0,122,255,0.15)' : 'rgba(255,255,255,0.04)'};
+                color:white; font-size:13px; font-weight:${active ? '600' : '400'};
+              ">${z}x</button>`;
+            }).join('')}
+          </div>
+          <div style="font-size:11px; color:rgba(255,255,255,0.35);">
+            UI Zoom changes require a page reload to take effect.
+            Zoom is applied via the WebKit rendering engine and scales all UI elements uniformly.
+          </div>
+        </div>
+      `;
+
+      // Resolution buttons
+      main.querySelectorAll('.res-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const res = btn.dataset.res;
+          btn.textContent = 'Applying...';
+          await fetch('/api/display/set-resolution', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ resolution: res }),
+          });
+          setTimeout(() => renderDisplay(), 1000);
+        });
+      });
+
+      // Zoom buttons (saves to localStorage, renderer reads on next start)
+      main.querySelectorAll('.zoom-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          localStorage.setItem('nova-ui-zoom', btn.dataset.zoom);
+          renderDisplay();
+        });
+      });
+
+    } catch (err) {
+      main.innerHTML = `<div style="padding:24px; color:rgba(255,255,255,0.4);">Display settings unavailable<br><span style="font-size:11px;">${err.message}</span></div>`;
     }
   }
 
