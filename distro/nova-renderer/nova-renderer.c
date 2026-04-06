@@ -75,11 +75,8 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer dat
         return TRUE;
     }
 
-    /* Ctrl+R — reload (for development) */
-    if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_r) {
-        webkit_web_view_reload(webview);
-        return TRUE;
-    }
+    /* Ctrl+R — disabled. This is an OS, not a browser.
+     * Let it pass through to web apps that need it. */
 
     return FALSE; /* Let all other keys pass through to the web content */
 }
