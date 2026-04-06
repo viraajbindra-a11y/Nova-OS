@@ -577,6 +577,11 @@ nm-applet --indicator 2>/dev/null &
 # Power management
 xfce4-power-manager 2>/dev/null &
 
+# ── Set native resolution ──
+# X might not auto-detect the Surface's native 2736x1824. Force it.
+xrandr --auto 2>/dev/null
+sleep 0.5
+
 # Set NOVA dark background while loading
 xsetroot -solid "#0a0a1a"
 

@@ -176,8 +176,8 @@ int main(int argc, char *argv[])
     gtk_window_set_skip_taskbar_hint(GTK_WINDOW(window), TRUE);
     gtk_window_set_skip_pager_hint(GTK_WINDOW(window), TRUE);
 
-    /* Set window type to desktop level */
-    gtk_window_set_type_hint(GTK_WINDOW(window), GDK_WINDOW_TYPE_HINT_DESKTOP);
+    /* Use NORMAL type hint — DESKTOP type prevents proper fullscreen */
+    gtk_window_set_type_hint(GTK_WINDOW(window), GDK_WINDOW_TYPE_HINT_NORMAL);
 
     /* Make it black while loading */
     GdkRGBA bg_color = {0.04, 0.04, 0.10, 1.0};
