@@ -97,6 +97,7 @@ function initAppStore(container) {
           <button class="appstore-tab active" data-tab="discover">Discover</button>
           <button class="appstore-tab" data-tab="top">Top Charts</button>
           <button class="appstore-tab" data-tab="categories">Categories</button>
+          <button class="appstore-tab" data-tab="linux">Linux Apps</button>
           <button class="appstore-tab" data-tab="skills">AI Skills</button>
         </div>
         <input type="text" class="appstore-search" placeholder="Search apps...">
@@ -132,6 +133,7 @@ function initAppStore(container) {
       case 'discover': renderDiscover(); break;
       case 'top': renderTopCharts(); break;
       case 'categories': renderCategories(); break;
+      case 'linux': renderLinuxApps(); break;
       case 'skills': renderSkills(); break;
     }
   }
@@ -342,5 +344,166 @@ function initAppStore(container) {
     });
   }
 
+  // ─── Linux Apps tab (Flatpak integration) ───
+  async function renderLinuxApps() {
+    content.innerHTML = `
+      <div style="padding:20px;">
+        <div style="display:flex; gap:10px; margin-bottom:20px;">
+          <input type="text" id="flatpak-search" placeholder="Search Linux apps (Firefox, GIMP, VS Code, Spotify, Discord, Steam...)"
+            style="flex:1; padding:10px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.1);
+                   background:rgba(255,255,255,0.05); color:white; font-size:13px; font-family:var(--font); outline:none;">
+          <button id="flatpak-search-btn" style="padding:10px 20px; border-radius:10px; border:none; background:var(--accent); color:white; font-size:13px; font-family:var(--font); cursor:pointer; font-weight:500;">Search</button>
+        </div>
+
+        <div style="font-size:12px; font-weight:600; color:rgba(255,255,255,0.6); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Popular Apps</div>
+        <div id="flatpak-popular" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:12px; margin-bottom:24px;">
+          ${popularLinuxApps.map(a => flatpakCard(a)).join('')}
+        </div>
+
+        <div id="flatpak-results"></div>
+
+        <div style="font-size:12px; font-weight:600; color:rgba(255,255,255,0.6); text-transform:uppercase; letter-spacing:0.5px; margin:20px 0 12px;">Installed Linux Apps</div>
+        <div id="flatpak-installed" style="display:flex; flex-direction:column; gap:6px;">
+          <div style="color:rgba(255,255,255,0.3); font-size:12px;">Loading...</div>
+        </div>
+      </div>
+    `;
+
+    const searchInput = content.querySelector('#flatpak-search');
+    const searchBtn = content.querySelector('#flatpak-search-btn');
+
+    const doSearch = async () => {
+      const q = searchInput.value.trim();
+      if (!q) return;
+      const resultsEl = content.querySelector('#flatpak-results');
+      resultsEl.innerHTML = '<div style="color:rgba(255,255,255,0.4); font-size:12px; padding:10px;">Searching Flathub...</div>';
+      try {
+        const res = await fetch(`/api/apps/search?q=${encodeURIComponent(q)}`);
+        const { results } = await res.json();
+        if (results.length === 0) {
+          resultsEl.innerHTML = '<div style="color:rgba(255,255,255,0.4); font-size:12px; padding:10px;">No results found</div>';
+          return;
+        }
+        resultsEl.innerHTML = `
+          <div style="font-size:12px; font-weight:600; color:rgba(255,255,255,0.6); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Search Results</div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:12px;">
+            ${results.map(r => flatpakCard({ id: r.id, name: r.name, desc: r.description || '', icon: '\uD83D\uDCE6' })).join('')}
+          </div>
+        `;
+        bindFlatpakButtons(resultsEl);
+      } catch (err) {
+        resultsEl.innerHTML = `<div style="color:#ff6b6b; font-size:12px; padding:10px;">Search failed: ${err.message}. Flatpak may not be available.</div>`;
+      }
+    };
+
+    searchBtn.addEventListener('click', doSearch);
+    searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+
+    bindFlatpakButtons(content.querySelector('#flatpak-popular'));
+    loadInstalledFlatpaks();
+  }
+
+  async function loadInstalledFlatpaks() {
+    const el = content.querySelector('#flatpak-installed');
+    if (!el) return;
+    try {
+      const res = await fetch('/api/apps/installed');
+      const { apps } = await res.json();
+      if (apps.length === 0) {
+        el.innerHTML = '<div style="color:rgba(255,255,255,0.3); font-size:12px;">No Linux apps installed yet</div>';
+        return;
+      }
+      el.innerHTML = apps.map(a => `
+        <div style="display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.03);">
+          <div style="font-size:18px;">\uD83D\uDCE6</div>
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:12px; font-weight:500;">${escHtml(a.name)}</div>
+            <div style="font-size:10px; color:rgba(255,255,255,0.4);">${escHtml(a.id)} \u00B7 ${a.version || ''}</div>
+          </div>
+          <button class="flatpak-launch" data-id="${escHtml(a.id)}" style="padding:5px 12px; border-radius:6px; border:none; background:var(--accent); color:white; font-size:11px; cursor:pointer; font-family:var(--font);">Open</button>
+          <button class="flatpak-remove" data-id="${escHtml(a.id)}" style="padding:5px 12px; border-radius:6px; border:1px solid rgba(255,59,48,0.3); background:transparent; color:#ff6b6b; font-size:11px; cursor:pointer; font-family:var(--font);">Remove</button>
+        </div>
+      `).join('');
+
+      el.querySelectorAll('.flatpak-launch').forEach(btn => {
+        btn.addEventListener('click', () => {
+          fetch('/api/apps/launch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ appId: btn.dataset.id }) });
+        });
+      });
+      el.querySelectorAll('.flatpak-remove').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm(`Remove ${btn.dataset.id}?`)) return;
+          btn.textContent = 'Removing...';
+          await fetch('/api/apps/uninstall', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ appId: btn.dataset.id }) });
+          loadInstalledFlatpaks();
+        });
+      });
+    } catch {
+      el.innerHTML = '<div style="color:rgba(255,255,255,0.3); font-size:12px;">Could not load installed apps</div>';
+    }
+  }
+
+  function bindFlatpakButtons(container) {
+    if (!container) return;
+    container.querySelectorAll('.flatpak-install-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const appId = btn.dataset.id;
+        btn.textContent = 'Installing...';
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        try {
+          await fetch('/api/apps/install', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ appId }),
+          });
+          btn.textContent = 'Installing (background)...';
+          setTimeout(() => { btn.textContent = 'Installed'; }, 3000);
+        } catch {
+          btn.textContent = 'Failed';
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
   renderContent();
+}
+
+const popularLinuxApps = [
+  { id: 'org.mozilla.firefox', name: 'Firefox', desc: 'Fast, private web browser', icon: '\uD83E\uDD8A' },
+  { id: 'com.google.Chrome', name: 'Google Chrome', desc: 'Web browser by Google', icon: '\uD83C\uDF10' },
+  { id: 'com.visualstudio.code', name: 'VS Code', desc: 'Code editor by Microsoft', icon: '\uD83D\uDCDD' },
+  { id: 'com.spotify.Client', name: 'Spotify', desc: 'Music streaming', icon: '\uD83C\uDFB5' },
+  { id: 'com.discordapp.Discord', name: 'Discord', desc: 'Voice, video & text chat', icon: '\uD83D\uDCAC' },
+  { id: 'com.valvesoftware.Steam', name: 'Steam', desc: 'PC gaming platform', icon: '\uD83C\uDFAE' },
+  { id: 'org.gimp.GIMP', name: 'GIMP', desc: 'Image editor', icon: '\uD83D\uDDBC\uFE0F' },
+  { id: 'org.blender.Blender', name: 'Blender', desc: '3D creation suite', icon: '\uD83C\uDFAC' },
+  { id: 'org.videolan.VLC', name: 'VLC', desc: 'Media player', icon: '\u25B6\uFE0F' },
+  { id: 'org.telegram.desktop', name: 'Telegram', desc: 'Messaging app', icon: '\u2708\uFE0F' },
+  { id: 'com.obsproject.Studio', name: 'OBS Studio', desc: 'Streaming & recording', icon: '\uD83D\uDCF9' },
+  { id: 'org.kde.kdenlive', name: 'Kdenlive', desc: 'Video editor', icon: '\uD83C\uDFAC' },
+];
+
+function flatpakCard(app) {
+  return `
+    <div style="display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:12px; background:rgba(255,255,255,0.04); transition:background 0.15s;"
+      onmouseenter="this.style.background='rgba(255,255,255,0.08)'" onmouseleave="this.style.background='rgba(255,255,255,0.04)'">
+      <div style="font-size:32px; width:42px; text-align:center;">${app.icon}</div>
+      <div style="flex:1; min-width:0;">
+        <div style="font-size:13px; font-weight:600;">${escHtml(app.name)}</div>
+        <div style="font-size:11px; color:rgba(255,255,255,0.5); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(app.desc)}</div>
+      </div>
+      <button class="flatpak-install-btn" data-id="${escHtml(app.id)}" style="
+        padding:6px 14px; border-radius:16px; border:none;
+        background:var(--accent); color:white; font-size:11px;
+        font-weight:600; cursor:pointer; font-family:var(--font);
+        white-space:nowrap;
+      ">GET</button>
+    </div>
+  `;
+}
+
+function escHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }

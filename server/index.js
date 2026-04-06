@@ -610,6 +610,54 @@ app.get('/api/system/services', async (req, res) => {
   res.json({ services });
 });
 
+// ═══════════════════════════════════════════════════════════
+// Flatpak App Store — browse, search, install, uninstall real
+// Linux apps from Flathub via the flatpak CLI.
+// ═══════════════════════════════════════════════════════════
+app.get('/api/apps/installed', async (req, res) => {
+  const r = await runShell('flatpak', ['list', '--app', '--columns=application,name,version,size']);
+  const apps = r.stdout.split('\n').filter(Boolean).map(line => {
+    const parts = line.split('\t');
+    return { id: parts[0], name: parts[1], version: parts[2], size: parts[3] };
+  });
+  res.json({ apps });
+});
+
+app.get('/api/apps/search', async (req, res) => {
+  const q = req.query.q;
+  if (!q) return res.json({ results: [] });
+  const r = await runShell('flatpak', ['search', '--columns=application,name,description,version', q]);
+  const results = r.stdout.split('\n').filter(Boolean).slice(0, 20).map(line => {
+    const parts = line.split('\t');
+    return { id: parts[0], name: parts[1], description: parts[2], version: parts[3] };
+  });
+  res.json({ results });
+});
+
+app.post('/api/apps/install', async (req, res) => {
+  const { appId } = req.body;
+  if (!appId) return res.status(400).json({ error: 'appId required' });
+  res.json({ status: 'installing', appId });
+  // Run install in background (it takes a while)
+  runShell('flatpak', ['install', '-y', 'flathub', appId]).then(r => {
+    console.log(`Flatpak install ${appId}: ${r.code === 0 ? 'OK' : 'FAILED'}`);
+  });
+});
+
+app.post('/api/apps/uninstall', async (req, res) => {
+  const { appId } = req.body;
+  if (!appId) return res.status(400).json({ error: 'appId required' });
+  const r = await runShell('flatpak', ['uninstall', '-y', appId]);
+  res.json({ ok: r.code === 0 });
+});
+
+app.post('/api/apps/launch', async (req, res) => {
+  const { appId } = req.body;
+  if (!appId) return res.status(400).json({ error: 'appId required' });
+  runShell('flatpak', ['run', appId]); // Don't await — it stays open
+  res.json({ ok: true });
+});
+
 // ─── System Actions ───
 app.post('/api/system/shutdown', async (req, res) => {
   res.json({ ok: true });
