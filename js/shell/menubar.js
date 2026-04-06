@@ -351,13 +351,34 @@ function showForceQuitDialog() {
 function initBattery() {
   const pctEl = document.getElementById('menubar-battery-pct');
   const fillEl = document.getElementById('battery-fill');
+  const boltEl = document.getElementById('battery-charging-bolt');
+  const wrapEl = document.getElementById('menubar-battery');
   let battery = 100;
+  let charging = false;
 
   function updateDisplay() {
-    if (pctEl) pctEl.textContent = battery + '%';
+    if (pctEl) {
+      pctEl.textContent = battery + '%';
+    }
     if (fillEl) {
       const fillWidth = Math.round(14 * (battery / 100));
       fillEl.setAttribute('width', String(Math.max(1, fillWidth)));
+      // Color: green when charging, red when low, white otherwise
+      if (charging) {
+        fillEl.setAttribute('fill', '#34c759');
+      } else if (battery <= 20) {
+        fillEl.setAttribute('fill', '#ff3b30');
+      } else {
+        fillEl.setAttribute('fill', 'currentColor');
+      }
+    }
+    // Show/hide charging bolt
+    if (boltEl) {
+      boltEl.style.display = charging ? 'block' : 'none';
+    }
+    // Update tooltip
+    if (wrapEl) {
+      wrapEl.title = `Battery: ${battery}%${charging ? ' — Charging' : battery <= 20 ? ' — Low Battery' : ''}`;
     }
   }
 
@@ -367,13 +388,12 @@ function initBattery() {
       const data = await res.json();
       if (data.available) {
         battery = data.level;
+        charging = data.charging;
         updateDisplay();
-        // Store for offline use
         localStorage.setItem('nova-battery', String(battery));
         return;
       }
     } catch {}
-    // Fallback to simulated battery if /api/battery not available
     battery = parseInt(localStorage.getItem('nova-battery') || '100');
     updateDisplay();
   }
@@ -382,9 +402,9 @@ function initBattery() {
   fetchBattery();
   setInterval(fetchBattery, 30000);
 
-  // Fallback drain for web-only mode (no server battery endpoint)
+  // Fallback drain for web-only mode
   setInterval(() => {
-    if (battery > 5) {
+    if (battery > 5 && !charging) {
       battery--;
       localStorage.setItem('nova-battery', String(battery));
       updateDisplay();
