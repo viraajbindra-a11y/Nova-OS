@@ -672,20 +672,21 @@ ERRHTML
   fi
 done
 
-# Launch Astrion OS fullscreen via nova-renderer
-if command -v nova-renderer >/dev/null 2>&1; then
-  echo "Launching nova-renderer..."
-  # If the error screen exists (server never came up), point the renderer at it
+# Launch Astrion OS native shell
+# nova-shell = native C/GTK3 desktop with real windows (primary)
+# nova-renderer = fallback single-page web renderer
+if command -v nova-shell >/dev/null 2>&1; then
+  echo "Launching native Astrion shell..."
+  exec nova-shell
+elif command -v nova-renderer >/dev/null 2>&1; then
+  echo "nova-shell missing, falling back to nova-renderer..."
   if [ -f /tmp/nova-error.html ]; then
     exec nova-renderer --url file:///tmp/nova-error.html
   else
     exec nova-renderer
   fi
-elif command -v nova-shell >/dev/null 2>&1; then
-  echo "nova-renderer missing, falling back to nova-shell..."
-  exec nova-shell
 else
-  echo "ERROR: no NOVA renderer found!"
+  echo "ERROR: no renderer found!"
   sleep 5
   exit 1
 fi

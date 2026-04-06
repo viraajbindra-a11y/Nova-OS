@@ -1,7 +1,7 @@
 /*
- * NOVA OS — Native Desktop Shell
+ * Astrion OS — Native Desktop Shell
  *
- * This IS the NOVA OS desktop environment, written in C with GTK3.
+ * This IS the Astrion OS desktop environment, written in C with GTK3.
  * It creates:
  *   - Desktop layer (wallpaper + icons)
  *   - Top panel / menubar (clock, battery, menus)
@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <signal.h>
+#include <ctype.h>
 
 /* ═══════════════════════════════════════════════
  * Constants & Configuration
@@ -100,6 +101,7 @@ static GtkWidget     *launcher_window  = NULL;
 
 static GtkWidget     *clock_label      = NULL;
 static GtkWidget     *battery_label    = NULL;
+static GtkWidget     *wifi_label       = NULL;
 static GtkWidget     *date_label       = NULL;
 
 static NovaWindow     windows[MAX_WINDOWS];
@@ -116,6 +118,11 @@ static int            screen_height    = 1080;
 static gboolean       launcher_visible = FALSE;
 static GtkWidget     *launcher_entry   = NULL;
 static GtkWidget     *launcher_results = NULL;
+
+/* Dock dot indicators — one per pinned app, indexed by position */
+static GtkWidget     *dock_dots[MAX_APPS];
+static NovaApp       *dock_apps[MAX_APPS];
+static int            dock_pinned_count = 0;
 
 /* ═══════════════════════════════════════════════
  * App Registry
@@ -156,6 +163,9 @@ static void nova_toggle_launcher(void);
 static void nova_show_notification(const char *title, const char *body);
 static void update_clock(void);
 static void update_dock(void);
+static gboolean update_battery(gpointer data);
+static gboolean update_wifi(gpointer data);
+static double get_hidpi_zoom(void);
 
 /* ═══════════════════════════════════════════════
  * Utility: Draw rounded rectangle
@@ -173,6 +183,117 @@ static void draw_rounded_rect(cairo_t *cr, double x, double y,
 }
 
 /* ═══════════════════════════════════════════════
+ * Battery Monitor — reads from /sys/class/power_supply
+ * ═══════════════════════════════════════════════ */
+
+static gboolean update_battery(gpointer data)
+{
+    GtkLabel *label = GTK_LABEL(data);
+    char cap_buf[16] = "??";
+    char stat_buf[32] = "";
+
+    const char *paths[] = {
+        "/sys/class/power_supply/BAT0",
+        "/sys/class/power_supply/BAT1",
+        "/sys/class/power_supply/battery",
+        NULL
+    };
+
+    for (int i = 0; paths[i]; i++) {
+        char path[256];
+        snprintf(path, sizeof(path), "%s/capacity", paths[i]);
+        FILE *f = fopen(path, "r");
+        if (f) {
+            if (fgets(cap_buf, sizeof(cap_buf), f))
+                cap_buf[strcspn(cap_buf, "\n")] = 0;
+            fclose(f);
+
+            snprintf(path, sizeof(path), "%s/status", paths[i]);
+            f = fopen(path, "r");
+            if (f) {
+                if (fgets(stat_buf, sizeof(stat_buf), f))
+                    stat_buf[strcspn(stat_buf, "\n")] = 0;
+                fclose(f);
+            }
+            break;
+        }
+    }
+
+    char display[128];
+    if (strstr(stat_buf, "Charging"))
+        snprintf(display, sizeof(display),
+            "<span foreground='#c0c0c0'>\xE2\x9A\xA1 %s%%</span>", cap_buf);
+    else
+        snprintf(display, sizeof(display),
+            "<span foreground='#c0c0c0'>\xF0\x9F\x94\x8B %s%%</span>", cap_buf);
+
+    gtk_label_set_markup(label, display);
+    return TRUE;
+}
+
+/* ═══════════════════════════════════════════════
+ * Wi-Fi Monitor — reads via nmcli
+ * ═══════════════════════════════════════════════ */
+
+static gboolean update_wifi(gpointer data)
+{
+    GtkLabel *label = GTK_LABEL(data);
+    char display[128];
+    char line[256] = "";
+
+    FILE *fp = popen("nmcli -t -f ACTIVE,SSID dev wifi 2>/dev/null | grep '^yes' | head -1", "r");
+    if (fp) {
+        if (fgets(line, sizeof(line), fp)) {
+            line[strcspn(line, "\n")] = 0;
+            /* Format: yes:SSID */
+            char *ssid = strchr(line, ':');
+            if (ssid && *(ssid + 1)) {
+                ssid++;
+                snprintf(display, sizeof(display),
+                    "<span foreground='#c0c0c0'>\xF0\x9F\x93\xB6 %s</span>", ssid);
+            } else {
+                snprintf(display, sizeof(display),
+                    "<span foreground='#c0c0c0'>\xF0\x9F\x93\xB6 Connected</span>");
+            }
+        } else {
+            snprintf(display, sizeof(display),
+                "<span foreground='#888888'>\xF0\x9F\x93\xB6 Off</span>");
+        }
+        pclose(fp);
+    } else {
+        snprintf(display, sizeof(display),
+            "<span foreground='#888888'>\xF0\x9F\x93\xB6 N/A</span>");
+    }
+
+    gtk_label_set_markup(label, display);
+    return TRUE;
+}
+
+/* ═══════════════════════════════════════════════
+ * HiDPI Zoom — reads from config file
+ * ═══════════════════════════════════════════════ */
+
+static double get_hidpi_zoom(void)
+{
+    double zoom = 1.0;
+    const char *home = g_get_home_dir();
+    char path[512];
+    snprintf(path, sizeof(path), "%s/.config/nova-renderer/zoom", home);
+
+    FILE *f = fopen(path, "r");
+    if (f) {
+        char buf[32];
+        if (fgets(buf, sizeof(buf), f)) {
+            double val = atof(buf);
+            if (val >= 0.5 && val <= 4.0)
+                zoom = val;
+        }
+        fclose(f);
+    }
+    return zoom;
+}
+
+/* ═══════════════════════════════════════════════
  * CSS Theme
  * ═══════════════════════════════════════════════ */
 
@@ -180,15 +301,15 @@ static void apply_css_theme(void)
 {
     GtkCssProvider *provider = gtk_css_provider_new();
     const char *css =
-        "/* NOVA OS Native Theme */\n"
+        "/* Astrion OS Native Theme — No compositor required */\n"
         "* {\n"
         "  font-family: 'Inter', 'SF Pro Display', 'Segoe UI', sans-serif;\n"
         "  color: #e0e0e0;\n"
         "}\n"
         "\n"
         ".nova-panel {\n"
-        "  background: rgba(20, 20, 30, 0.85);\n"
-        "  border-bottom: 1px solid rgba(255,255,255,0.06);\n"
+        "  background: #14141e;\n"
+        "  border-bottom: 1px solid #2a2a3a;\n"
         "}\n"
         "\n"
         ".nova-panel label {\n"
@@ -211,8 +332,8 @@ static void apply_css_theme(void)
         "}\n"
         "\n"
         ".nova-dock {\n"
-        "  background: rgba(30, 30, 46, 0.80);\n"
-        "  border: 1px solid rgba(255,255,255,0.08);\n"
+        "  background: #1e1e2e;\n"
+        "  border: 1px solid #3a3a4a;\n"
         "  border-radius: 16px;\n"
         "  padding: 4px 12px;\n"
         "}\n"
@@ -225,22 +346,22 @@ static void apply_css_theme(void)
         "}\n"
         "\n"
         ".nova-dock-icon:hover {\n"
-        "  background: rgba(255,255,255,0.1);\n"
+        "  background: #3a3a4a;\n"
         "}\n"
         "\n"
         ".nova-dock-dot {\n"
         "  font-size: 6px;\n"
-        "  color: rgba(255,255,255,0.5);\n"
+        "  color: #808080;\n"
         "}\n"
         "\n"
         ".nova-launcher {\n"
-        "  background: rgba(30, 30, 46, 0.95);\n"
-        "  border: 1px solid rgba(255,255,255,0.1);\n"
+        "  background: #1e1e2e;\n"
+        "  border: 1px solid #3a3a4a;\n"
         "  border-radius: 12px;\n"
         "}\n"
         "\n"
         ".nova-launcher entry {\n"
-        "  background: rgba(255,255,255,0.08);\n"
+        "  background: #2a2a3a;\n"
         "  border: none;\n"
         "  border-radius: 8px;\n"
         "  padding: 12px 16px;\n"
@@ -250,7 +371,7 @@ static void apply_css_theme(void)
         "}\n"
         "\n"
         ".nova-launcher entry:focus {\n"
-        "  background: rgba(255,255,255,0.12);\n"
+        "  background: #333344;\n"
         "}\n"
         "\n"
         ".nova-launcher-result {\n"
@@ -259,12 +380,12 @@ static void apply_css_theme(void)
         "}\n"
         "\n"
         ".nova-launcher-result:hover {\n"
-        "  background: rgba(0, 122, 255, 0.3);\n"
+        "  background: #1a3a6e;\n"
         "}\n"
         "\n"
         ".nova-window-titlebar {\n"
-        "  background: linear-gradient(rgba(40, 40, 55, 0.98), rgba(35, 35, 48, 0.98));\n"
-        "  border-bottom: 1px solid rgba(255,255,255,0.05);\n"
+        "  background: linear-gradient(#282837, #232330);\n"
+        "  border-bottom: 1px solid #1a1a28;\n"
         "  border-radius: 10px 10px 0 0;\n"
         "  min-height: 36px;\n"
         "}\n"
@@ -306,14 +427,14 @@ static void apply_css_theme(void)
         "}\n"
         "\n"
         ".nova-about-dialog {\n"
-        "  background: rgba(30, 30, 46, 0.95);\n"
-        "  border: 1px solid rgba(255,255,255,0.1);\n"
+        "  background: #1e1e2e;\n"
+        "  border: 1px solid #3a3a4a;\n"
         "  border-radius: 16px;\n"
         "}\n"
         "\n"
         ".nova-menu {\n"
-        "  background: rgba(30, 30, 46, 0.95);\n"
-        "  border: 1px solid rgba(255,255,255,0.1);\n"
+        "  background: #1e1e2e;\n"
+        "  border: 1px solid #3a3a4a;\n"
         "  border-radius: 8px;\n"
         "  padding: 4px;\n"
         "}\n"
@@ -324,12 +445,12 @@ static void apply_css_theme(void)
         "}\n"
         "\n"
         ".nova-menu menuitem:hover {\n"
-        "  background: rgba(0, 122, 255, 0.4);\n"
+        "  background: #1a4a8e;\n"
         "}\n"
         "\n"
         "tooltip {\n"
-        "  background: rgba(30, 30, 46, 0.95);\n"
-        "  border: 1px solid rgba(255,255,255,0.1);\n"
+        "  background: #1e1e2e;\n"
+        "  border: 1px solid #3a3a4a;\n"
         "  border-radius: 6px;\n"
         "  color: #e0e0e0;\n"
         "}\n";
@@ -361,13 +482,13 @@ static gboolean on_desktop_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
     cairo_paint(cr);
     cairo_pattern_destroy(grad);
 
-    /* Subtle radial glow in center */
+    /* Subtle radial glow in center — fully opaque, no compositor needed */
     cairo_pattern_t *glow = cairo_pattern_create_radial(
         w * 0.5, h * 0.4, 0,
         w * 0.5, h * 0.4, w * 0.5
     );
-    cairo_pattern_add_color_stop_rgba(glow, 0.0, 0.0, 0.15, 0.5, 0.08);
-    cairo_pattern_add_color_stop_rgba(glow, 1.0, 0.0, 0.0,  0.0, 0.0);
+    cairo_pattern_add_color_stop_rgba(glow, 0.0, 0.05, 0.08, 0.20, 1.0);
+    cairo_pattern_add_color_stop_rgba(glow, 1.0, 0.0,  0.0,  0.0,  0.0);
     cairo_set_source(cr, glow);
     cairo_paint(cr);
     cairo_pattern_destroy(glow);
@@ -419,7 +540,7 @@ static void on_apple_menu_about(GtkMenuItem *item, gpointer data)
     gtk_widget_set_margin_top(content, 30);
     gtk_widget_set_margin_bottom(content, 20);
 
-    /* NOVA logo */
+    /* Astrion logo */
     GtkWidget *logo = gtk_label_new(NULL);
     gtk_label_set_markup(logo,
         "<span size='48000' weight='bold' foreground='#007aff'>\xE2\x97\x86</span>");
@@ -567,7 +688,7 @@ static void update_clock(void)
 static void create_panel(void)
 {
     panel_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title(GTK_WINDOW(panel_window), "NOVA Panel");
+    gtk_window_set_title(GTK_WINDOW(panel_window), "Astrion Panel");
     gtk_window_set_decorated(GTK_WINDOW(panel_window), FALSE);
     gtk_window_set_skip_taskbar_hint(GTK_WINDOW(panel_window), TRUE);
     gtk_window_set_skip_pager_hint(GTK_WINDOW(panel_window), TRUE);
@@ -587,7 +708,7 @@ static void create_panel(void)
     GtkWidget *left_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     gtk_box_pack_start(GTK_BOX(hbox), left_box, FALSE, FALSE, 0);
 
-    /* Apple/NOVA button */
+    /* Astrion menu button */
     GtkWidget *apple_btn = gtk_button_new();
     GtkWidget *apple_label = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(apple_label),
@@ -626,17 +747,21 @@ static void create_panel(void)
     gtk_style_context_add_class(right_ctx, "nova-panel-right");
     gtk_box_pack_end(GTK_BOX(hbox), right_box, FALSE, FALSE, 8);
 
-    /* WiFi icon */
-    GtkWidget *wifi_label = gtk_label_new(NULL);
+    /* WiFi status — real, updated every 15 seconds */
+    wifi_label = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(wifi_label),
         "<span foreground='#c0c0c0'>\xF0\x9F\x93\xB6</span>");
     gtk_box_pack_start(GTK_BOX(right_box), wifi_label, FALSE, FALSE, 0);
+    update_wifi(wifi_label);
+    g_timeout_add(15000, update_wifi, wifi_label);
 
-    /* Battery */
+    /* Battery — real, updated every 10 seconds */
     battery_label = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(battery_label),
-        "<span foreground='#c0c0c0'>\xF0\x9F\x94\x8B 100%</span>");
+        "<span foreground='#c0c0c0'>\xF0\x9F\x94\x8B ??%</span>");
     gtk_box_pack_start(GTK_BOX(right_box), battery_label, FALSE, FALSE, 0);
+    update_battery(battery_label);
+    g_timeout_add(10000, update_battery, battery_label);
 
     /* Search (spotlight) icon */
     GtkWidget *search_btn = gtk_button_new();
@@ -664,8 +789,8 @@ static void create_panel(void)
     update_clock();
     g_timeout_add(1000, update_clock_cb, NULL);
 
-    /* Set panel to be fully opaque and on top */
-    GdkRGBA panel_bg = { COLOR_PANEL_R, COLOR_PANEL_G, COLOR_PANEL_B, 0.92 };
+    /* Set panel to be fully opaque and on top — no compositor needed */
+    GdkRGBA panel_bg = { COLOR_PANEL_R, COLOR_PANEL_G, COLOR_PANEL_B, 1.0 };
     gtk_widget_override_background_color(panel_window, GTK_STATE_FLAG_NORMAL, &panel_bg);
 
     gtk_widget_show_all(panel_window);
@@ -699,7 +824,7 @@ static void on_dock_icon_clicked(GtkWidget *widget, gpointer data)
 static void create_dock(void)
 {
     dock_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title(GTK_WINDOW(dock_window), "NOVA Dock");
+    gtk_window_set_title(GTK_WINDOW(dock_window), "Astrion Dock");
     gtk_window_set_decorated(GTK_WINDOW(dock_window), FALSE);
     gtk_window_set_skip_taskbar_hint(GTK_WINDOW(dock_window), TRUE);
     gtk_window_set_skip_pager_hint(GTK_WINDOW(dock_window), TRUE);
@@ -717,10 +842,9 @@ static void create_dock(void)
     gtk_box_pack_start(GTK_BOX(outer_box), dock_box, FALSE, FALSE, 0);
 
     /* Add pinned apps to dock */
-    int pinned_count = 0;
+    dock_pinned_count = 0;
     for (int i = 0; app_registry[i].id != NULL; i++) {
         if (!app_registry[i].pinned) continue;
-        pinned_count++;
 
         GtkWidget *icon_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
@@ -748,31 +872,44 @@ static void create_dock(void)
         gtk_widget_set_opacity(dot, 0.0); /* Hidden by default */
         gtk_box_pack_start(GTK_BOX(icon_box), dot, FALSE, FALSE, 0);
 
+        /* Store references for update_dock() */
+        dock_dots[dock_pinned_count] = dot;
+        dock_apps[dock_pinned_count] = &app_registry[i];
+        dock_pinned_count++;
+
         gtk_box_pack_start(GTK_BOX(dock_box), icon_box, FALSE, FALSE, 0);
     }
 
     /* Calculate dock size */
-    int dock_width = pinned_count * (DOCK_ICON_SIZE + 16) + 32;
+    int dock_width = dock_pinned_count * (DOCK_ICON_SIZE + 16) + 32;
     int dock_x = (screen_width - dock_width) / 2;
     int dock_y = screen_height - DOCK_HEIGHT - 8;
 
     gtk_window_set_default_size(GTK_WINDOW(dock_window), dock_width, DOCK_HEIGHT);
     gtk_window_move(GTK_WINDOW(dock_window), dock_x, dock_y);
 
-    /* Transparent background (the dock_box has its own bg via CSS) */
-    gtk_widget_set_app_paintable(dock_window, TRUE);
-    GdkScreen *screen = gtk_widget_get_screen(dock_window);
-    GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
-    if (visual) {
-        gtk_widget_set_visual(dock_window, visual);
-    }
+    /* Solid background — no compositor needed */
+    GdkRGBA dock_bg = { COLOR_DOCK_R, COLOR_DOCK_G, COLOR_DOCK_B, 1.0 };
+    gtk_widget_override_background_color(dock_window, GTK_STATE_FLAG_NORMAL, &dock_bg);
 
     gtk_widget_show_all(dock_window);
 }
 
 static void update_dock(void)
 {
-    /* TODO: Update running indicator dots */
+    /* Update running indicator dots for each pinned app */
+    for (int d = 0; d < dock_pinned_count; d++) {
+        if (!dock_dots[d] || !dock_apps[d]) continue;
+
+        gboolean running = FALSE;
+        for (int w = 0; w < window_count; w++) {
+            if (windows[w].app == dock_apps[d] && windows[w].window) {
+                running = TRUE;
+                break;
+            }
+        }
+        gtk_widget_set_opacity(dock_dots[d], running ? 1.0 : 0.0);
+    }
 }
 
 /* ═══════════════════════════════════════════════
@@ -882,7 +1019,7 @@ static gboolean on_launcher_key_press(GtkWidget *widget, GdkEventKey *event, gpo
 static void create_launcher(void)
 {
     launcher_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title(GTK_WINDOW(launcher_window), "NOVA Spotlight");
+    gtk_window_set_title(GTK_WINDOW(launcher_window), "Astrion Spotlight");
     gtk_window_set_decorated(GTK_WINDOW(launcher_window), FALSE);
     gtk_window_set_skip_taskbar_hint(GTK_WINDOW(launcher_window), TRUE);
     gtk_window_set_skip_pager_hint(GTK_WINDOW(launcher_window), TRUE);
@@ -896,13 +1033,9 @@ static void create_launcher(void)
     GtkStyleContext *ctx = gtk_widget_get_style_context(launcher_window);
     gtk_style_context_add_class(ctx, "nova-launcher");
 
-    /* Transparent bg */
-    GdkScreen *screen = gtk_widget_get_screen(launcher_window);
-    GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
-    if (visual) {
-        gtk_widget_set_visual(launcher_window, visual);
-    }
-    gtk_widget_set_app_paintable(launcher_window, TRUE);
+    /* Solid background — no compositor needed */
+    GdkRGBA launcher_bg = {0.12, 0.12, 0.18, 1.0};
+    gtk_widget_override_background_color(launcher_window, GTK_STATE_FLAG_NORMAL, &launcher_bg);
 
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_widget_set_margin_start(vbox, 8);
@@ -913,7 +1046,7 @@ static void create_launcher(void)
 
     /* Search entry */
     launcher_entry = gtk_entry_new();
-    gtk_entry_set_placeholder_text(GTK_ENTRY(launcher_entry), "Search or ask NOVA AI...");
+    gtk_entry_set_placeholder_text(GTK_ENTRY(launcher_entry), "Search or ask Astrion AI...");
     gtk_box_pack_start(GTK_BOX(vbox), launcher_entry, FALSE, FALSE, 0);
 
     /* Results */
@@ -1028,9 +1161,9 @@ static void on_app_load_changed(WebKitWebView *view, WebKitLoadEvent event, gpoi
 {
     if (event == WEBKIT_LOAD_FINISHED) {
         webkit_web_view_run_javascript(view,
-            "window.__NOVA_NATIVE__ = true;"
-            "window.__NOVA_RENDERER__ = 'nova-shell';"
-            "document.documentElement.classList.add('nova-native');",
+            "window.__ASTRION_NATIVE__ = true;"
+            "window.__ASTRION_RENDERER__ = 'astrion-shell';"
+            "document.documentElement.classList.add('astrion-native');",
             NULL, NULL, NULL);
     }
 }
@@ -1058,11 +1191,12 @@ static void nova_launch_app(NovaApp *app)
     nwin->id = next_window_id++;
     nwin->app = app;
 
-    /* Default window size and position */
-    nwin->w = 800;
-    nwin->h = 560;
-    nwin->x = 100 + (window_count % 5) * 40;
-    nwin->y = 60 + (window_count % 5) * 30;
+    /* Default window size: 50% screen width, 70% screen height, centered */
+    nwin->w = screen_width / 2;
+    nwin->h = (int)(screen_height * 0.7);
+    nwin->x = (screen_width - nwin->w) / 2 + (window_count % 5) * 30;
+    nwin->y = PANEL_HEIGHT + ((screen_height - PANEL_HEIGHT - DOCK_HEIGHT - 16 - nwin->h) / 2)
+              + (window_count % 5) * 20;
 
     /* Create the window */
     nwin->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -1071,12 +1205,9 @@ static void nova_launch_app(NovaApp *app)
     gtk_window_move(GTK_WINDOW(nwin->window), nwin->x, nwin->y);
     gtk_window_set_decorated(GTK_WINDOW(nwin->window), FALSE);  /* We draw our own titlebar */
 
-    /* Transparent bg for rounded corners */
-    GdkScreen *screen = gtk_widget_get_screen(nwin->window);
-    GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
-    if (visual) {
-        gtk_widget_set_visual(nwin->window, visual);
-    }
+    /* Solid background — no compositor needed */
+    GdkRGBA win_bg = {0.07, 0.07, 0.13, 1.0};
+    gtk_widget_override_background_color(nwin->window, GTK_STATE_FLAG_NORMAL, &win_bg);
 
     /* Main vertical layout */
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
@@ -1152,13 +1283,19 @@ static void nova_launch_app(NovaApp *app)
     webkit_settings_set_hardware_acceleration_policy(ws,
         WEBKIT_HARDWARE_ACCELERATION_POLICY_ALWAYS);
     webkit_settings_set_user_agent(ws,
-        "NOVA-OS/1.0 (Native; Linux x86_64) NovaRenderer/1.0");
+        "AstrionOS/1.0 (Native; Linux x86_64) AstrionRenderer/1.0");
 
     nwin->webview = WEBKIT_WEB_VIEW(webkit_web_view_new_with_settings(ws));
 
-    /* Transparent webview background */
-    GdkRGBA trans = {0, 0, 0, 0};
-    webkit_web_view_set_background_color(nwin->webview, &trans);
+    /* Solid webview background — no compositor needed */
+    GdkRGBA bg = {0.07, 0.07, 0.13, 1.0};
+    webkit_web_view_set_background_color(nwin->webview, &bg);
+
+    /* Apply HiDPI zoom from config */
+    double zoom = get_hidpi_zoom();
+    if (zoom != 1.0) {
+        webkit_web_view_set_zoom_level(nwin->webview, zoom);
+    }
 
     /* Suppress default context menu */
     g_signal_connect(nwin->webview, "context-menu",
@@ -1185,7 +1322,7 @@ static void nova_launch_app(NovaApp *app)
         snprintf(full_url, sizeof(full_url), "%s", NOVA_SERVER_URL);
     }
 
-    /* Inject NOVA native mode flag after load */
+    /* Inject Astrion native mode flag after load */
     g_signal_connect(nwin->webview, "load-changed",
         G_CALLBACK(on_app_load_changed), NULL);
 
@@ -1293,7 +1430,7 @@ static void nova_show_notification(const char *title, const char *body)
 
     gtk_container_add(GTK_CONTAINER(notif_win), box);
 
-    GdkRGBA notif_bg = {0.12, 0.12, 0.18, 0.95};
+    GdkRGBA notif_bg = {0.12, 0.12, 0.18, 1.0};
     gtk_widget_override_background_color(notif_win, GTK_STATE_FLAG_NORMAL, &notif_bg);
 
     gtk_widget_show_all(notif_win);
