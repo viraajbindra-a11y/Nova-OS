@@ -145,7 +145,7 @@ app.post('/api/ai', async (req, res) => {
       body: JSON.stringify({
         model: model || 'claude-haiku-4-5-20251001',
         max_tokens: max_tokens || 1024,
-        system: system || 'You are NOVA, a helpful AI assistant built into NOVA OS.',
+        system: system || 'You are Zenith, a helpful AI assistant built into Zenith OS.',
         messages: messages || [],
       }),
     });
@@ -175,7 +175,7 @@ app.get('/app/:appId', (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NOVA OS — ${appId}</title>
+  <title>Zenith OS — ${appId}</title>
   <link rel="stylesheet" href="/css/system.css">
   <link rel="stylesheet" href="/css/desktop.css">
   <link rel="stylesheet" href="/css/window.css">
@@ -253,7 +253,7 @@ app.get('/api/browser/proxy', async (req, res) => {
   try {
     const upstream = await fetch(targetUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) NOVA/1.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Zenith/1.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
       },
@@ -627,5 +627,5 @@ app.post('/api/system/sleep', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`NOVA OS server running at http://localhost:${PORT}`);
+  console.log(`Zenith OS server running at http://localhost:${PORT}`);
 });

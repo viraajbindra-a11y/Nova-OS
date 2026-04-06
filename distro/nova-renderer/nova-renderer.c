@@ -18,7 +18,7 @@
 #include <signal.h>
 
 #define NOVA_DEFAULT_URL "http://localhost:3000"
-#define NOVA_TITLE       "NOVA OS"
+#define NOVA_TITLE       "Zenith OS"
 #define NOVA_VERSION     "1.0"
 
 static GtkWidget *window = NULL;
@@ -101,7 +101,7 @@ static void on_load_changed(WebKitWebView *view, WebKitLoadEvent event, gpointer
             "window.__NOVA_VERSION__ = '" NOVA_VERSION "';"
             "window.__NOVA_RENDERER__ = 'nova-renderer';"
             "document.documentElement.classList.add('nova-native');"
-            "console.log('[NOVA Renderer] Native mode active');";
+            "console.log('[Zenith Renderer] Native mode active');";
         webkit_web_view_run_javascript(view, js, NULL, NULL, NULL);
     }
 }
@@ -109,7 +109,7 @@ static void on_load_changed(WebKitWebView *view, WebKitLoadEvent event, gpointer
 /* Handle web process crash — auto-reload */
 static void on_web_process_crashed(WebKitWebView *view, gpointer data)
 {
-    g_warning("[NOVA Renderer] Web process crashed, reloading...");
+    g_warning("[Zenith Renderer] Web process crashed, reloading...");
     webkit_web_view_reload(view);
 }
 
@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
         } else if (strcmp(argv[i], "--windowed") == 0) {
             windowed = TRUE;
         } else if (strcmp(argv[i], "--help") == 0) {
-            g_print("NOVA OS Renderer v" NOVA_VERSION "\n");
+            g_print("Zenith OS Renderer v" NOVA_VERSION "\n");
             g_print("Usage: nova-renderer [OPTIONS]\n\n");
             g_print("Options:\n");
             g_print("  --url URL    Load a specific URL (default: %s)\n", NOVA_DEFAULT_URL);
@@ -204,7 +204,7 @@ int main(int argc, char *argv[])
 
     /* Set user agent to NOVA OS (not a browser) */
     webkit_settings_set_user_agent(settings,
-        "NOVA-OS/1.0 (Native; Linux x86_64) NovaRenderer/1.0");
+        "Zenith-OS/1.0 (Native; Linux x86_64) NovaRenderer/1.0");
 
     /* Developer mode */
     webkit_settings_set_enable_developer_extras(settings, dev_mode);
@@ -230,7 +230,7 @@ int main(int argc, char *argv[])
 
     WebKitWebContext *web_context = webkit_web_context_new_with_website_data_manager(data_manager);
 
-    g_print("[NOVA Renderer] Data dir: %s\n", data_dir);
+    g_print("[Zenith Renderer] Data dir: %s\n", data_dir);
     g_free(data_dir);
     g_free(cache_dir);
 
@@ -264,10 +264,10 @@ int main(int argc, char *argv[])
     }
 
     /* ─── Load NOVA OS ─── */
-    g_print("[NOVA Renderer] Starting NOVA OS...\n");
-    g_print("[NOVA Renderer] Loading: %s\n", url);
+    g_print("[Zenith Renderer] Starting Zenith OS...\n");
+    g_print("[Zenith Renderer] Loading: %s\n", url);
     if (dev_mode) {
-        g_print("[NOVA Renderer] Developer mode enabled (Ctrl+Shift+I)\n");
+        g_print("[Zenith Renderer] Developer mode enabled (Ctrl+Shift+I)\n");
     }
 
     webkit_web_view_load_uri(webview, url);
@@ -279,18 +279,18 @@ int main(int argc, char *argv[])
         GdkScreen *scr = gdk_screen_get_default();
         int sw = gdk_screen_get_width(scr);
         int sh = gdk_screen_get_height(scr);
-        g_print("[NOVA Renderer] Screen: %dx%d\n", sw, sh);
+        g_print("[Zenith Renderer] Screen: %dx%d\n", sw, sh);
         if (sw >= 3600)       webkit_web_view_set_zoom_level(webview, 1.5);
         else if (sw >= 2700)  webkit_web_view_set_zoom_level(webview, 1.5);
         else if (sw >= 2400)  webkit_web_view_set_zoom_level(webview, 1.4);
         else if (sw >= 2000)  webkit_web_view_set_zoom_level(webview, 1.3);
         else if (sw >= 1800)  webkit_web_view_set_zoom_level(webview, 1.15);
-        g_print("[NOVA Renderer] Zoom: %.1f\n", webkit_web_view_get_zoom_level(webview));
+        g_print("[Zenith Renderer] Zoom: %.1f\n", webkit_web_view_get_zoom_level(webview));
     }
 
     /* ─── Run the main loop ─── */
     gtk_main();
 
-    g_print("[NOVA Renderer] Shutdown complete.\n");
+    g_print("[Zenith Renderer] Shutdown complete.\n");
     return 0;
 }
