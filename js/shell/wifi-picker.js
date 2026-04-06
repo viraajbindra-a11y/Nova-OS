@@ -143,7 +143,7 @@ async function loadNetworks() {
 async function connect(net) {
   let password = '';
   if (net.security && net.security !== 'Open') {
-    password = prompt(`Password for "${net.ssid}":`);
+    password = await showPasswordDialog(net.ssid);
     if (password === null) return;
   }
 
@@ -173,6 +173,52 @@ async function connect(net) {
   } catch (err) {
     if (status) status.textContent = 'Connection error';
   }
+}
+
+function showPasswordDialog(ssid) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position:fixed; top:0; left:0; right:0; bottom:0; width:100vw; height:100vh;
+      background:rgba(0,0,0,0.5); z-index:99999;
+      display:flex; align-items:center; justify-content:center;
+      font-family:var(--font);
+    `;
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+      background:rgba(38,38,44,0.96); backdrop-filter:blur(30px);
+      border:1px solid rgba(255,255,255,0.1); border-radius:14px;
+      padding:24px; width:320px; color:white;
+      box-shadow:0 30px 80px rgba(0,0,0,0.6);
+    `;
+    dialog.innerHTML = `
+      <div style="font-size:14px; font-weight:600; margin-bottom:4px;">Enter password for "${escapeHtml(ssid)}"</div>
+      <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-bottom:16px;">This network requires a password to connect.</div>
+      <input type="password" id="wifi-pw-input" placeholder="Password" autocomplete="off" style="
+        width:100%; padding:10px 14px; border-radius:8px;
+        border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.06);
+        color:white; font-size:14px; font-family:var(--font); outline:none;
+        box-sizing:border-box; margin-bottom:14px;
+      ">
+      <div style="display:flex; gap:8px;">
+        <button id="wifi-pw-cancel" style="flex:1; padding:9px; background:rgba(255,255,255,0.08); border:none; color:white; border-radius:8px; font-size:13px; font-family:var(--font); cursor:pointer;">Cancel</button>
+        <button id="wifi-pw-connect" style="flex:1; padding:9px; background:var(--accent); border:none; color:white; border-radius:8px; font-size:13px; font-weight:500; font-family:var(--font); cursor:pointer;">Connect</button>
+      </div>
+    `;
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    const input = dialog.querySelector('#wifi-pw-input');
+    input.focus();
+
+    const submit = () => { overlay.remove(); resolve(input.value); };
+    const cancel = () => { overlay.remove(); resolve(null); };
+
+    dialog.querySelector('#wifi-pw-connect').addEventListener('click', submit);
+    dialog.querySelector('#wifi-pw-cancel').addEventListener('click', cancel);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') cancel(); });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) cancel(); });
+  });
 }
 
 function close() {
