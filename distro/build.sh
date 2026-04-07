@@ -584,15 +584,30 @@ export XCURSOR_SIZE=48
 # WebKit content inside app windows has its own zoom from config file
 export GDK_SCALE=2
 
-# ── Auto-fix system clock via NTP (uses UDP, not HTTPS — no SSL cert needed) ──
-sudo ntpdate -u pool.ntp.org 2>/dev/null &
-
 # ── Auto-reconnect saved Wi-Fi profiles ──
 nmcli device wifi rescan 2>/dev/null &
 sleep 1
 SAVED_CONN=$(nmcli -t -f NAME connection show 2>/dev/null | head -1)
 if [ -n "$SAVED_CONN" ]; then
-  nmcli connection up "$SAVED_CONN" 2>/dev/null &
+  nmcli connection up "$SAVED_CONN" 2>/dev/null
+  sleep 2
+fi
+
+# ── Fix DNS (ensure resolv.conf has nameservers) ──
+if ! grep -q "nameserver" /etc/resolv.conf 2>/dev/null; then
+  echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf > /dev/null
+  echo "nameserver 1.1.1.1" | sudo tee -a /etc/resolv.conf > /dev/null
+fi
+
+# ── Auto-fix system clock via NTP ──
+sudo ntpdate -u pool.ntp.org 2>/dev/null &
+
+# ── Auto-detect timezone from IP geolocation ──
+TZ_DETECTED=$(curl -4 -s --max-time 5 https://worldtimeapi.org/api/ip 2>/dev/null | grep -o '"timezone":"[^"]*"' | cut -d'"' -f4)
+if [ -n "$TZ_DETECTED" ]; then
+  sudo timedatectl set-timezone "$TZ_DETECTED" 2>/dev/null || \
+    sudo ln -sf "/usr/share/zoneinfo/$TZ_DETECTED" /etc/localtime 2>/dev/null
+  echo "Timezone set to $TZ_DETECTED"
 fi
 
 # ── VM guest agents (for mouse integration in UTM/QEMU/VMware/VirtualBox) ──

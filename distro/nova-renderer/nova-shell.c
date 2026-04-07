@@ -124,6 +124,17 @@ static GtkWidget     *dock_dots[MAX_APPS];
 static NovaApp       *dock_apps[MAX_APPS];
 static int            dock_pinned_count = 0;
 
+/* App switcher state */
+static GtkWidget     *switcher_window   = NULL;
+static GtkWidget     *switcher_labels[MAX_WINDOWS];
+static NovaWindow    *switcher_wins[MAX_WINDOWS];
+static int            switcher_count    = 0;
+static int            switcher_index    = 0;
+static gboolean       switcher_visible  = FALSE;
+
+/* Window snap preview state */
+static int            snap_zone         = 0; /* 0=none, 1=left, 2=right, 3=top(maximize) */
+
 /* ═══════════════════════════════════════════════
  * App Registry
  * ═══════════════════════════════════════════════ */
@@ -170,6 +181,15 @@ static void update_dock(void);
 static gboolean update_battery(gpointer data);
 static gboolean update_wifi(gpointer data);
 static double get_hidpi_zoom(void);
+
+/* App switcher forward declarations */
+static void show_app_switcher(void);
+static void cycle_app_switcher(void);
+static void commit_app_switcher(void);
+static void hide_app_switcher(void);
+
+/* Desktop right-click menu */
+static void on_apple_menu_about(GtkMenuItem *item, gpointer data);
 
 /* ═══════════════════════════════════════════════
  * Utility: Draw rounded rectangle
@@ -392,46 +412,55 @@ static void apply_css_theme(void)
         "}\n"
         "\n"
         ".nova-window-titlebar {\n"
-        "  background: linear-gradient(#282837, #232330);\n"
+        "  background: #282837;\n"
         "  border-bottom: 1px solid #1a1a28;\n"
-        "  border-radius: 10px 10px 0 0;\n"
-        "  min-height: 36px;\n"
+        "  padding: 6px 0;\n"
+        "  min-height: 32px;\n"
         "}\n"
         "\n"
         ".nova-window-titlebar label {\n"
-        "  font-size: 13px;\n"
+        "  font-size: 14px;\n"
         "  font-weight: 600;\n"
-        "  color: #d0d0d0;\n"
+        "  color: #ffffff;\n"
         "}\n"
         "\n"
         ".nova-window-btn {\n"
-        "  min-width: 12px;\n"
-        "  min-height: 12px;\n"
+        "  min-width: 16px;\n"
+        "  min-height: 16px;\n"
         "  border-radius: 50%;\n"
         "  padding: 0;\n"
-        "  margin: 0 3px;\n"
+        "  margin: 2px;\n"
         "  border: none;\n"
         "}\n"
         "\n"
         ".nova-window-close {\n"
         "  background: #ff5f57;\n"
+        "  border-radius: 50%;\n"
+        "  border: none;\n"
         "}\n"
         ".nova-window-close:hover {\n"
         "  background: #ff3b30;\n"
+        "  border: none;\n"
         "}\n"
         "\n"
         ".nova-window-minimize {\n"
         "  background: #ffbd2e;\n"
+        "  border-radius: 50%;\n"
+        "  border: none;\n"
         "}\n"
         ".nova-window-minimize:hover {\n"
-        "  background: #ffc940;\n"
+        "  background: #ff9500;\n"
+        "  border: none;\n"
         "}\n"
         "\n"
         ".nova-window-maximize {\n"
         "  background: #28c840;\n"
+        "  border-radius: 50%;\n"
+        "  border: none;\n"
         "}\n"
         ".nova-window-maximize:hover {\n"
-        "  background: #32d74b;\n"
+        "  background: #34c759;\n"
+        "  border: none;\n"
         "}\n"
         "\n"
         ".nova-about-dialog {\n"
@@ -504,6 +533,91 @@ static gboolean on_desktop_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
     return FALSE;
 }
 
+/* ─── Desktop right-click menu callbacks ─── */
+
+static NovaApp *find_app_by_id(const char *id)
+{
+    for (int i = 0; app_registry[i].id != NULL; i++) {
+        if (strcmp(app_registry[i].id, id) == 0)
+            return &app_registry[i];
+    }
+    return NULL;
+}
+
+static void on_desktop_menu_wallpaper(GtkMenuItem *item, gpointer data)
+{
+    NovaApp *app = find_app_by_id("settings");
+    if (app) nova_launch_app(app);
+}
+
+static void on_desktop_menu_display(GtkMenuItem *item, gpointer data)
+{
+    NovaApp *app = find_app_by_id("settings");
+    if (app) nova_launch_app(app);
+}
+
+static void on_desktop_menu_terminal(GtkMenuItem *item, gpointer data)
+{
+    NovaApp *app = find_app_by_id("terminal");
+    if (app) nova_launch_app(app);
+}
+
+static void on_desktop_menu_finder(GtkMenuItem *item, gpointer data)
+{
+    NovaApp *app = find_app_by_id("finder");
+    if (app) nova_launch_app(app);
+}
+
+static gboolean on_desktop_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data)
+{
+    if (event->button == 3) { /* Right click */
+        GtkWidget *menu = gtk_menu_new();
+        GtkStyleContext *ctx = gtk_widget_get_style_context(menu);
+        gtk_style_context_add_class(ctx, "nova-menu");
+
+        /* New Folder (disabled) */
+        GtkWidget *new_folder = gtk_menu_item_new_with_label("New Folder");
+        gtk_widget_set_sensitive(new_folder, FALSE);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), new_folder);
+
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
+
+        /* Change Wallpaper */
+        GtkWidget *wallpaper = gtk_menu_item_new_with_label("Change Wallpaper");
+        g_signal_connect(wallpaper, "activate", G_CALLBACK(on_desktop_menu_wallpaper), NULL);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), wallpaper);
+
+        /* Display Settings */
+        GtkWidget *display = gtk_menu_item_new_with_label("Display Settings");
+        g_signal_connect(display, "activate", G_CALLBACK(on_desktop_menu_display), NULL);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), display);
+
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
+
+        /* Open Terminal */
+        GtkWidget *terminal = gtk_menu_item_new_with_label("Open Terminal");
+        g_signal_connect(terminal, "activate", G_CALLBACK(on_desktop_menu_terminal), NULL);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), terminal);
+
+        /* Open Finder */
+        GtkWidget *finder = gtk_menu_item_new_with_label("Open Finder");
+        g_signal_connect(finder, "activate", G_CALLBACK(on_desktop_menu_finder), NULL);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), finder);
+
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
+
+        /* About Astrion OS */
+        GtkWidget *about = gtk_menu_item_new_with_label("About Astrion OS");
+        g_signal_connect(about, "activate", G_CALLBACK(on_apple_menu_about), NULL);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), about);
+
+        gtk_widget_show_all(menu);
+        gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+        return TRUE;
+    }
+    return FALSE;
+}
+
 static void create_desktop(void)
 {
     desktop_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -515,9 +629,19 @@ static void create_desktop(void)
     gtk_window_set_default_size(GTK_WINDOW(desktop_window), screen_width, screen_height);
     gtk_window_move(GTK_WINDOW(desktop_window), 0, 0);
 
+    GtkWidget *overlay = gtk_overlay_new();
+    gtk_container_add(GTK_CONTAINER(desktop_window), overlay);
+
     GtkWidget *drawing = gtk_drawing_area_new();
-    gtk_container_add(GTK_CONTAINER(desktop_window), drawing);
+    gtk_container_add(GTK_CONTAINER(overlay), drawing);
     g_signal_connect(drawing, "draw", G_CALLBACK(on_desktop_draw), NULL);
+
+    /* Invisible event box on top to catch right-clicks */
+    GtkWidget *evbox = gtk_event_box_new();
+    gtk_event_box_set_visible_window(GTK_EVENT_BOX(evbox), FALSE);
+    gtk_widget_set_events(evbox, GDK_BUTTON_PRESS_MASK);
+    g_signal_connect(evbox, "button-press-event", G_CALLBACK(on_desktop_button_press), NULL);
+    gtk_overlay_add_overlay(GTK_OVERLAY(overlay), evbox);
 
     gtk_widget_set_app_paintable(desktop_window, TRUE);
     gtk_widget_show_all(desktop_window);
@@ -1155,12 +1279,56 @@ static gboolean on_window_titlebar_motion(GtkWidget *widget, GdkEventMotion *eve
         int dx = (int)event->x_root - drag_start_x;
         int dy = (int)event->y_root - drag_start_y;
         gtk_window_move(GTK_WINDOW(nwin->window), drag_win_x + dx, drag_win_y + dy);
+
+        /* Detect snap zones */
+        int mx = (int)event->x_root;
+        int my = (int)event->y_root;
+        if (mx < 20) {
+            snap_zone = 1; /* left half */
+        } else if (mx > screen_width - 20) {
+            snap_zone = 2; /* right half */
+        } else if (my < 20) {
+            snap_zone = 3; /* maximize */
+        } else {
+            snap_zone = 0; /* no snap */
+        }
     }
     return FALSE;
 }
 
 static gboolean on_window_titlebar_release(GtkWidget *widget, GdkEventButton *event, gpointer data)
 {
+    NovaWindow *nwin = (NovaWindow *)data;
+
+    if (dragging && snap_zone != 0 && nwin && nwin->window) {
+        int snap_y = PANEL_HEIGHT;
+        int snap_h = screen_height - PANEL_HEIGHT - DOCK_HEIGHT - 16;
+
+        /* Save current geometry for un-snap later */
+        if (!nwin->maximized) {
+            gtk_window_get_position(GTK_WINDOW(nwin->window), &nwin->save_x, &nwin->save_y);
+            gtk_window_get_size(GTK_WINDOW(nwin->window), &nwin->save_w, &nwin->save_h);
+        }
+
+        if (snap_zone == 1) {
+            /* Snap left half */
+            gtk_window_move(GTK_WINDOW(nwin->window), 0, snap_y);
+            gtk_window_resize(GTK_WINDOW(nwin->window), screen_width / 2, snap_h);
+            nwin->maximized = TRUE;
+        } else if (snap_zone == 2) {
+            /* Snap right half */
+            gtk_window_move(GTK_WINDOW(nwin->window), screen_width / 2, snap_y);
+            gtk_window_resize(GTK_WINDOW(nwin->window), screen_width / 2, snap_h);
+            nwin->maximized = TRUE;
+        } else if (snap_zone == 3) {
+            /* Maximize (top edge) */
+            gtk_window_move(GTK_WINDOW(nwin->window), 0, snap_y);
+            gtk_window_resize(GTK_WINDOW(nwin->window), screen_width, snap_h);
+            nwin->maximized = TRUE;
+        }
+        snap_zone = 0;
+    }
+
     dragging = FALSE;
     return FALSE;
 }
@@ -1494,13 +1662,171 @@ static void nova_show_notification(const char *title, const char *body)
 }
 
 /* ═══════════════════════════════════════════════
+ * Alt+Tab App Switcher
+ * ═══════════════════════════════════════════════ */
+
+static void hide_app_switcher(void)
+{
+    if (!switcher_visible || !switcher_window) return;
+    gtk_widget_hide(switcher_window);
+    switcher_visible = FALSE;
+}
+
+static void commit_app_switcher(void)
+{
+    if (!switcher_visible) return;
+    if (switcher_count > 0 && switcher_index < switcher_count) {
+        NovaWindow *nwin = switcher_wins[switcher_index];
+        if (nwin && nwin->window) {
+            if (nwin->minimized) {
+                gtk_widget_show(nwin->window);
+                nwin->minimized = FALSE;
+            }
+            nova_focus_window(nwin);
+        }
+    }
+    hide_app_switcher();
+}
+
+static void cycle_app_switcher(void)
+{
+    if (!switcher_visible || switcher_count == 0) return;
+
+    /* Un-highlight current */
+    if (switcher_labels[switcher_index]) {
+        GdkRGBA normal_bg = {0.12, 0.12, 0.18, 1.0};
+        gtk_widget_override_background_color(switcher_labels[switcher_index],
+            GTK_STATE_FLAG_NORMAL, &normal_bg);
+    }
+
+    switcher_index = (switcher_index + 1) % switcher_count;
+
+    /* Highlight new selection */
+    if (switcher_labels[switcher_index]) {
+        GdkRGBA hl_bg = {0.0, 0.478, 1.0, 1.0}; /* #007aff */
+        gtk_widget_override_background_color(switcher_labels[switcher_index],
+            GTK_STATE_FLAG_NORMAL, &hl_bg);
+    }
+}
+
+static void show_app_switcher(void)
+{
+    /* Collect open windows */
+    switcher_count = 0;
+    for (int i = 0; i < window_count; i++) {
+        if (windows[i].window != NULL && windows[i].app != NULL) {
+            switcher_wins[switcher_count] = &windows[i];
+            switcher_count++;
+        }
+    }
+    if (switcher_count == 0) return;
+
+    /* If already visible, just cycle */
+    if (switcher_visible) {
+        cycle_app_switcher();
+        return;
+    }
+
+    switcher_index = 0;
+
+    /* Destroy old switcher window if lingering */
+    if (switcher_window) {
+        gtk_widget_destroy(switcher_window);
+        switcher_window = NULL;
+    }
+
+    /* Create popup */
+    switcher_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_decorated(GTK_WINDOW(switcher_window), FALSE);
+    gtk_window_set_skip_taskbar_hint(GTK_WINDOW(switcher_window), TRUE);
+    gtk_window_set_skip_pager_hint(GTK_WINDOW(switcher_window), TRUE);
+    gtk_window_set_keep_above(GTK_WINDOW(switcher_window), TRUE);
+    gtk_window_set_type_hint(GTK_WINDOW(switcher_window), GDK_WINDOW_TYPE_HINT_DIALOG);
+    gtk_window_set_position(GTK_WINDOW(switcher_window), GTK_WIN_POS_CENTER);
+    gtk_window_set_resizable(GTK_WINDOW(switcher_window), FALSE);
+
+    GdkRGBA sw_bg = {0.118, 0.118, 0.180, 1.0}; /* #1e1e2e */
+    gtk_widget_override_background_color(switcher_window, GTK_STATE_FLAG_NORMAL, &sw_bg);
+
+    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+    gtk_widget_set_margin_start(vbox, 12);
+    gtk_widget_set_margin_end(vbox, 12);
+    gtk_widget_set_margin_top(vbox, 12);
+    gtk_widget_set_margin_bottom(vbox, 12);
+    gtk_container_add(GTK_CONTAINER(switcher_window), vbox);
+
+    /* Title */
+    GtkWidget *title = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(title),
+        "<span foreground='#888888' size='10000'>Switch Application</span>");
+    gtk_label_set_xalign(GTK_LABEL(title), 0);
+    gtk_box_pack_start(GTK_BOX(vbox), title, FALSE, FALSE, 4);
+
+    /* List each open window */
+    for (int i = 0; i < switcher_count; i++) {
+        GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+        gtk_widget_set_margin_start(row, 8);
+        gtk_widget_set_margin_end(row, 8);
+        gtk_widget_set_margin_top(row, 4);
+        gtk_widget_set_margin_bottom(row, 4);
+
+        /* App icon */
+        GtkWidget *icon = gtk_label_new(switcher_wins[i]->app->icon);
+        gtk_box_pack_start(GTK_BOX(row), icon, FALSE, FALSE, 4);
+
+        /* App name */
+        GtkWidget *name = gtk_label_new(NULL);
+        char markup[256];
+        snprintf(markup, sizeof(markup),
+            "<span foreground='#ffffff' size='12000'>%s</span>",
+            switcher_wins[i]->app->name);
+        gtk_label_set_markup(GTK_LABEL(name), markup);
+        gtk_box_pack_start(GTK_BOX(row), name, FALSE, FALSE, 4);
+
+        /* Highlight first entry */
+        if (i == 0) {
+            GdkRGBA hl_bg = {0.0, 0.478, 1.0, 1.0};
+            gtk_widget_override_background_color(row, GTK_STATE_FLAG_NORMAL, &hl_bg);
+        } else {
+            GdkRGBA normal_bg = {0.12, 0.12, 0.18, 1.0};
+            gtk_widget_override_background_color(row, GTK_STATE_FLAG_NORMAL, &normal_bg);
+        }
+
+        switcher_labels[i] = row;
+        gtk_box_pack_start(GTK_BOX(vbox), row, FALSE, FALSE, 0);
+    }
+
+    int sw_width = 300;
+    int sw_height = 60 + switcher_count * 40;
+    gtk_window_set_default_size(GTK_WINDOW(switcher_window), sw_width, sw_height);
+
+    gtk_widget_show_all(switcher_window);
+    switcher_visible = TRUE;
+}
+
+/* ═══════════════════════════════════════════════
  * Global Keyboard Shortcuts
  * ═══════════════════════════════════════════════ */
 
-/* Global key snooper — catches Ctrl+Space from ANY window */
+/* Global key snooper — catches Ctrl+Space and Alt+Tab from ANY window */
 static gint global_key_snooper(GtkWidget *widget, GdkEventKey *event, gpointer data)
 {
+    /* Alt release — commit app switcher selection */
+    if (event->type == GDK_KEY_RELEASE &&
+        (event->keyval == GDK_KEY_Alt_L || event->keyval == GDK_KEY_Alt_R)) {
+        if (switcher_visible) {
+            commit_app_switcher();
+            return TRUE;
+        }
+    }
+
     if (event->type != GDK_KEY_PRESS) return FALSE;
+
+    /* Alt+Tab — app switcher */
+    if ((event->state & GDK_MOD1_MASK) && event->keyval == GDK_KEY_Tab) {
+        show_app_switcher();
+        return TRUE;
+    }
 
     gboolean ctrl = (event->state & GDK_CONTROL_MASK);
 
