@@ -135,6 +135,17 @@ static gboolean       switcher_visible  = FALSE;
 /* Window snap preview state */
 static int            snap_zone         = 0; /* 0=none, 1=left, 2=right, 3=top(maximize) */
 
+/* Popup overlay windows (opaque, shown on demand) */
+static GtkWidget     *screensaver_win   = NULL;
+static WebKitWebView *screensaver_wv    = NULL;
+static gboolean       screensaver_on    = FALSE;
+static time_t         last_user_activity = 0;
+#define SCREENSAVER_TIMEOUT 300 /* 5 minutes */
+
+static GtkWidget     *popup_emoji_win   = NULL;
+static GtkWidget     *popup_clipboard_win = NULL;
+static GtkWidget     *popup_volume_win  = NULL;
+
 /* ═══════════════════════════════════════════════
  * App Registry
  * ═══════════════════════════════════════════════ */
@@ -1842,12 +1853,163 @@ static gint global_key_snooper(GtkWidget *widget, GdkEventKey *event, gpointer d
         return TRUE;
     }
 
+    /* Ctrl+; — emoji picker */
+    if (ctrl && event->keyval == GDK_KEY_semicolon) {
+        toggle_popup(&popup_emoji_win, "Emoji Picker",
+            "/popup/emoji", 480, 500);
+        return TRUE;
+    }
+
+    /* Ctrl+Shift+V — clipboard manager */
+    if (ctrl && (event->state & GDK_SHIFT_MASK) &&
+        (event->keyval == GDK_KEY_v || event->keyval == GDK_KEY_V)) {
+        toggle_popup(&popup_clipboard_win, "Clipboard",
+            "/popup/clipboard", 480, 500);
+        return TRUE;
+    }
+
+    /* Track user activity for screensaver */
+    last_user_activity = time(NULL);
+    if (screensaver_on) {
+        hide_screensaver_cb(NULL, NULL);
+        if (screensaver_win) gtk_widget_hide(screensaver_win);
+    }
+
     return FALSE; /* pass through */
 }
 
 /* ═══════════════════════════════════════════════
  * Initialization
  * ═══════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════
+ * Popup Overlay Windows (opaque, on-demand)
+ * Each loads a minimal HTML page from the server.
+ * ═══════════════════════════════════════════════ */
+
+static GtkWidget* create_popup_window(const char *title, const char *url,
+    int w, int h, int x, int y, gboolean fullscreen)
+{
+    GtkWidget *win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title(GTK_WINDOW(win), title);
+    gtk_window_set_decorated(GTK_WINDOW(win), FALSE);
+    gtk_window_set_skip_taskbar_hint(GTK_WINDOW(win), TRUE);
+    gtk_window_set_keep_above(GTK_WINDOW(win), TRUE);
+
+    if (fullscreen) {
+        gtk_window_set_default_size(GTK_WINDOW(win), screen_width, screen_height);
+        gtk_window_move(GTK_WINDOW(win), 0, 0);
+    } else {
+        gtk_window_set_default_size(GTK_WINDOW(win), w, h);
+        gtk_window_move(GTK_WINDOW(win), x, y);
+    }
+
+    GdkRGBA bg = {0.05, 0.05, 0.10, 1.0};
+    gtk_widget_override_background_color(win, GTK_STATE_FLAG_NORMAL, &bg);
+
+    WebKitSettings *s = webkit_settings_new();
+    webkit_settings_set_enable_javascript(s, TRUE);
+    webkit_settings_set_enable_html5_local_storage(s, TRUE);
+    webkit_settings_set_enable_webaudio(s, TRUE);
+
+    const gchar *home = g_get_home_dir();
+    gchar *d = g_build_filename(home, ".local", "share", "nova-renderer", NULL);
+    gchar *c = g_build_filename(home, ".cache", "nova-renderer", NULL);
+    WebKitWebsiteDataManager *dm = webkit_website_data_manager_new(
+        "base-data-directory", d, "base-cache-directory", c, NULL);
+    WebKitWebContext *ctx = webkit_web_context_new_with_website_data_manager(dm);
+    g_free(d); g_free(c);
+
+    WebKitWebView *wv = WEBKIT_WEB_VIEW(g_object_new(WEBKIT_TYPE_WEB_VIEW,
+        "settings", s, "web-context", ctx, NULL));
+
+    GdkRGBA wv_bg = {0.05, 0.05, 0.10, 1.0};
+    webkit_web_view_set_background_color(wv, &wv_bg);
+
+    double zoom = get_hidpi_zoom();
+    if (zoom > 0) webkit_web_view_set_zoom_level(wv, zoom);
+
+    gtk_container_add(GTK_CONTAINER(win), GTK_WIDGET(wv));
+
+    char full_url[512];
+    snprintf(full_url, sizeof(full_url), "%s%s", NOVA_SERVER_URL, url);
+    webkit_web_view_load_uri(wv, full_url);
+
+    return win;
+}
+
+/* ── Popup callbacks (must be declared before use) ── */
+static gboolean popup_key_handler(GtkWidget *w, GdkEventKey *e, gpointer data)
+{
+    if (e->keyval == GDK_KEY_Escape) {
+        gtk_widget_hide(w);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+static void hide_screensaver_cb(GtkWidget *w, gpointer data)
+{
+    screensaver_on = FALSE;
+    last_user_activity = time(NULL);
+}
+
+static gboolean screensaver_dismiss(GtkWidget *w, GdkEvent *e, gpointer data)
+{
+    gtk_widget_hide(w);
+    screensaver_on = FALSE;
+    last_user_activity = time(NULL);
+    return TRUE;
+}
+
+/* ── Screensaver ── */
+static void show_screensaver(void)
+{
+    if (screensaver_on) return;
+    if (!screensaver_win) {
+        screensaver_win = create_popup_window("Screensaver",
+            "/popup/screensaver", 0, 0, 0, 0, TRUE);
+        g_signal_connect(screensaver_win, "key-press-event",
+            G_CALLBACK(screensaver_dismiss), NULL);
+        g_signal_connect(screensaver_win, "button-press-event",
+            G_CALLBACK(screensaver_dismiss), NULL);
+        g_signal_connect(screensaver_win, "hide",
+            G_CALLBACK(hide_screensaver_cb), NULL);
+    }
+    gtk_widget_show_all(screensaver_win);
+    screensaver_on = TRUE;
+}
+
+/* ── Idle checker for screensaver ── */
+static gboolean check_idle_for_screensaver(gpointer data)
+{
+    if (screensaver_on) return TRUE;
+    time_t now = time(NULL);
+    if (last_user_activity == 0) last_user_activity = now;
+    if (now - last_user_activity >= SCREENSAVER_TIMEOUT) {
+        show_screensaver();
+    }
+    return TRUE;
+}
+
+/* ── Generic popup toggle ── */
+static void toggle_popup(GtkWidget **win_ptr, const char *title,
+    const char *url, int w, int h)
+{
+    if (*win_ptr && gtk_widget_get_visible(*win_ptr)) {
+        gtk_widget_hide(*win_ptr);
+        return;
+    }
+    if (!*win_ptr) {
+        int x = (screen_width - w) / 2;
+        int y = (screen_height - h) / 2;
+        *win_ptr = create_popup_window(title, url, w, h, x, y, FALSE);
+        g_signal_connect(*win_ptr, "key-press-event",
+            G_CALLBACK(popup_key_handler), NULL);
+    }
+    gtk_widget_show_all(*win_ptr);
+    gtk_window_present(GTK_WINDOW(*win_ptr));
+}
 
 static void signal_handler(int sig)
 {
@@ -1914,9 +2076,9 @@ int main(int argc, char *argv[])
     g_print("[Astrion Shell] Creating launcher...\n");
     create_launcher();
 
-    /* System overlay disabled — transparent windows need a compositor.
-     * JS overlay features (screensaver, widgets, etc.) will be added
-     * as on-demand native windows in a future update. */
+    /* Start screensaver idle checker (every 10 seconds) */
+    last_user_activity = time(NULL);
+    g_timeout_add(10000, check_idle_for_screensaver, NULL);
 
     /* Show welcome notification */
     nova_show_notification("Welcome to Astrion OS",

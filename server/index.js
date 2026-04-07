@@ -270,6 +270,74 @@ app.get('/system-overlay', (req, res) => {
 </html>`);
 });
 
+// ─── Popup pages for native shell features ───
+// Each loads a minimal page with just one JS feature
+
+app.get('/popup/screensaver', (req, res) => {
+  res.send(`<!DOCTYPE html><html><head>
+<meta charset="UTF-8"><style>
+* { margin:0; padding:0; }
+body { background:#000; overflow:hidden; width:100vw; height:100vh; cursor:none; }
+</style></head><body>
+<canvas id="c" style="width:100%;height:100%;"></canvas>
+<div id="clock" style="position:absolute;font-family:system-ui,sans-serif;color:white;text-align:center;"></div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d'),clk=document.getElementById('clock');
+c.width=window.innerWidth;c.height=window.innerHeight;
+const stars=Array.from({length:200},()=>({x:Math.random()*c.width,y:Math.random()*c.height,r:Math.random()*1.5+0.3,s:Math.random()*0.3+0.05,b:Math.random()}));
+let cx=Math.random()*(c.width-300)+100,cy=Math.random()*(c.height-200)+100,dx=0.3,dy=0.2;
+function frame(){ctx.fillStyle='rgba(0,0,0,0.15)';ctx.fillRect(0,0,c.width,c.height);
+stars.forEach(s=>{s.b+=0.01;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,'+(0.3+Math.abs(Math.sin(s.b))*0.7)+')';ctx.fill();s.y+=s.s;if(s.y>c.height){s.y=0;s.x=Math.random()*c.width;}});
+if(Math.random()<0.003){const sx=Math.random()*c.width,sy=Math.random()*c.height*0.5;ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx+80,sy+30);ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=1.5;ctx.stroke();}
+cx+=dx;cy+=dy;if(cx<50||cx>c.width-350)dx*=-1;if(cy<50||cy>c.height-150)dy*=-1;
+const n=new Date();clk.style.left=cx+'px';clk.style.top=cy+'px';
+clk.innerHTML='<div style="font-size:64px;font-weight:200">'+n.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true})+'</div><div style="font-size:16px;opacity:0.5;margin-top:4px">'+n.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+'</div>';
+requestAnimationFrame(frame);}frame();
+</script></body></html>`);
+});
+
+app.get('/popup/emoji', (req, res) => {
+  res.send(`<!DOCTYPE html><html><head>
+<meta charset="UTF-8"><style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#1e1e2e;color:white;font-family:system-ui,sans-serif;padding:14px;overflow:hidden;}
+input{width:100%;padding:10px;border-radius:10px;border:1px solid #333;background:#2a2a3a;color:white;font-size:14px;outline:none;margin-bottom:10px;}
+#grid{display:grid;grid-template-columns:repeat(10,1fr);gap:2px;overflow-y:auto;max-height:calc(100vh - 60px);}
+#grid>div{width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:24px;border-radius:8px;cursor:pointer;}
+#grid>div:hover{background:rgba(255,255,255,0.12);}
+</style></head><body>
+<input type="text" id="s" placeholder="Search emoji..." autofocus>
+<div id="grid"></div>
+<script>
+const E=['\u{1F600}','\u{1F601}','\u{1F602}','\u{1F923}','\u{1F603}','\u{1F604}','\u{1F605}','\u{1F606}','\u{1F609}','\u{1F60A}','\u{1F60D}','\u{1F618}','\u{1F61B}','\u{1F61C}','\u{1F929}','\u{1F914}','\u{1F910}','\u{1F60F}','\u{1F612}','\u{1F644}','\u{1F62A}','\u{1F622}','\u{1F62D}','\u{1F631}','\u{1F620}','\u{1F621}','\u{1F480}','\u{1F47B}','\u{1F47D}','\u{1F916}','\u{1F44D}','\u{1F44E}','\u{1F44C}','\u270C\uFE0F','\u{1F44F}','\u{1F64C}','\u{1F64F}','\u{1F44B}','\u{1F440}','\u{1F4AA}','\u2764\uFE0F','\u{1F49C}','\u{1F494}','\u{1F525}','\u2728','\u{1F31F}','\u{1F4AF}','\u{1F389}','\u{1F381}','\u2615','\u{1F355}','\u{1F354}','\u{1F36A}','\u{1F34E}','\u{1F4BB}','\u{1F4F1}','\u{1F4A1}','\u{1F512}','\u{1F511}','\u{1F4DD}','\u{1F4C5}','\u{1F514}','\u{1F50D}','\u{1F517}','\u{1F310}','\u{1F333}','\u{1F339}','\u{1F431}','\u{1F436}','\u2705','\u274C','\u26A0\uFE0F','\u27A1\uFE0F','\u{1F504}','\u{1F3AE}','\u{1F3B5}','\u{1F3AC}','\u{1F4F7}','\u{1F4E7}','\u{1F680}'];
+const g=document.getElementById('grid'),s=document.getElementById('s');
+function render(f){g.innerHTML='';(f?E.filter(e=>true):E).forEach(e=>{const d=document.createElement('div');d.textContent=e;d.onclick=()=>{navigator.clipboard.writeText(e);d.style.background='#007aff';setTimeout(()=>d.style.background='',300);};g.appendChild(d);});}
+render();s.addEventListener('input',()=>render(s.value));
+</script></body></html>`);
+});
+
+app.get('/popup/clipboard', (req, res) => {
+  res.send(`<!DOCTYPE html><html><head>
+<meta charset="UTF-8"><style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#1e1e2e;color:white;font-family:system-ui,sans-serif;padding:14px;overflow-y:auto;height:100vh;}
+h3{font-size:14px;margin-bottom:10px;}
+.item{padding:10px;border-radius:8px;margin-bottom:4px;cursor:pointer;font-size:12px;word-break:break-word;background:rgba(255,255,255,0.04);}
+.item:hover{background:rgba(255,255,255,0.1);}
+.empty{text-align:center;color:rgba(255,255,255,0.3);padding:40px;font-size:13px;}
+</style></head><body>
+<h3>\u{1F4CB} Clipboard History</h3>
+<div id="list"></div>
+<script>
+const KEY='nova-clipboard-history',list=document.getElementById('list');
+function render(){let h=[];try{h=JSON.parse(localStorage.getItem(KEY)||'[]');}catch{}
+if(!h.length){list.innerHTML='<div class="empty">No clipboard history</div>';return;}
+list.innerHTML=h.map((i,idx)=>'<div class="item" data-i="'+idx+'">'+i.text.slice(0,200)+'</div>').join('');
+list.querySelectorAll('.item').forEach(el=>el.onclick=()=>{const i=h[el.dataset.i];if(i)navigator.clipboard.writeText(i.text);el.style.background='#007aff';setTimeout(()=>el.style.background='',300);});}
+render();
+</script></body></html>`);
+});
+
 // ─── Native Shell App Routes ───
 // When nova-shell (the native C renderer) opens an app,
 // it loads /app/terminal, /app/notes, etc.
