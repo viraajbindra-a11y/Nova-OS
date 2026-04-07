@@ -1004,6 +1004,61 @@ app.post('/api/system/sleep', async (req, res) => {
   setTimeout(() => runShell('sudo', ['-n', 'systemctl', 'suspend']), 500);
 });
 
+// ─── Real Terminal via WebSocket ───
+// Spawns a real bash shell and pipes stdin/stdout over WebSocket.
+// The Terminal app connects via ws://localhost:3001
+import { WebSocketServer } from 'ws';
+import { spawn } from 'child_process';
+
+const WS_PORT = 3001;
+
+try {
+  const wss = new WebSocketServer({ port: WS_PORT });
+
+  wss.on('connection', (ws) => {
+    const shell = spawn('/bin/bash', ['-l'], {
+      cwd: process.env.HOME || '/home/astrion',
+      env: {
+        ...process.env,
+        TERM: 'xterm-256color',
+        SHELL: '/bin/bash',
+        HOME: process.env.HOME || '/home/astrion',
+        USER: process.env.USER || 'astrion',
+        LANG: 'en_US.UTF-8',
+        PS1: '\\[\\033[1;34m\\]\\u@astrion-os\\[\\033[0m\\]:\\[\\033[1;36m\\]\\w\\[\\033[0m\\]$ ',
+      },
+    });
+
+    shell.stdout.on('data', (data) => {
+      if (ws.readyState === 1) ws.send(data.toString());
+    });
+
+    shell.stderr.on('data', (data) => {
+      if (ws.readyState === 1) ws.send(data.toString());
+    });
+
+    shell.on('close', () => {
+      if (ws.readyState === 1) ws.send('\r\n[Shell exited]\r\n');
+      ws.close();
+    });
+
+    ws.on('message', (msg) => {
+      shell.stdin.write(msg.toString());
+    });
+
+    ws.on('close', () => {
+      shell.kill();
+    });
+
+    // Send welcome
+    ws.send('\x1b[1;34mAstrion OS Terminal\x1b[0m\r\n');
+  });
+
+  console.log(`Terminal WebSocket running on ws://localhost:${WS_PORT}`);
+} catch (e) {
+  console.log('WebSocket terminal not available:', e.message);
+}
+
 app.listen(PORT, () => {
   console.log(`Astrion OS server running at http://localhost:${PORT}`);
 });
