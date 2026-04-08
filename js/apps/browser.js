@@ -167,13 +167,33 @@ function initBrowser(container, instanceId, options = {}) {
           setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
         };
         iframe.onerror = () => {
-          viewport.innerHTML = `<div class="browser-error" style="padding:40px;text-align:center;color:rgba(255,255,255,0.5);"><div style="font-size:48px;margin-bottom:12px;">\u26A0\uFE0F</div><div>This site can't be loaded in an iframe.</div><div style="margin-top:8px;"><a href="${url}" target="_blank" style="color:var(--accent);">Open in new tab</a></div></div>`;
+          showBlockedPage(url);
         };
+        // Most sites block iframes — detect it after a timeout
+        setTimeout(() => {
+          try {
+            // If we can't access iframe content, it was likely blocked
+            if (iframe.contentDocument === null) showBlockedPage(url);
+          } catch { showBlockedPage(url); }
+        }, 3000);
         viewport.appendChild(iframe);
       }
 
       windowManager.setTitle(instanceId, url.replace(/^https?:\/\//, '').split('/')[0]);
     }
+  }
+
+  function showBlockedPage(blockedUrl) {
+    const old = viewport.querySelector('iframe');
+    if (old) old.remove();
+    viewport.innerHTML = `
+      <div class="browser-error" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:40px;text-align:center;color:rgba(255,255,255,0.6);">
+        <div style="font-size:48px;margin-bottom:16px;">\uD83D\uDD12</div>
+        <div style="font-size:16px;font-weight:600;color:white;margin-bottom:8px;">This site can't be displayed here</div>
+        <div style="font-size:13px;max-width:400px;margin-bottom:20px;line-height:1.5;">Most websites block being loaded inside other apps. Click below to open it in a new browser tab.</div>
+        <a href="${blockedUrl}" target="_blank" style="padding:10px 24px;background:var(--accent);color:white;text-decoration:none;border-radius:10px;font-size:13px;font-weight:500;">Open in Browser Tab</a>
+        <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:16px;">On the Astrion OS ISO, the native Astrion Browser handles this automatically.</div>
+      </div>`;
   }
 
   // Listen for link clicks from within proxied pages (they postMessage us)
