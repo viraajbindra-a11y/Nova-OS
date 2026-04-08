@@ -138,31 +138,36 @@ function initBrowser(container, instanceId, options = {}) {
       // Update BrowserView bounds when window moves/resizes
       setupBrowserViewTracking(viewport);
     } else {
-      // Launch Astrion Browser (native) or fall back to iframe proxy
       const old = viewport.querySelector('.browser-home, .browser-error, iframe');
       if (old) old.remove();
 
-      // Try native browser first (works on ISO)
-      fetch('/api/browser/open', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      }).then(r => r.json()).then(data => {
-        if (data.ok) {
-          loadingBar.style.width = '100%';
-          setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
-          windowManager.setTitle(instanceId, url.replace(/^https?:\/\//, '').split('/')[0]);
-        }
-      }).catch(() => {
-        // Native browser not available — use iframe proxy
+      // Detect: running on ISO (has server) or web (GitHub Pages)?
+      const hasServer = window.location.port === '3000' || window.__NOVA_NATIVE__;
+
+      if (hasServer) {
+        // ISO: try native browser, fall back to proxy
+        fetch('/api/browser/open', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        }).then(r => r.json()).then(data => {
+          if (data.ok) {
+            loadingBar.style.width = '100%';
+            setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
+          }
+        }).catch(() => {});
+      } else {
+        // Web (GitHub Pages): direct iframe (some sites block this)
         const iframe = document.createElement('iframe');
         iframe.className = 'browser-iframe';
         iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox');
-        iframe.src = `/api/browser/proxy?url=${encodeURIComponent(url)}`;
+        iframe.src = url;
         iframe.onload = () => {
           loadingBar.style.width = '100%';
           setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
-          windowManager.setTitle(instanceId, url.replace(/^https?:\/\//, '').split('/')[0]);
+        };
+        iframe.onerror = () => {
+          viewport.innerHTML = `<div class="browser-error" style="padding:40px;text-align:center;color:rgba(255,255,255,0.5);"><div style="font-size:48px;margin-bottom:12px;">\u26A0\uFE0F</div><div>This site can't be loaded in an iframe.</div><div style="margin-top:8px;"><a href="${url}" target="_blank" style="color:var(--accent);">Open in new tab</a></div></div>`;
         };
         viewport.appendChild(iframe);
       });
