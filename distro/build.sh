@@ -693,19 +693,15 @@ ERRHTML
   fi
 done
 
-# Launch Astrion OS native shell
-# nova-shell = native C/GTK3 desktop with real windows (primary)
-# nova-renderer = fallback single-page web renderer
-if command -v nova-shell >/dev/null 2>&1; then
-  echo "Launching native Astrion shell..."
+# Launch Astrion OS
+# nova-renderer = polished web UI (primary — looks great)
+# nova-shell = native GTK backup
+if command -v nova-renderer >/dev/null 2>&1; then
+  echo "Launching Astrion OS..."
+  exec nova-renderer
+elif command -v nova-shell >/dev/null 2>&1; then
+  echo "Falling back to native shell..."
   exec nova-shell
-elif command -v nova-renderer >/dev/null 2>&1; then
-  echo "nova-shell missing, falling back to nova-renderer..."
-  if [ -f /tmp/nova-error.html ]; then
-    exec nova-renderer --url file:///tmp/nova-error.html
-  else
-    exec nova-renderer
-  fi
 else
   echo "ERROR: no renderer found!"
   sleep 5
