@@ -54,6 +54,9 @@ import { registerContacts } from './apps/contacts.js';
 import { registerMaps } from './apps/maps.js';
 import { registerVoiceMemos } from './apps/voice-memos.js';
 import { registerPomodoro } from './apps/pomodoro.js';
+import { registerPdfViewer } from './apps/pdf-viewer.js';
+import { registerKanban } from './apps/kanban.js';
+import { registerHabitTracker } from './apps/habit-tracker.js';
 import { verifyPassword } from './kernel/crypto.js';
 import { sounds } from './kernel/sound.js';
 import { initVolumeHud } from './shell/volume-hud.js';
@@ -123,6 +126,9 @@ import { initVolumeHud } from './shell/volume-hud.js';
   registerMaps();
   registerVoiceMemos();
   registerPomodoro();
+  registerPdfViewer();
+  registerKanban();
+  registerHabitTracker();
   await animate(progressBar, 85, 200);
 
   // Init kernel

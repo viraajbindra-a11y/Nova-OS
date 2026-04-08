@@ -26,6 +26,8 @@ const dockApps = [
   { id: 'maps', name: 'Maps' },
   { id: 'voice-memos', name: 'Voice Memos' },
   { id: 'pomodoro', name: 'Pomodoro' },
+  { id: 'kanban', name: 'Kanban' },
+  { id: 'habit-tracker', name: 'Habits' },
   { id: 'appstore', name: 'App Store' },
   { id: 'settings', name: 'Settings' },
 ];

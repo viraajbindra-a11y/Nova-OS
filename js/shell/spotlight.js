@@ -179,6 +179,12 @@ export function initSpotlight() {
       'open pomodoro': 'pomodoro',
       'pomodoro timer': 'pomodoro',
       'focus timer': 'pomodoro',
+      'open pdf': 'pdf-viewer',
+      'pdf viewer': 'pdf-viewer',
+      'open kanban': 'kanban',
+      'project board': 'kanban',
+      'open habits': 'habit-tracker',
+      'habit tracker': 'habit-tracker',
     };
 
     for (const [cmd, appId] of Object.entries(appCommands)) {
