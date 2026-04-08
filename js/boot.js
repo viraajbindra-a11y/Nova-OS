@@ -72,6 +72,8 @@ import { registerDictionary } from './apps/dictionary.js';
 import { registerJournal } from './apps/journal.js';
 import { registerFlashcards } from './apps/flashcards.js';
 import { registerChess } from './apps/chess.js';
+import { registerSnake } from './apps/snake.js';
+import { register2048 } from './apps/2048.js';
 import { verifyPassword } from './kernel/crypto.js';
 import { sounds } from './kernel/sound.js';
 import { initVolumeHud } from './shell/volume-hud.js';
@@ -159,6 +161,8 @@ import { initVolumeHud } from './shell/volume-hud.js';
   registerJournal();
   registerFlashcards();
   registerChess();
+  registerSnake();
+  register2048();
   await animate(progressBar, 85, 200);
 
   // Init kernel
