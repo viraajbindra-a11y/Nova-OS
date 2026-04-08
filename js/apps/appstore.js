@@ -30,58 +30,58 @@ function buildStoreApps() {
 
 const demoApps = [
   {
-    id: 'weather-widget', name: 'Weather Pro', icon: '\u26C5', category: 'Utilities',
-    dev: 'CloudTech', rating: 4.8, color: 'linear-gradient(135deg, #1e88e5, #0d47a1)',
-    desc: 'Beautiful weather forecasts with hourly and weekly views. AI-powered weather insights.',
-    installed: false, price: 'Free'
-  },
-  {
-    id: 'code-editor-pro', name: 'CodePad Pro', icon: '\uD83D\uDCBB', category: 'Developer Tools',
-    dev: 'DevForge', rating: 4.9, color: 'linear-gradient(135deg, #7c4dff, #304ffe)',
-    desc: 'Advanced code editor with syntax highlighting, git integration, and AI code completion.',
-    installed: false, price: '$4.99'
-  },
-  {
-    id: 'photo-editor', name: 'PixelStudio', icon: '\uD83D\uDDBC\uFE0F', category: 'Photography',
-    dev: 'Creative Labs', rating: 4.7, color: 'linear-gradient(135deg, #ff6d00, #ff3d00)',
-    desc: 'Professional photo editing with AI-powered filters, layers, and adjustment tools.',
-    installed: false, price: '$2.99'
-  },
-  {
-    id: 'task-manager', name: 'TaskFlow', icon: '\u2705', category: 'Productivity',
-    dev: 'ProductiveApps', rating: 4.6, color: 'linear-gradient(135deg, #00c853, #1b5e20)',
-    desc: 'Smart task management with AI prioritization and deadline tracking.',
-    installed: false, price: 'Free'
-  },
-  {
     id: 'beat-studio', name: 'Beat Studio', icon: '\uD83C\uDFB9', category: 'Music',
     dev: 'Astrion', rating: 4.8, color: 'linear-gradient(135deg, #e91e63, #880e4f)',
-    desc: 'Create beats with an 8-track drum machine + 16-step sequencer. Free, built-in.',
+    desc: '8-track drum machine with 16-step sequencer. Kick, snare, hi-hat, clap and more.',
     installed: true, price: 'Free'
   },
   {
-    id: 'chat-app', name: 'NovaChat', icon: '\uD83D\uDCAC', category: 'Social',
-    dev: 'NOVA Team', rating: 4.8, color: 'linear-gradient(135deg, #00bcd4, #006064)',
-    desc: 'End-to-end encrypted messaging with AI-powered smart replies.',
-    installed: false, price: 'Free'
+    id: 'messages', name: 'Messages', icon: '\uD83D\uDCAC', category: 'Social',
+    dev: 'Astrion', rating: 4.9, color: 'linear-gradient(135deg, #34c759, #0a8a2e)',
+    desc: 'Chat with Astrion AI or create conversations. Persistent message history.',
+    installed: true, price: 'Free'
   },
   {
-    id: 'vpn-app', name: 'ShieldVPN', icon: '\uD83D\uDD12', category: 'Security',
-    dev: 'SecureTech', rating: 4.4, color: 'linear-gradient(135deg, #455a64, #263238)',
-    desc: 'Protect your privacy with military-grade encryption and global servers.',
-    installed: false, price: '$3.99/mo'
+    id: 'vault', name: 'Vault', icon: '\uD83D\uDD10', category: 'Security',
+    dev: 'Astrion', rating: 4.9, color: 'linear-gradient(135deg, #2a7a3e, #0e4a22)',
+    desc: 'AES-256 encrypted password manager with master password protection.',
+    installed: true, price: 'Free'
   },
   {
-    id: 'fitness', name: 'FitTrack', icon: '\uD83C\uDFCB\uFE0F', category: 'Health & Fitness',
-    dev: 'HealthApps', rating: 4.6, color: 'linear-gradient(135deg, #f44336, #b71c1c)',
-    desc: 'Track workouts, calories, and progress with AI coaching.',
-    installed: false, price: 'Free'
+    id: 'kanban', name: 'Kanban Board', icon: '\uD83D\uDCCB', category: 'Productivity',
+    dev: 'Astrion', rating: 4.7, color: 'linear-gradient(135deg, #007aff, #0055cc)',
+    desc: 'Drag-and-drop project management with columns and color-coded cards.',
+    installed: true, price: 'Free'
   },
   {
-    id: 'translator', name: 'LinguaAI', icon: '\uD83C\uDF0D', category: 'Reference',
-    dev: 'LangTech', rating: 4.9, color: 'linear-gradient(135deg, #3f51b5, #1a237e)',
-    desc: 'Instant translation in 100+ languages powered by AI.',
-    installed: false, price: 'Free'
+    id: 'translator', name: 'Translator', icon: '\uD83C\uDF10', category: 'Reference',
+    dev: 'Astrion', rating: 4.8, color: 'linear-gradient(135deg, #007aff, #0055cc)',
+    desc: 'AI-powered translation between 12 languages. Powered by Ollama or Claude.',
+    installed: true, price: 'Free'
+  },
+  {
+    id: 'pomodoro', name: 'Pomodoro Timer', icon: '\uD83C\uDF45', category: 'Productivity',
+    dev: 'Astrion', rating: 4.6, color: 'linear-gradient(135deg, #ff6b6b, #c41e16)',
+    desc: '25/5 focus timer with animated progress ring and session counting.',
+    installed: true, price: 'Free'
+  },
+  {
+    id: 'chess', name: 'Chess', icon: '\u265A', category: 'Games',
+    dev: 'Astrion', rating: 4.5, color: 'linear-gradient(135deg, #4a4a54, #2a2a34)',
+    desc: '2-player local chess with Unicode pieces on a classic board.',
+    installed: true, price: 'Free'
+  },
+  {
+    id: 'snake', name: 'Snake', icon: '\uD83D\uDC0D', category: 'Games',
+    dev: 'Astrion', rating: 4.4, color: 'linear-gradient(135deg, #34c759, #1a8a36)',
+    desc: 'Classic snake game. Arrow keys to move, eat food, grow longer.',
+    installed: true, price: 'Free'
+  },
+  {
+    id: '2048', name: '2048', icon: '\uD83C\uDFB2', category: 'Games',
+    dev: 'Astrion', rating: 4.7, color: 'linear-gradient(135deg, #edc22e, #c4a024)',
+    desc: 'Slide tiles to merge numbers. Can you reach 2048?',
+    installed: true, price: 'Free'
   },
 ];
 

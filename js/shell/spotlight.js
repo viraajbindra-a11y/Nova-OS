@@ -56,7 +56,27 @@ export function initSpotlight() {
   function open() {
     spotlight.classList.remove('hidden');
     input.value = '';
-    results.innerHTML = '';
+    // Show suggested apps when empty
+    const suggestions = ['Notes', 'Terminal', 'Messages', 'Browser', 'Music', 'Weather', 'Calculator', 'Beat Studio'];
+    results.innerHTML = `
+      <div class="spotlight-result-group">
+        <div class="spotlight-result-label">Suggested</div>
+        ${suggestions.map(name => {
+          const apps = processManager.getAllApps();
+          const app = apps.find(a => a.name === name);
+          if (!app) return '';
+          return `<div class="spotlight-result-item" data-action="launch" data-app="${app.id}">
+            <div class="spotlight-result-icon">${app.icon}</div>
+            <div class="spotlight-result-text">
+              <div class="spotlight-result-title">${app.name}</div>
+              <div class="spotlight-result-subtitle">Application</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    results.querySelectorAll('.spotlight-result-item').forEach(item => {
+      item.addEventListener('click', () => handleResultClick(item, ''));
+    });
     input.focus();
     isOpen = true;
   }
