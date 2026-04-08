@@ -1,8 +1,8 @@
 {
-  "name": "nova-os",
-  "version": "0.1.0",
+  "name": "astrion-os",
+  "version": "1.0.0",
   "type": "module",
-  "description": "NOVA OS — AI-Native Operating System",
+  "description": "Astrion OS — AI-native operating system with 50 apps",
   "scripts": {
     "start": "node server/index.js",
     "dev": "node server/index.js"
