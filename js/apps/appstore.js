@@ -54,10 +54,10 @@ const demoApps = [
     installed: false, price: 'Free'
   },
   {
-    id: 'music-pro', name: 'BeatMaker', icon: '\uD83C\uDFB9', category: 'Music',
-    dev: 'SoundForge', rating: 4.5, color: 'linear-gradient(135deg, #e91e63, #880e4f)',
-    desc: 'Create music with virtual instruments, loops, and AI-assisted composition.',
-    installed: false, price: '$6.99'
+    id: 'beat-studio', name: 'Beat Studio', icon: '\uD83C\uDFB9', category: 'Music',
+    dev: 'Astrion', rating: 4.8, color: 'linear-gradient(135deg, #e91e63, #880e4f)',
+    desc: 'Create beats with an 8-track drum machine + 16-step sequencer. Free, built-in.',
+    installed: true, price: 'Free'
   },
   {
     id: 'chat-app', name: 'NovaChat', icon: '\uD83D\uDCAC', category: 'Social',

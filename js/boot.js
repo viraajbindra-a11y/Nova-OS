@@ -78,6 +78,7 @@ import { registerBudget } from './apps/budget.js';
 import { registerQuotes } from './apps/quotes.js';
 import { registerTypingTest } from './apps/typing-test.js';
 import { registerTodo } from './apps/todo.js';
+import { registerBeatStudio } from './apps/beat-studio.js';
 import { verifyPassword } from './kernel/crypto.js';
 import { sounds } from './kernel/sound.js';
 import { initVolumeHud } from './shell/volume-hud.js';
@@ -171,6 +172,7 @@ import { initVolumeHud } from './shell/volume-hud.js';
   registerQuotes();
   registerTypingTest();
   registerTodo();
+  registerBeatStudio();
   await animate(progressBar, 85, 200);
 
   // Init kernel
