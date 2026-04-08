@@ -12,7 +12,7 @@
 set -e
 
 NOVA_DIR="/opt/nova-os"
-REPO="viraajbindra-a11y/Nova-OS"
+REPO="viraajbindra-a11y/Astrion-OS"
 BRANCH="main"
 LOG="/var/log/nova-update.log"
 STATE="/var/lib/nova-updater/last-sha"
@@ -71,7 +71,7 @@ if ! curl -4 -sL "https://github.com/$REPO/archive/$BRANCH.tar.gz" -o nova.tar.g
 fi
 
 tar xzf nova.tar.gz
-EXTRACTED=$(ls -d Nova-OS-* 2>/dev/null | head -1)
+EXTRACTED=$(ls -d Astrion-OS-* Nova-OS-* 2>/dev/null | head -1)
 
 if [ -z "$EXTRACTED" ] || [ ! -d "$EXTRACTED" ]; then
   log "Bad archive — aborting."

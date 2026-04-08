@@ -19,7 +19,7 @@ function setupAutoUpdater() {
   try {
     const { updateElectronApp } = require('update-electron-app');
     updateElectronApp({
-      repo: 'viraajbindra-a11y/Nova-OS',
+      repo: 'viraajbindra-a11y/Astrion-OS',
       updateInterval: '1 hour',
       notifyUser: true,
     });

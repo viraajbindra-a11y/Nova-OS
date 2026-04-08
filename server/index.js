@@ -98,7 +98,7 @@ app.post('/api/update/check', async (req, res) => {
     const fs = await import('fs');
 
     // 1. Fetch latest SHA from GitHub
-    const ghRes = await fetch('https://api.github.com/repos/viraajbindra-a11y/Nova-OS/commits/main');
+    const ghRes = await fetch('https://api.github.com/repos/viraajbindra-a11y/Astrion-OS/commits/main');
     if (!ghRes.ok) {
       return res.status(502).json({ status: 'error', error: 'GitHub unreachable' });
     }
