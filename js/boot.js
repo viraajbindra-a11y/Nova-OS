@@ -59,6 +59,9 @@ import { registerKanban } from './apps/kanban.js';
 import { registerHabitTracker } from './apps/habit-tracker.js';
 import { registerVideoPlayer } from './apps/video-player.js';
 import { registerSystemInfo } from './apps/system-info.js';
+import { registerTranslator } from './apps/translator.js';
+import { registerUnitConverter } from './apps/unit-converter.js';
+import { registerColorPicker } from './apps/color-picker.js';
 import { verifyPassword } from './kernel/crypto.js';
 import { sounds } from './kernel/sound.js';
 import { initVolumeHud } from './shell/volume-hud.js';
@@ -133,6 +136,9 @@ import { initVolumeHud } from './shell/volume-hud.js';
   registerHabitTracker();
   registerVideoPlayer();
   registerSystemInfo();
+  registerTranslator();
+  registerUnitConverter();
+  registerColorPicker();
   await animate(progressBar, 85, 200);
 
   // Init kernel

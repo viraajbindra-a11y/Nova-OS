@@ -180,6 +180,9 @@ static NovaApp app_registry[] = {
     { "habit-tracker",   "Habits",           "\xE2\x9C\x85",     "/app/habit-tracker",    FALSE, TRUE  },
     { "video-player",   "Video Player",     "\xE2\x96\xB6\xEF\xB8\x8F", "/app/video-player", FALSE, FALSE },
     { "system-info",    "System Info",      "\xE2\x84\xB9\xEF\xB8\x8F", "/app/system-info",  FALSE, TRUE  },
+    { "translator",     "Translator",       "\xF0\x9F\x8C\x90", "/app/translator",       FALSE, TRUE  },
+    { "unit-converter", "Converter",        "\xF0\x9F\x94\x84", "/app/unit-converter",   FALSE, TRUE  },
+    { "color-picker",   "Color Picker",     "\xF0\x9F\x8E\xA8", "/app/color-picker",     FALSE, TRUE  },
     { "installer",       "Install Astrion",  "\xF0\x9F\x92\xBF", "/app/installer",        FALSE, TRUE  },
     { "appstore",        "App Store",        "\xF0\x9F\x9B\x8D",  "/app/appstore",         TRUE,  TRUE  },
     { NULL, NULL, NULL, NULL, FALSE, FALSE } /* Sentinel */
