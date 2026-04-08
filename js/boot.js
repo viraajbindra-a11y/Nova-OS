@@ -297,49 +297,6 @@ import { initVolumeHud } from './shell/volume-hud.js';
   applyWallpaper();
   applyAccentColor();
 
-  // ── Easter egg for John ──
-  const trollName = localStorage.getItem('nova-username') || '';
-  if (['john', 'koa'].includes(trollName.toLowerCase())) {
-    // Phase 1: Everything looks normal for 5 seconds...
-    setTimeout(() => {
-      // Flip the entire screen upside down
-      document.documentElement.style.transition = 'transform 3s ease';
-      document.documentElement.style.transform = 'rotate(180deg)';
-    }, 5000);
-
-    setTimeout(() => {
-      // Comic Sans everything
-      const s = document.createElement('style');
-      s.textContent = '* { font-family: "Comic Sans MS", cursive !important; }';
-      document.head.appendChild(s);
-    }, 10000);
-
-    setTimeout(() => {
-      // Fake "system error"
-      const err = document.createElement('div');
-      err.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,255,0.95);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Consolas,monospace;color:white;padding:40px;';
-      err.innerHTML = `
-        <div style="font-size:24px;margin-bottom:20px;">:( Your PC ran into a problem</div>
-        <div style="font-size:14px;color:rgba(255,255,255,0.7);max-width:500px;text-align:center;line-height:1.8;">
-          USER_TROLLED_EXCEPTION<br><br>
-          Error Code: 0xG0T_Y0U<br><br>
-          Just kidding ${trollName}. You got trolled.<br>
-          Refresh the page to use Astrion OS normally.<br><br>
-          - Your friend :)
-        </div>
-      `;
-      document.body.appendChild(err);
-
-      // Auto-dismiss after 8 seconds
-      setTimeout(() => {
-        err.remove();
-        document.documentElement.style.transform = '';
-        document.querySelectorAll('style').forEach(s => {
-          if (s.textContent.includes('Comic Sans')) s.remove();
-        });
-      }, 8000);
-    }, 15000);
-  }
 
   // Init shell
   initMenubar();
