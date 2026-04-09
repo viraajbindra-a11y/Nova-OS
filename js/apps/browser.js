@@ -63,7 +63,7 @@ function initBrowser(container, instanceId, options = {}) {
       let url = urlInput.value.trim();
       if (!url) return;
       if (!url.match(/^https?:\/\//) && !url.includes('.')) {
-        url = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+        url = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(url)}`;
       } else if (!url.match(/^https?:\/\//)) {
         url = 'https://' + url;
       }
@@ -157,10 +157,29 @@ function initBrowser(container, instanceId, options = {}) {
           }
         }).catch(() => {});
       } else {
-        // Web (GitHub Pages): open in new tab (iframes blocked by most sites)
-        window.open(url, '_blank');
-        loadingBar.style.width = '100%';
-        setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
+        // Web version: try iframe first, show "open externally" if blocked
+        const iframe = document.createElement('iframe');
+        iframe.className = 'browser-iframe';
+        iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox');
+        iframe.src = url;
+        iframe.style.cssText = 'width:100%;height:100%;border:none;';
+        iframe.onload = () => {
+          loadingBar.style.width = '100%';
+          setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
+        };
+        viewport.appendChild(iframe);
+
+        // If blocked, show open externally after 3s
+        setTimeout(() => {
+          try {
+            const doc = iframe.contentDocument;
+            if (!doc || !doc.body || doc.body.innerHTML === '') {
+              showBlockedPage(url);
+            }
+          } catch {
+            showBlockedPage(url);
+          }
+        }, 3000);
       }
 
       windowManager.setTitle(instanceId, url.replace(/^https?:\/\//, '').split('/')[0]);
@@ -239,7 +258,7 @@ function initBrowser(container, instanceId, options = {}) {
     home.querySelector('.browser-home-search').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         const q = e.target.value.trim();
-        if (q) navigate(q.includes('.') ? (q.startsWith('http') ? q : 'https://' + q) : `https://www.google.com/search?q=${encodeURIComponent(q)}`);
+        if (q) navigate(q.includes('.') ? (q.startsWith('http') ? q : 'https://' + q) : `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(q)}`);
       }
     });
 
