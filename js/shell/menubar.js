@@ -9,6 +9,46 @@ let activeDropdown = null;
 
 let timeOffset = 0; // ms offset from system clock to real time
 
+/**
+ * Brain indicator — signature feature showing which AI answered the last question.
+ * S1 (cyan) = fast local model, S2 (purple) = slow cloud model, thinking (yellow pulse).
+ * Real routing lands in M3 (dual-process runtime). For now, any code that calls an AI
+ * can emit `ai:response` with { brain: 's1' | 's2' } and this updates.
+ * Click to see the reasoning trace (stub — panel lands with M4 verifiable computation).
+ */
+function initBrainIndicator() {
+  const el = document.getElementById('menubar-brain');
+  const tag = document.getElementById('menubar-brain-tag');
+  if (!el || !tag) return;
+
+  // Default state: idle, showing S1 (what most things will use once M3 ships)
+  el.dataset.brain = 's1';
+  tag.textContent = 'S1';
+
+  eventBus.on('ai:thinking', () => {
+    el.dataset.brain = 'thinking';
+    tag.textContent = '...';
+  });
+
+  eventBus.on('ai:response', ({ brain, confidence }) => {
+    const which = (brain || 's1').toLowerCase();
+    el.dataset.brain = which;
+    tag.textContent = which.toUpperCase();
+    if (confidence != null) {
+      el.title = `Brain: ${which.toUpperCase()} answered last. Confidence ${Math.round(confidence * 100)}%. (S1 = fast local, S2 = slow cloud. Click for reasoning trace — coming in M4.)`;
+    }
+  });
+
+  el.addEventListener('click', () => {
+    // Stub: M4 will open a slide-out receipt panel here.
+    eventBus.emit('notification:show', {
+      title: 'Brain indicator',
+      message: `Last answer: ${el.dataset.brain.toUpperCase()}. Full reasoning traces ship with M4.`,
+      icon: '🧠',
+    });
+  });
+}
+
 export function initMenubar() {
   updateClock();
   setInterval(updateClock, 1000);
@@ -50,6 +90,11 @@ export function initMenubar() {
   document.getElementById('menubar-spotlight').addEventListener('click', () => {
     eventBus.emit('spotlight:toggle');
   });
+
+  // Brain indicator — shows which AI answered your last question.
+  // S1 = fast local model, S2 = slow cloud model. Signature feature for M3.
+  // For now, responds to a global 'ai:response' event. Real S1/S2 routing lands in M3.
+  initBrainIndicator();
 
   // Notification bell — toggle notification center
   document.getElementById('menubar-notif-btn').addEventListener('click', (e) => {

@@ -1,0 +1,90 @@
+name: Moratorium Check
+
+# Enforces the "no new apps" rule from CONTRIBUTING.md.
+# Any PR that adds a new file to js/apps/ must also update ALL_APPS in
+# js/kernel/app-categories.js to include the new app ID.
+# This is the CI enforcement of audit hole #1: "51 hand-coded apps is a trap."
+
+on:
+  pull_request:
+    paths:
+      - 'js/apps/**'
+      - 'js/kernel/app-categories.js'
+  push:
+    branches: [main]
+    paths:
+      - 'js/apps/**'
+      - 'js/kernel/app-categories.js'
+
+jobs:
+  moratorium-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect newly added app files
+        id: detect
+        run: |
+          set -e
+          # List files added (not modified) under js/apps/ in this push
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+            HEAD="${{ github.sha }}"
+          fi
+
+          echo "Comparing $BASE..$HEAD"
+          NEW_APPS=$(git diff --name-only --diff-filter=A "$BASE" "$HEAD" -- 'js/apps/*.js' 2>/dev/null || true)
+
+          if [ -z "$NEW_APPS" ]; then
+            echo "No new app files added."
+            echo "new_apps=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "New app files detected:"
+          echo "$NEW_APPS"
+          echo "new_apps<<EOF" >> $GITHUB_OUTPUT
+          echo "$NEW_APPS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Verify new apps are listed in app-categories.js
+        if: steps.detect.outputs.new_apps != ''
+        run: |
+          set -e
+          CATEGORIES_FILE="js/kernel/app-categories.js"
+          if [ ! -f "$CATEGORIES_FILE" ]; then
+            echo "::error::$CATEGORIES_FILE missing — moratorium enforcement cannot run"
+            exit 1
+          fi
+
+          MISSING=0
+          while IFS= read -r FILE; do
+            [ -z "$FILE" ] && continue
+            APP_ID=$(basename "$FILE" .js)
+            if ! grep -q "'$APP_ID'" "$CATEGORIES_FILE"; then
+              echo "::error::New app '$APP_ID' is not listed in $CATEGORIES_FILE"
+              echo "::error::  See CONTRIBUTING.md — the moratorium forbids new apps without explicit category assignment."
+              echo "::error::  If this is a new template, add '$APP_ID' to ALL_APPS in $CATEGORIES_FILE."
+              echo "::error::  If this is a new primitive (rare), also add it to PRIMITIVES and update PLAN.md."
+              MISSING=1
+            fi
+          done <<< "${{ steps.detect.outputs.new_apps }}"
+
+          if [ "$MISSING" -eq 1 ]; then
+            exit 1
+          fi
+
+          echo "All new apps are properly categorized."
+
+      - name: Remind about the moratorium
+        if: steps.detect.outputs.new_apps != ''
+        run: |
+          echo "::warning::New app file(s) added. Remember the moratorium:"
+          echo "::warning::  - Cap is 3 primitives + 48 templates (51 total)."
+          echo "::warning::  - New features should ship as intents/templates, not new dock icons."
+          echo "::warning::  - See CONTRIBUTING.md and PLAN.md Idea 1 (Intent Kernel)."

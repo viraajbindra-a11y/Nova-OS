@@ -92,6 +92,39 @@
   gap: 4px;
 }
 
+/* Brain indicator — which AI answered your last question (S1 fast local / S2 slow cloud) */
+/* Signature feature: this is the first visually-not-a-Mac element in the menubar. */
+.menubar-brain {
+  gap: 4px;
+  position: relative;
+}
+
+.menubar-brain-tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  color: #0a0a1a;
+  background: #8be9fd; /* cyan for S1 — fast, local, cheap */
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.menubar-brain[data-brain="s2"] .menubar-brain-tag {
+  background: #bd93f9; /* purple for S2 — slow, cloud, careful */
+  color: #0a0a1a;
+}
+
+.menubar-brain[data-brain="thinking"] .menubar-brain-tag {
+  background: #f1fa8c; /* yellow, pulsing, while thinking */
+  animation: brain-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes brain-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .menubar-battery-pct {
   font-size: 11px;
   font-weight: 500;

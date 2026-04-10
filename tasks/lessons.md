@@ -27,3 +27,16 @@
 18. **Test on real hardware, not just in the browser.** Many features (battery, Wi-Fi, Bluetooth, audio) only work on the ISO.
 19. **Don't hallucinate features.** Always verify with `grep` or `ls` that code actually exists before claiming it works.
 20. **Cancel and retrigger builds rather than waiting for stale ones.** If you push a fix after triggering a build, the running build doesn't have the fix.
+
+## Releases & ISO Publishing
+21. **The `build-iso.yml` workflow only uploads to Actions artifacts, not to Releases.** Artifacts expire in 30 days and require login to download. For public distribution, the ISO must be manually uploaded to the Release via `gh release upload`. Fix pending: patch the workflow to auto-publish to release on tag push.
+22. **Before publishing a stale ISO artifact, verify no `distro/` commits since the build.** Use `git log --oneline <artifact-sha>..HEAD -- distro/` — if it's empty, the ISO's shell/C code is still current. If non-empty, trigger a fresh build first.
+23. **Always ship a SHA256 alongside any ISO.** Users need to verify integrity. `shasum -a 256 file.iso | tee file.iso.sha256` then upload both.
+24. **GitHub release assets are hard-capped at 2 GB per file.** Check ISO size before attempting upload: `ls -lh file.iso`. Astrion ISO is 1.86 GB — safe, but close to the cap.
+25. **Use `gh release upload --clobber` for new assets, not for replacing unrelated existing ones.** `--clobber` only overwrites assets with the same filename, leaves others alone.
+26. **Name release assets with the product name + version + arch.** `astrion-os-0.1.95-amd64.iso`, not `nova-os.iso`. Makes the filename self-documenting and matches the current brand.
+
+## Plan / Workflow
+27. **The built-in `EnterPlanMode`/`ExitPlanMode` exists and is tighter than free-form plans in `tasks/todo.md`.** Plan mode enforces read-only exploration and a formal approval dialog before any edits. Use it for non-trivial tasks alongside `tasks/todo.md` (the todo file is the durable artifact, plan mode is the gate).
+28. **Inversion thinking belongs in the plan itself, not just in the code.** For every task, list what will break, then invert each failure mode into the solution. This is more useful than a flat task list because it catches hidden assumptions before implementation.
+29. **Commit large-file state to disk early, not at the end of a task.** Long sessions with many file edits can run out of context. Writing PLAN.md, presentation.md, etc. as soon as they're drafted (not buffered in chat) prevents losing work when context fills.
