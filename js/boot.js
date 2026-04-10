@@ -335,9 +335,10 @@ import { initVolumeHud } from './shell/volume-hud.js';
 
   // Welcome notification
   const userName = localStorage.getItem('nova-username') || 'User';
+  const appCount = processManager.getAllApps().length;
   const welcomeMsg = isFirstBoot
-    ? 'Welcome to Astrion OS! Press Cmd+Space for Spotlight, F4 for Launchpad.'
-    : 'Astrion OS is ready. Press Cmd+Space for Spotlight, F4 for Launchpad.';
+    ? `Welcome to Astrion OS! ${appCount} apps ready. Press Cmd+Space for Spotlight.`
+    : `Astrion OS is ready. ${appCount} apps loaded.`;
   notifications.show({
     title: isFirstBoot ? `Welcome, ${userName}!` : `Welcome back, ${userName}!`,
     body: welcomeMsg,

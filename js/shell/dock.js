@@ -3,33 +3,24 @@
 import { processManager } from '../kernel/process-manager.js';
 import { eventBus } from '../kernel/event-bus.js';
 
+// Core apps in dock — rest accessible via Launchpad (F4) or Spotlight (Cmd+Space)
 const dockApps = [
   { id: 'finder', name: 'Finder' },
   { id: 'browser', name: 'Browser' },
   { id: 'notes', name: 'Notes' },
-  { id: 'text-editor', name: 'Text Editor' },
   { id: 'terminal', name: 'Terminal' },
+  { id: 'messages', name: 'Messages' },
   { id: 'music', name: 'Music' },
+  { id: 'photos', name: 'Photos' },
   { id: 'calendar', name: 'Calendar' },
   { id: 'calculator', name: 'Calculator' },
-  { id: 'photos', name: 'Photos' },
   { id: 'weather', name: 'Weather' },
-  { id: 'clock', name: 'Clock' },
-  { id: 'reminders', name: 'Reminders' },
-  { id: 'draw', name: 'Draw' },
-  { id: 'messages', name: 'Messages' },
-  { id: 'vault', name: 'Vault' },
-  { id: 'screen-recorder', name: 'Screen Recorder' },
-  { id: 'trash', name: 'Trash' },
-  { id: 'sticky-notes', name: 'Sticky Notes' },
-  { id: 'contacts', name: 'Contacts' },
   { id: 'maps', name: 'Maps' },
-  { id: 'voice-memos', name: 'Voice Memos' },
-  { id: 'pomodoro', name: 'Pomodoro' },
-  { id: 'kanban', name: 'Kanban' },
-  { id: 'habit-tracker', name: 'Habits' },
+  { id: 'beat-studio', name: 'Beat Studio' },
+  { id: 'vault', name: 'Vault' },
   { id: 'appstore', name: 'App Store' },
   { id: 'settings', name: 'Settings' },
+  { id: 'trash', name: 'Trash' },
 ];
 
 export function initDock() {

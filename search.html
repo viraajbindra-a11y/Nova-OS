@@ -86,24 +86,20 @@ async function doSearch(query) {
       </div>` + html;
     }
 
-    if (!html) {
-      // No instant answers — show web search links
-      html = `<div class="result">
-        <div class="result-desc">No instant results. Try these:</div>
-      </div>`;
-      const engines = [
-        { name: 'Google', url: `https://www.google.com/search?q=${encodeURIComponent(query)}` },
-        { name: 'Bing', url: `https://www.bing.com/search?q=${encodeURIComponent(query)}` },
-        { name: 'DuckDuckGo', url: `https://duckduckgo.com/?q=${encodeURIComponent(query)}` },
-        { name: 'Wikipedia', url: `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(query)}` },
-      ];
-      engines.forEach(e => {
-        html += `<div class="result">
-          <div class="result-url">${e.name}</div>
-          <div class="result-title" onclick="window.open('${e.url}','_blank')">Search "${query}" on ${e.name}</div>
-        </div>`;
-      });
-    }
+    // Always show web search links at the bottom
+    const engines = [
+      { name: 'Google', url: `https://www.google.com/search?q=${encodeURIComponent(query)}`, icon: '\uD83D\uDD0D' },
+      { name: 'Wikipedia', url: `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(query)}`, icon: '\uD83D\uDCDA' },
+      { name: 'YouTube', url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`, icon: '\u25B6\uFE0F' },
+      { name: 'Reddit', url: `https://www.reddit.com/search/?q=${encodeURIComponent(query)}`, icon: '\uD83D\uDCAC' },
+      { name: 'GitHub', url: `https://github.com/search?q=${encodeURIComponent(query)}`, icon: '\uD83D\uDC31' },
+    ];
+    html += `<div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);">
+      <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:10px;">Search on:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        ${engines.map(e => `<a href="${e.url}" target="_blank" style="padding:8px 16px;background:rgba(255,255,255,0.06);border-radius:20px;color:#e0e0e0;text-decoration:none;font-size:12px;display:flex;align-items:center;gap:6px;">${e.icon} ${e.name}</a>`).join('')}
+      </div>
+    </div>`;
 
     results.innerHTML = html;
   } catch (err) {
