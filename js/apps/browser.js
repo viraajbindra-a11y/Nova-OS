@@ -169,6 +169,22 @@ function initBrowser(container, instanceId, options = {}) {
         };
         viewport.appendChild(iframe);
 
+        // Intercept link clicks inside iframe to navigate in-app
+        iframe.addEventListener('load', () => {
+          try {
+            const doc = iframe.contentDocument;
+            if (doc) {
+              doc.addEventListener('click', (e) => {
+                const a = e.target.closest('a');
+                if (a && a.href && !a.href.startsWith('javascript:')) {
+                  e.preventDefault();
+                  navigate(a.href);
+                }
+              }, true);
+            }
+          } catch {}
+        });
+
         // If blocked, show open externally after 3s
         setTimeout(() => {
           try {
