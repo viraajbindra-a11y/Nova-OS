@@ -31,7 +31,7 @@ jobs:
           cd distro
           sudo bash build.sh
 
-      - name: Upload ISO
+      - name: Upload ISO (artifact — 30d retention, safety net)
         uses: actions/upload-artifact@v4
         with:
           name: nova-os-bootable-iso
@@ -43,3 +43,47 @@ jobs:
         run: |
           ls -lh distro/output/nova-os.iso
           echo "Astrion OS bootable ISO ready for download!"
+
+      - name: Publish ISO to latest GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          cd distro/output
+
+          # Read version from package.json
+          VERSION=$(jq -r .version "$GITHUB_WORKSPACE/package.json")
+          echo "Version from package.json: $VERSION"
+
+          # Rename ISO with version + arch
+          ASSET_NAME="astrion-os-${VERSION}-amd64.iso"
+          mv nova-os.iso "$ASSET_NAME"
+
+          # Safety check: GitHub release asset limit is 2 GiB
+          SIZE_BYTES=$(stat -c%s "$ASSET_NAME")
+          MAX_BYTES=$((2 * 1024 * 1024 * 1024))
+          if [ "$SIZE_BYTES" -gt "$MAX_BYTES" ]; then
+            echo "::error::ISO is $SIZE_BYTES bytes, exceeds 2 GiB release asset limit"
+            exit 1
+          fi
+          echo "ISO size OK: $SIZE_BYTES bytes"
+
+          # Generate SHA256 checksum
+          sha256sum "$ASSET_NAME" > "${ASSET_NAME}.sha256"
+          cat "${ASSET_NAME}.sha256"
+
+          # Find the latest release (non-draft, non-prerelease)
+          LATEST_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 10 --json tagName,isDraft,isPrerelease \
+            --jq 'map(select(.isDraft == false and .isPrerelease == false)) | .[0].tagName')
+
+          if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+            echo "::warning::No published release found — skipping release upload. Artifact is still available for 30 days."
+            exit 0
+          fi
+
+          echo "Uploading to release $LATEST_TAG"
+          gh release upload "$LATEST_TAG" "$ASSET_NAME" "${ASSET_NAME}.sha256" --clobber --repo "$GITHUB_REPOSITORY"
+
+          echo "Released: https://github.com/$GITHUB_REPOSITORY/releases/tag/$LATEST_TAG"
+          echo "ISO: https://github.com/$GITHUB_REPOSITORY/releases/download/$LATEST_TAG/$ASSET_NAME"
+          echo "Build commit: $GITHUB_SHA"
