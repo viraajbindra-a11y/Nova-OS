@@ -89,6 +89,22 @@ export function initSpotlight() {
   }
 
   async function handleQuery(query) {
+    // Intent parser stub (M1.P1 seed). Tries to parse the query as a structured
+    // intent. On success, emits 'intent:parsed' for observers and logs to console.
+    // Does NOT execute intents yet — real execution lands in M1.P2 via capability
+    // providers. For now, this is pure observability.
+    try {
+      const { parseIntent, summarizeIntent } = await import('../kernel/intent-parser.js');
+      const intent = parseIntent(query);
+      if (intent) {
+        console.log('[intent-parser]', summarizeIntent(intent), intent);
+        eventBus.emit('intent:parsed', intent);
+      }
+    } catch (err) {
+      // Parser is optional — never let it break Search
+      console.warn('[intent-parser] failed to load:', err);
+    }
+
     const lower = query.toLowerCase();
     let html = '';
 
