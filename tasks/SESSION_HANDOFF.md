@@ -67,7 +67,7 @@ Astrion OS is a real business. From day one. Don't frame friend contributions as
 - **Latest release:** check with `gh release list --limit 1 --json tagName`
 - **Package.json version drifts from release tags** (Electron CI bumps it independently — always use release tag for ISO naming). Lesson #35.
 
-## 📍 Current state (2026-04-10)
+## 📍 Current state (2026-04-11)
 
 ### ✅ Done
 - **M0 — Native shell rebuild** — all 4 phases shipped: transparency bugs killed, hardware reads (battery/wifi/volume via pactl), native Wi-Fi + Bluetooth + volume pickers, first-boot install prompt, zenity dialogs, `.xinitrc` flipped to nova-shell first
@@ -79,14 +79,15 @@ Astrion OS is a real business. From day one. Don't frame friend contributions as
   - notes.create writes the `content` field Notes.js actually reads (not `body`)
 - **M2 design doc** — `docs/architecture/hypergraph.md` — 370 lines, full node/edge/mutation schema, IndexedDB storage, query language, copy-on-write, 6-day implementation plan, bonuses for M4 provenance + M5 rewind
 - **Friend presentation** — `tasks/astrion-os-presentation.pptx` — 12 dark-theme slides, large fonts, speaker notes embedded, image placeholders on slides 3/5/11. Built via `tasks/build-presentation.cjs`.
+- **M2.P1 — graph-store.js** (commit `89db73d`, pushed to main) — IndexedDB hypergraph foundation: 4 stores (nodes/edges/mutations/snapshots), all v1 indexes, createNode/updateNode/deleteNode/addEdge/removeEdge with atomic mutation logging, SHA-256 content hashing with canonical key-sort, copy-on-write provenance chain, LRU cache (1000), events fired from `tx.oncomplete`, cascade edge deletes, 12 inline sanity tests all green. Wired into boot.js in both web + native branches. Plan file: `/Users/parul/.claude/plans/playful-chasing-stonebraker.md`. Wake-up summary: `tasks/wake-up-2026-04-11.md`.
 
 ### 🔜 Next work (M2 implementation — 6-day plan)
 Per `docs/architecture/hypergraph.md`:
-- **Day 1:** `js/kernel/graph-store.js` — IndexedDB wrapper with nodes/edges/mutations/snapshots, content-addressed hashing, copy-on-write, LRU cache, event emissions
-- **Day 2:** `js/kernel/graph-query.js` — structured query executor (select + traverse)
+- ~~**Day 1:** `js/kernel/graph-store.js`~~ ✅ **DONE** (commit `89db73d`)
+- **Day 2 (NEXT):** `js/kernel/graph-query.js` — structured query executor (select + traverse) on top of the store. Build against the API already exposed by graphStore. Another plan-mode session recommended.
 - **Day 3:** `js/kernel/graph-migration.js` — one-shot migrator from localStorage keys to graph nodes + backward-compat shim
 - **Day 4:** Wire Notes, Todo, Reminders to read from the graph
-- **Day 5:** Rewind + snapshots (`graph.rewind`, `graph.rewindTo`, `graph.snapshot`)
+- **Day 5:** Rewind + snapshots (`graph.rewind`, `graph.rewindTo`, `graph.snapshot`) — schema stubs already exist from Day 1
 - **Day 6:** Polish + commit + update PLAN.md + fresh ISO build
 
 Important: user chose "**M2 first, then M3**" (do the storage foundation before the dual-brain). Don't skip ahead.
