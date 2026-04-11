@@ -94,13 +94,28 @@ import { initVolumeHud } from './shell/volume-hud.js';
     console.log(`[NOVA Native] Launching app: ${window.__NOVA_LAUNCH_APP__}`);
     await fileSystem.init();
 
-    // Register all apps
+    // Register ALL 52 apps so any of them can launch in native mode.
+    // M0.P3: was previously only registering the first 16 — which meant
+    // launching Chess, Kanban, Beat Studio, etc. from nova-shell failed
+    // silently because processManager didn't know about them.
     registerFinder(); registerNotes(); registerTerminal();
     registerCalculator(); registerSettings(); registerTextEditor();
     registerDraw(); registerBrowser(); registerMusic();
     registerCalendar(); registerAppStore(); registerPhotos();
     registerWeather(); registerClock(); registerReminders();
     registerActivityMonitor();
+    registerVault(); registerMessages(); registerScreenRecorder();
+    registerTrash(); registerInstaller(); registerStickyNotes();
+    registerContacts(); registerMaps(); registerVoiceMemos();
+    registerPomodoro(); registerPdfViewer(); registerKanban();
+    registerHabitTracker(); registerVideoPlayer(); registerSystemInfo();
+    registerTranslator(); registerUnitConverter(); registerColorPicker();
+    registerStopwatch(); registerTimer(); registerWhiteboard();
+    registerPasswordGen(); registerMarkdown(); registerQrCode();
+    registerDictionary(); registerJournal(); registerFlashcards();
+    registerChess(); registerSnake(); register2048();
+    registerBudget(); registerQuotes(); registerTypingTest();
+    registerTodo(); registerBeatStudio(); registerLiveChat();
 
     windowManager.init();
 
