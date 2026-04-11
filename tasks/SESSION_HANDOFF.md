@@ -1,0 +1,157 @@
+# Session Handoff — read this first in a new Claude session
+
+> **Last updated:** 2026-04-10 by the outgoing session.
+> **Purpose:** Everything a fresh Claude session needs to pick up Astrion OS work without asking "what's going on?" questions.
+
+---
+
+## 🚨 Read order for a fresh session
+
+1. **This file** (you're here) — high-level orientation
+2. `PLAN.md` — full milestone roadmap (M0 → M8+)
+3. `docs/architecture/hypergraph.md` — M2 design doc, the next thing to build
+4. `tasks/lessons.md` — 52 lessons learned so far (grep this before making design decisions)
+5. `tasks/todo.md` — current task checklist
+6. `tasks/contributions.md` — friend contributor log
+
+---
+
+## 👤 Who you're working with
+
+- **Viraaj Singh Bindra** — 12 years old, solo dev building Astrion OS from scratch
+- **Parul** — Viraaj's mom, owns the Mac (`/Users/parul/`). Not the dev.
+- **Viraaj's dad** writes the workflow rule messages (inversion thinking, plan mode, lessons.md pattern)
+- **Team of 4 non-coding friends:**
+  - **Koa** — bug hunter + tester
+  - **Naren** — hype person + designer
+  - **Lauren** — writer + UX reviewer (also called "reviewer for Lorne ideas" — typo, means "ideas reviewer")
+  - **Jian** — ideas person + namer
+
+## 🎭 Persona rules (CRITICAL — don't act like corporate Claude)
+
+- **Tone:** casual + hype buddy. Viraaj is 12 — match his energy but don't be cringe.
+- **Be brutally honest.** Push back hard when his ideas are wrong. He specifically asked for this. "Honest friend who tells you your plan sucks" > "supportive yes-man."
+- **Adaptive explanations:** ELI12 for new concepts, full-tech for stuff he already knows. Ask once, then remember.
+- **Judgment-based proactivity:** don't ask permission for trivial stuff. Just do obvious next steps. Only ask when there's a real fork in the road.
+- **When coding:** write the code directly. Don't over-explain. He'll ask if he wants an explanation.
+- **Workflow rules (from his dad):**
+  - Use `EnterPlanMode` for non-trivial tasks
+  - Still write durable plans to `tasks/todo.md` (plan mode is the gate, todo.md is the artifact)
+  - Inversion thinking: for every plan, list what will break + invert each failure into a preventive fix
+  - After any non-trivial work: add a lesson to `tasks/lessons.md` with the number incremented
+  - Commit big-state files to disk EARLY, not at the end (prevents context death)
+
+## 💰 Revenue model (this is NOT a volunteer project)
+
+Astrion OS is a real business. From day one. Don't frame friend contributions as "volunteer" — they get revenue share when money flows.
+
+**4 revenue streams:**
+1. **AI markup** — slight surcharge on every S2 cloud call routed through Astrion
+2. **Install fee** — one-time fee to install Astrion as a real OS (USB → disk)
+3. **Skills marketplace** — 70/30 split (seller/Astrion) on shared intents/capabilities (M7)
+4. **Enterprise tier** — paid business version with admin controls
+
+**When money starts flowing:** M3 (premium AI tier launches ~month 4 from April 2026).
+**Friend revenue share:** logged in `tasks/contributions.md`, paid when revenue is real.
+
+---
+
+## 🏗️ What Astrion OS actually is
+
+- **AI-native operating system** — not a web OS clone with AI bolted on
+- **Runs 3 ways:** browser demo, Electron desktop app (Mac/Windows), real bootable Linux ISO
+- **Native C/GTK3 desktop shell** in `distro/nova-renderer/nova-shell.c` (~2,900 lines as of M0)
+- **52 apps** in `js/apps/` — Notes, Terminal, Browser, Draw, Music, Chess, Messages, etc.
+- **Renamed** from "Nova OS" → **"Astrion OS"** (the folder is still `/Users/parul/Nova OS/` — don't rename it, too much breakage)
+- **GitHub:** `github.com/viraajbindra-a11y/Astrion-OS`
+- **Latest release:** check with `gh release list --limit 1 --json tagName`
+- **Package.json version drifts from release tags** (Electron CI bumps it independently — always use release tag for ISO naming). Lesson #35.
+
+## 📍 Current state (2026-04-10)
+
+### ✅ Done
+- **M0 — Native shell rebuild** — all 4 phases shipped: transparency bugs killed, hardware reads (battery/wifi/volume via pactl), native Wi-Fi + Bluetooth + volume pickers, first-boot install prompt, zenity dialogs, `.xinitrc` flipped to nova-shell first
+- **M1 — Intent Kernel** — full stack shipped in one day. Parser → typed capabilities → step executor → Spotlight UI. 13 capability providers registered. E2E verified in preview_eval.
+- **Recent bug fixes** (committed as `9c6d4f1`):
+  - "explain recursion" now works (added topic extraction for free-form verbs + registered ai.ask as ai.explain/ai.summarize)
+  - "take a screenshot" now works ('take'/'capture' added as make synonyms)
+  - `safeNotify()` wrapper so UI glitches never fail the underlying capability
+  - notes.create writes the `content` field Notes.js actually reads (not `body`)
+- **M2 design doc** — `docs/architecture/hypergraph.md` — 370 lines, full node/edge/mutation schema, IndexedDB storage, query language, copy-on-write, 6-day implementation plan, bonuses for M4 provenance + M5 rewind
+- **Friend presentation** — `tasks/astrion-os-presentation.pptx` — 12 dark-theme slides, large fonts, speaker notes embedded, image placeholders on slides 3/5/11. Built via `tasks/build-presentation.cjs`.
+
+### 🔜 Next work (M2 implementation — 6-day plan)
+Per `docs/architecture/hypergraph.md`:
+- **Day 1:** `js/kernel/graph-store.js` — IndexedDB wrapper with nodes/edges/mutations/snapshots, content-addressed hashing, copy-on-write, LRU cache, event emissions
+- **Day 2:** `js/kernel/graph-query.js` — structured query executor (select + traverse)
+- **Day 3:** `js/kernel/graph-migration.js` — one-shot migrator from localStorage keys to graph nodes + backward-compat shim
+- **Day 4:** Wire Notes, Todo, Reminders to read from the graph
+- **Day 5:** Rewind + snapshots (`graph.rewind`, `graph.rewindTo`, `graph.snapshot`)
+- **Day 6:** Polish + commit + update PLAN.md + fresh ISO build
+
+Important: user chose "**M2 first, then M3**" (do the storage foundation before the dual-brain). Don't skip ahead.
+
+### 🛣️ After M2
+- **M3** — Dual-process brain (S1 local Ollama + S2 cloud Claude + calibration tracker) — this is when premium AI tier ships + money starts
+- **M4** — Verifiable code generation with receipts
+- **M5** — Reversibility / universal undo (partially done as a bonus in M2)
+- **M6** — Socratic loop (AI asks before big actions)
+- **M7** — Skill marketplace
+- **M8** — Safe self-modification
+
+---
+
+## 🗂️ Critical files you'll touch
+
+| File | What it is |
+|---|---|
+| `PLAN.md` | Full milestone roadmap, updated after each milestone ships |
+| `docs/architecture/hypergraph.md` | M2 design doc — read before implementing M2 |
+| `tasks/lessons.md` | 52 numbered lessons — grep before every design decision |
+| `tasks/todo.md` | Current task checklist (durable artifact) |
+| `tasks/contributions.md` | Friend revenue-share log |
+| `js/kernel/intent-parser.js` | M1 parser — 591 lines, 19 inline sanity tests |
+| `js/kernel/capability-api.js` | M1 capability registry (LEVEL, REVERSIBILITY, BLAST_RADIUS) |
+| `js/kernel/capability-providers.js` | 13 core providers |
+| `js/kernel/intent-executor.js` | Wires parser → capability → events |
+| `js/shell/spotlight.js` | Spotlight UI that dispatches intents |
+| `js/boot.js` | Boot sequence — imports capability-providers, calls initIntentExecutor |
+| `distro/nova-renderer/nova-shell.c` | Native C/GTK3 shell (~2,900 lines) |
+| `distro/build.sh` | ISO build script — writes `.xinitrc`, installs packages, etc. |
+| `.github/workflows/build-iso.yml` | CI workflow that builds + auto-publishes ISO to release |
+
+## ⚙️ Tooling that actually works here
+
+- **pptx generation:** `npm install -g pptxgenjs` then `NODE_PATH=$(npm root -g) node build-presentation.cjs` (this repo is `"type": "module"` so use `.cjs` for CommonJS scripts)
+- **Markitdown for pptx verification:** `pip3 install "markitdown[pptx]"` then `python3 -m markitdown file.pptx`
+- **Preview server for the web OS:** `.claude/launch.json` has it configured; use `mcp__Claude_Preview__preview_*` tools
+- **Login gate in preview:** `document.getElementById('login-screen').click()` advances past it (lesson #32)
+- **ISO builds:** push to `distro/**` triggers `build-iso.yml` which auto-publishes to latest release. Version comes from `gh release list --limit 1`, NOT `package.json` (lesson #35).
+
+---
+
+## 🧱 Things that will bite you (grep lessons.md for full list)
+
+Quick hits from the 52 lessons:
+- **#1:** Never use `rgba()` on X11 without a compositor — renders WHITE. Solid colors only.
+- **#5:** ESM imports must be at top of file in this repo (`"type": "module"`).
+- **#19:** Don't hallucinate features. `grep` or `ls` before claiming code exists.
+- **#29:** Commit large-file state to disk EARLY, not at the end. Context death is real.
+- **#32:** Web OS has a login gate that blocks automated testing. Click it programmatically.
+- **#34:** `sudo` in CI leaves root-owned files. Run `sudo chown -R runner:runner` after.
+- **#35:** `package.json` version ≠ release tag. Use `gh release list` for ISO naming.
+- **#40:** After multi-step Edits, grep for BOTH the new symbol AND its use.
+- **#47:** Run capability side effects BEFORE notifications, wrap notifications in try/catch.
+- **#48:** Read the target app's source BEFORE writing to its localStorage key.
+- **#50:** Verbs without grammatical targets (navigate, explain) need `VERB_WITHOUT_TARGET`.
+- **#52:** Sprint compression works when the foundation is solid. M1 shipped in 4 hours because M0 was already built.
+
+---
+
+## 📣 How to start a fresh session
+
+Paste something like this as your first message:
+
+> Hey, this is Viraaj. Read `tasks/SESSION_HANDOFF.md` first, then `PLAN.md`, then `docs/architecture/hypergraph.md`. We're about to start M2.P1 — the graph-store.js implementation. Use plan mode, follow the dad-rules.
+
+That's it. The persistent memory files (user_profile, team_framing, revenue_model, persona, plan_mode, context_management) will auto-load, and this handoff doc fills in everything time-sensitive that memory doesn't know yet.
