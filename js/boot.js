@@ -4,6 +4,13 @@ import { eventBus } from './kernel/event-bus.js';
 import { fileSystem } from './kernel/file-system.js';
 import { windowManager } from './kernel/window-manager.js';
 import { processManager } from './kernel/process-manager.js';
+
+// Intent Kernel (M1) — parser, capability providers, and step executor.
+// Importing capability-providers.js registers all 13 core capabilities
+// as a side effect. initIntentExecutor() wires the executor to the
+// `intent:execute` event bus channel.
+import './kernel/capability-providers.js';
+import { initIntentExecutor } from './kernel/intent-executor.js';
 import { initMenubar } from './shell/menubar.js';
 import { initDock } from './shell/dock.js';
 import { initDesktop } from './shell/desktop.js';
@@ -118,6 +125,11 @@ import { initVolumeHud } from './shell/volume-hud.js';
     registerTodo(); registerBeatStudio(); registerLiveChat();
 
     windowManager.init();
+
+    // Wire the Intent Kernel in native mode too — apps launched from
+    // nova-shell can still emit `intent:execute` and the executor will
+    // respond. This is how native Search passes intents into Astrion.
+    initIntentExecutor();
 
     // Launch the requested app directly (no boot screen, no login)
     processManager.launch(window.__NOVA_LAUNCH_APP__);
@@ -320,6 +332,7 @@ import { initVolumeHud } from './shell/volume-hud.js';
   initDock();
   initDesktop();
   initSpotlight();
+  initIntentExecutor();
   initControlCenter();
   initLaunchpad();
   notifications.init();

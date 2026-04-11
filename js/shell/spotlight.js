@@ -1,9 +1,16 @@
 // NOVA OS — Search (AI Command Palette)
+//
+// M1.P1 — Search is the primary input for the Intent Kernel. Every keystroke
+// goes through `parseIntent()` and if the parser recognizes a structured
+// intent with high enough confidence, it's shown as the #1 result with a
+// "Press Enter to run" call to action. Hitting Enter dispatches to the
+// capability executor (M1.P2+) which actually executes the intent.
 
 import { eventBus } from '../kernel/event-bus.js';
 import { processManager } from '../kernel/process-manager.js';
 import { fileSystem } from '../kernel/file-system.js';
 import { aiService } from '../kernel/ai-service.js';
+import { parseIntent, summarizeIntent, intentToNaturalLanguage } from '../kernel/intent-parser.js';
 
 let isOpen = false;
 
@@ -24,6 +31,43 @@ export function initSpotlight() {
   });
 
   eventBus.on('spotlight:toggle', toggle);
+
+  // M1.P4 — intent execution progress toasts. When executeIntent() fires
+  // its lifecycle events, show a tiny floating toast in the corner so the
+  // user sees the kernel doing something. Disappears after 3 seconds.
+  eventBus.on('intent:started', ({ intent, naturalDescription, costEstimate }) => {
+    showIntentToast({
+      icon: '⚡',
+      title: 'Astrion',
+      body: naturalDescription || 'Working...',
+      tone: 'progress',
+    });
+  });
+  eventBus.on('intent:completed', ({ intent, success, result, error }) => {
+    if (success) {
+      showIntentToast({
+        icon: '✅',
+        title: 'Done',
+        body: intent.raw,
+        tone: 'success',
+      });
+    } else {
+      showIntentToast({
+        icon: '⚠️',
+        title: 'Failed',
+        body: error || 'Something went wrong',
+        tone: 'error',
+      });
+    }
+  });
+  eventBus.on('intent:rejected', ({ intent, reason }) => {
+    showIntentToast({
+      icon: '🤔',
+      title: "I don't know how to do that yet",
+      body: reason,
+      tone: 'warning',
+    });
+  });
 
   // Click backdrop to close
   spotlight.querySelector('.spotlight-backdrop').addEventListener('click', close);
@@ -89,24 +133,42 @@ export function initSpotlight() {
   }
 
   async function handleQuery(query) {
-    // Intent parser stub (M1.P1 seed). Tries to parse the query as a structured
-    // intent. On success, emits 'intent:parsed' for observers and logs to console.
-    // Does NOT execute intents yet — real execution lands in M1.P2 via capability
-    // providers. For now, this is pure observability.
+    // M1.P1 — Parse the query as a structured intent and show it as the #1
+    // result if confidence is high enough. The intent card appears above all
+    // other results (apps, files, AI ask) and is what Enter triggers.
+    let topIntent = null;
     try {
-      const { parseIntent, summarizeIntent } = await import('../kernel/intent-parser.js');
       const intent = parseIntent(query);
-      if (intent) {
-        console.log('[intent-parser]', summarizeIntent(intent), intent);
+      if (intent && intent.confidence >= 0.55) {
+        topIntent = intent;
+        console.log('[intent]', summarizeIntent(intent), intent);
         eventBus.emit('intent:parsed', intent);
       }
     } catch (err) {
-      // Parser is optional — never let it break Search
-      console.warn('[intent-parser] failed to load:', err);
+      console.warn('[intent-parser] error:', err);
     }
 
     const lower = query.toLowerCase();
     let html = '';
+
+    // ─── Intent card (M1.P1) — shown as #1 result when parse confidence ≥ 0.55 ───
+    if (topIntent) {
+      const naturalDescription = intentToNaturalLanguage(topIntent);
+      const confPct = Math.round(topIntent.confidence * 100);
+      const brainColor = topIntent.verb === 'delete' ? '#ff5f57' :
+                         topIntent.verb === 'compute' || topIntent.verb === 'explain' ? '#bd93f9' :
+                         '#8be9fd';
+      html += `<div class="spotlight-result-group">
+        <div class="spotlight-result-label">🧠 Intent  ·  ${confPct}% confident</div>
+        <div class="spotlight-result-item" data-action="intent" style="background:rgba(139,233,253,0.08);border-left:3px solid ${brainColor};padding-left:13px;">
+          <div class="spotlight-result-icon" style="font-size:28px;">${getIntentIcon(topIntent.verb)}</div>
+          <div class="spotlight-result-text">
+            <div class="spotlight-result-title" style="color:${brainColor};">${escapeHtml(naturalDescription)}</div>
+            <div class="spotlight-result-subtitle">Press <kbd style="background:rgba(255,255,255,0.1);padding:1px 6px;border-radius:3px;">↵ Enter</kbd> to run</div>
+          </div>
+        </div>
+      </div>`;
+    }
 
     // Inline calculator — detect math expressions
     const mathClean = query.replace(/[^0-9+\-*/.() %^]/g, '');
@@ -192,6 +254,16 @@ export function initSpotlight() {
   }
 
   async function handleSubmit(query) {
+    // M1.P1 — if the query parses as an intent, dispatch to the kernel.
+    // The intent:execute event is handled by the step executor (M1.P3),
+    // which calls into capability providers (M1.P2) to actually do the work.
+    const intent = parseIntent(query);
+    if (intent && intent.confidence >= 0.55) {
+      eventBus.emit('intent:execute', intent);
+      close();
+      return;
+    }
+
     // Check for app launch commands
     const lower = query.toLowerCase();
     const appCommands = {
@@ -316,6 +388,121 @@ export function initSpotlight() {
       handleSubmit(query);
     }
   }
+}
+
+// M1.P4 — tiny floating toast used by intent execution lifecycle events.
+// Stacks in the top-right, auto-dismisses after 3s.
+function showIntentToast({ icon, title, body, tone }) {
+  let stack = document.getElementById('intent-toast-stack');
+  if (!stack) {
+    stack = document.createElement('div');
+    stack.id = 'intent-toast-stack';
+    stack.style.cssText = `
+      position: fixed; top: 44px; right: 16px; z-index: 99999;
+      display: flex; flex-direction: column; gap: 8px;
+      pointer-events: none;
+    `;
+    document.body.appendChild(stack);
+  }
+
+  const toneColors = {
+    progress: { bg: 'rgba(139,233,253,0.12)', border: '#8be9fd', text: '#8be9fd' },
+    success:  { bg: 'rgba(80,250,123,0.12)',  border: '#50fa7b', text: '#50fa7b' },
+    error:    { bg: 'rgba(255,95,87,0.12)',   border: '#ff5f57', text: '#ff5f57' },
+    warning:  { bg: 'rgba(241,250,140,0.12)', border: '#f1fa8c', text: '#f1fa8c' },
+  };
+  const c = toneColors[tone] || toneColors.progress;
+
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    background: rgba(20,20,30,0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid ${c.border};
+    border-left: 3px solid ${c.border};
+    color: white;
+    padding: 10px 14px 10px 12px;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    min-width: 260px;
+    max-width: 360px;
+    font-family: -apple-system, sans-serif;
+    font-size: 13px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    pointer-events: auto;
+    animation: intent-toast-in 0.25s cubic-bezier(0.16,1,0.3,1);
+  `;
+  toast.innerHTML = `
+    <div style="font-size:20px;line-height:1;flex-shrink:0;margin-top:1px;">${icon}</div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-weight:600;color:${c.text};margin-bottom:2px;">${escapeHtml(title)}</div>
+      <div style="color:rgba(255,255,255,0.85);word-break:break-word;">${escapeHtml(body || '')}</div>
+    </div>
+  `;
+
+  // Ensure animation keyframes exist
+  if (!document.getElementById('intent-toast-keyframes')) {
+    const style = document.createElement('style');
+    style.id = 'intent-toast-keyframes';
+    style.textContent = `
+      @keyframes intent-toast-in {
+        from { opacity: 0; transform: translateX(20px) scale(0.95); }
+        to   { opacity: 1; transform: translateX(0) scale(1); }
+      }
+      @keyframes intent-toast-out {
+        from { opacity: 1; transform: translateX(0); }
+        to   { opacity: 0; transform: translateX(20px); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  stack.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'intent-toast-out 0.2s ease forwards';
+    setTimeout(() => toast.remove(), 200);
+  }, 3000);
+}
+
+// Intent verb → emoji icon for the Spotlight intent card (M1.P1)
+function getIntentIcon(verb) {
+  const ICONS = {
+    make:      '✨',
+    find:      '🔍',
+    open:      '🚀',
+    close:     '✖️',
+    edit:      '✏️',
+    delete:    '🗑️',
+    move:      '➡️',
+    copy:      '📋',
+    send:      '📤',
+    install:   '📦',
+    uninstall: '🗑️',
+    play:      '▶️',
+    pause:     '⏸️',
+    schedule:  '📅',
+    remind:    '🔔',
+    translate: '🌐',
+    convert:   '🔄',
+    compute:   '🧮',
+    explain:   '💡',
+    summarize: '📝',
+    ask:       '❓',
+    navigate:  '🧭',
+    save:      '💾',
+    share:     '📤',
+    download:  '⬇️',
+    upload:    '⬆️',
+    print:     '🖨️',
+    toggle:    '🔀',
+    increase:  '🔊',
+    decrease:  '🔉',
+    mute:      '🔇',
+    unmute:    '🔊',
+  };
+  return ICONS[verb] || '⚡';
 }
 
 function escapeHtml(text) {
