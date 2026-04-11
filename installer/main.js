@@ -1,20 +1,31 @@
 /**
- * NOVA OS — Electron Desktop App
+ * Astrion OS — Electron Desktop App
  *
- * This wraps NOVA OS into a downloadable desktop application.
+ * This wraps Astrion OS into a downloadable desktop application.
  * Users download the .dmg (Mac), .exe (Windows), or .AppImage (Linux),
- * double-click, and they're running NOVA OS as a native app.
+ * double-click, and they're running Astrion OS as a native app.
  *
- * The app runs a local Express server and opens NOVA OS in a
+ * The app runs a local Express server and opens Astrion OS in a
  * frameless window that looks like a real operating system.
  */
 
-const { app, BrowserWindow, screen, globalShortcut, Menu, ipcMain, autoUpdater } = require('electron');
+const { app, BrowserWindow, screen, globalShortcut, Menu, ipcMain, autoUpdater, dialog, shell } = require('electron');
 const path = require('path');
 const express = require('express');
 
 // --- Auto-Updater ---
-// Checks GitHub Releases for new versions on startup
+// Polish Sprint Day 6-7: uses update-electron-app (a thin wrapper around
+// Electron's built-in Squirrel autoUpdater). It checks GitHub releases
+// every hour and notifies the user via an OS-native dialog. On macOS
+// this requires a signed build (we're unsigned for v0.2 — Gatekeeper
+// will show a warning). On Linux/Windows it works out of the box.
+//
+// We also forward update events into the Astrion notification center
+// inside the renderer so users see a native-feel toast, and we expose
+// a manual "Check for updates" IPC handler that the Astrion menubar
+// can call from the Apple menu.
+let updaterState = { available: false, downloaded: false, version: null, error: null };
+
 function setupAutoUpdater() {
   try {
     const { updateElectronApp } = require('update-electron-app');
@@ -22,12 +33,76 @@ function setupAutoUpdater() {
       repo: 'viraajbindra-a11y/Astrion-OS',
       updateInterval: '1 hour',
       notifyUser: true,
+      logger: {
+        log: (msg) => console.log('[auto-updater]', msg),
+        info: (msg) => console.log('[auto-updater]', msg),
+        warn: (msg) => console.warn('[auto-updater]', msg),
+        error: (msg) => { console.error('[auto-updater]', msg); updaterState.error = String(msg); },
+      },
     });
   } catch (e) {
     // update-electron-app not installed or not in production, skip
-    console.log('Auto-updater not available:', e.message);
+    console.log('[auto-updater] not available:', e.message);
+    updaterState.error = e.message;
+  }
+
+  // Forward Squirrel events into Astrion notifications via IPC
+  // (update-electron-app configures the underlying autoUpdater for us)
+  try {
+    autoUpdater.on('checking-for-update', () => {
+      mainWindow?.webContents.send('updater:checking');
+    });
+    autoUpdater.on('update-available', (info) => {
+      updaterState.available = true;
+      updaterState.version = info?.version || null;
+      mainWindow?.webContents.send('updater:available', info || {});
+    });
+    autoUpdater.on('update-not-available', () => {
+      mainWindow?.webContents.send('updater:none');
+    });
+    autoUpdater.on('update-downloaded', (info) => {
+      updaterState.downloaded = true;
+      updaterState.version = info?.version || updaterState.version;
+      mainWindow?.webContents.send('updater:downloaded', info || {});
+    });
+    autoUpdater.on('error', (err) => {
+      updaterState.error = String(err?.message || err);
+      mainWindow?.webContents.send('updater:error', { message: updaterState.error });
+    });
+  } catch (err) {
+    console.log('[auto-updater] event wiring skipped:', err.message);
   }
 }
+
+// IPC: manual check-for-updates trigger (called from the Astrion menubar)
+ipcMain.handle('updater:check', async () => {
+  try {
+    autoUpdater.checkForUpdates?.();
+    return { ok: true, state: updaterState };
+  } catch (err) {
+    return { ok: false, error: err.message, state: updaterState };
+  }
+});
+
+// IPC: install the pending update immediately (called after user approves)
+ipcMain.handle('updater:install', async () => {
+  if (!updaterState.downloaded) return { ok: false, error: 'no update downloaded' };
+  try {
+    autoUpdater.quitAndInstall?.();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+// IPC: get current updater state (for settings / about dialogs)
+ipcMain.handle('updater:state', () => updaterState);
+
+// IPC: open the GitHub releases page as a manual fallback
+ipcMain.handle('updater:open-releases', () => {
+  shell.openExternal('https://github.com/viraajbindra-a11y/Astrion-OS/releases/latest');
+  return { ok: true };
+});
 
 let mainWindow;
 let server;
@@ -38,7 +113,7 @@ function startServer() {
   return new Promise((resolve) => {
     const expressApp = express();
 
-    // Serve NOVA OS files
+    // Serve Astrion OS files
     expressApp.use(express.static(path.join(__dirname, 'app')));
     expressApp.use(express.json());
 
@@ -69,7 +144,7 @@ function startServer() {
     });
 
     server = expressApp.listen(PORT, () => {
-      console.log(`NOVA OS server running on port ${PORT}`);
+      console.log(`Astrion OS server running on port ${PORT}`);
       resolve();
     });
   });
@@ -83,7 +158,7 @@ function createWindow() {
     height: Math.min(900, height),
     minWidth: 800,
     minHeight: 600,
-    frame: false,           // No native title bar — NOVA OS has its own
+    frame: false,           // No native title bar — Astrion OS has its own
     titleBarStyle: 'hidden',
     trafficLightPosition: { x: -100, y: -100 }, // Hide native traffic lights
     backgroundColor: '#000000',
@@ -97,7 +172,7 @@ function createWindow() {
     show: false, // Show after loading
   });
 
-  // Load NOVA OS from local server
+  // Load Astrion OS from local server
   mainWindow.loadURL(`http://localhost:${PORT}`);
 
   // Show window when ready

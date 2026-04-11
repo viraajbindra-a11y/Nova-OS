@@ -1,13 +1,13 @@
 {
-  "name": "nova-os",
-  "version": "0.1.0",
-  "description": "NOVA OS — AI-Native Operating System",
+  "name": "astrion-os",
+  "version": "0.2.0",
+  "description": "Astrion OS — AI-Native Operating System",
   "main": "main.js",
-  "author": "NOVA OS Team",
+  "author": "Astrion OS Team",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/viraajbindra-a11y/Nova-OS.git"
+    "url": "https://github.com/viraajbindra-a11y/Astrion-OS.git"
   },
   "scripts": {
     "start": "electron .",
@@ -17,8 +17,15 @@
     "build:linux": "electron-builder --linux"
   },
   "build": {
-    "appId": "com.novaos.desktop",
-    "productName": "NOVA OS",
+    "appId": "com.astrionos.desktop",
+    "productName": "Astrion OS",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "viraajbindra-a11y",
+        "repo": "Astrion-OS"
+      }
+    ],
     "directories": {
       "output": "dist"
     },
@@ -47,7 +54,7 @@
       "oneClick": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "NOVA OS"
+      "shortcutName": "Astrion OS"
     }
   },
   "devDependencies": {

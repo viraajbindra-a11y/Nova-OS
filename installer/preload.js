@@ -1,11 +1,11 @@
 /**
- * NOVA OS — Electron Preload Script
- * Exposes safe APIs to the renderer (NOVA OS web app).
+ * Astrion OS — Electron Preload Script
+ * Exposes safe APIs to the renderer (Astrion OS web app).
  */
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('novaElectron', {
+const astrionElectron = {
   toggleFullscreen: () => ipcRenderer.invoke('toggle-fullscreen'),
   isFullscreen: () => ipcRenderer.invoke('get-fullscreen'),
   platform: process.platform,
@@ -21,5 +21,24 @@ contextBridge.exposeInMainWorld('novaElectron', {
     resize: (bounds) => ipcRenderer.invoke('browser-resize', bounds),
     onTitle: (callback) => ipcRenderer.on('browser-title', (e, title) => callback(title)),
     onUrl: (callback) => ipcRenderer.on('browser-url', (e, url) => callback(url)),
-  }
-});
+  },
+
+  // Auto-updater (Polish Sprint Day 6-7)
+  // Returns { ok, state: { available, downloaded, version, error } }
+  updater: {
+    check: () => ipcRenderer.invoke('updater:check'),
+    install: () => ipcRenderer.invoke('updater:install'),
+    state: () => ipcRenderer.invoke('updater:state'),
+    openReleases: () => ipcRenderer.invoke('updater:open-releases'),
+    onChecking: (cb) => ipcRenderer.on('updater:checking', () => cb()),
+    onAvailable: (cb) => ipcRenderer.on('updater:available', (e, info) => cb(info)),
+    onNone: (cb) => ipcRenderer.on('updater:none', () => cb()),
+    onDownloaded: (cb) => ipcRenderer.on('updater:downloaded', (e, info) => cb(info)),
+    onError: (cb) => ipcRenderer.on('updater:error', (e, info) => cb(info)),
+  },
+};
+
+// Expose under the new name AND the legacy name so existing renderer code
+// that references `window.novaElectron` keeps working during the rename.
+contextBridge.exposeInMainWorld('astrionElectron', astrionElectron);
+contextBridge.exposeInMainWorld('novaElectron', astrionElectron);

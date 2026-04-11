@@ -608,6 +608,64 @@ function showAboutDialog() {
 async function checkForUpdates() {
   const { notifications } = await import('../kernel/notifications.js');
 
+  // ELECTRON DESKTOP APP PATH — defer to the Squirrel auto-updater.
+  // The main process subscribes to Squirrel events and forwards them
+  // back through window.astrionElectron.updater.on* callbacks.
+  const electron = window.astrionElectron || window.novaElectron;
+  if (electron?.isDesktopApp && electron.updater?.check) {
+    notifications.show({
+      title: 'Checking for updates…',
+      body: 'Contacting GitHub releases',
+      icon: '\uD83D\uDD04',
+      duration: 3000,
+    });
+    try {
+      const res = await electron.updater.check();
+      const state = res?.state || {};
+      if (!res?.ok) {
+        notifications.show({
+          title: 'Update check failed',
+          body: res?.error || 'Unknown error',
+          icon: '\u26A0\uFE0F',
+          actions: [{ label: 'Open Releases', onClick: () => electron.updater.openReleases() }],
+        });
+        return;
+      }
+      if (state.downloaded) {
+        notifications.show({
+          title: `Astrion v${state.version || '?'} ready to install`,
+          body: 'Quit and install now?',
+          icon: '\uD83C\uDF89',
+          duration: 0,
+          actions: [
+            { label: 'Install', onClick: () => electron.updater.install() },
+            { label: 'Later', onClick: () => {} },
+          ],
+        });
+      } else if (state.available) {
+        notifications.show({
+          title: `Astrion v${state.version || '?'} downloading…`,
+          body: 'We\'ll let you know when it\'s ready.',
+          icon: '\u2B07\uFE0F',
+        });
+      } else {
+        notifications.show({
+          title: 'Astrion OS is up to date',
+          body: 'You\'re running the latest release.',
+          icon: '\u2705',
+        });
+      }
+    } catch (err) {
+      notifications.show({
+        title: 'Update check failed',
+        body: String(err?.message || err),
+        icon: '\u26A0\uFE0F',
+      });
+    }
+    return;
+  }
+
+  // WEB-MODE PATH — server-side git pull (legacy self-update)
   notifications.show({
     title: 'Checking for updates…',
     body: 'Contacting Astrion update server',
@@ -652,6 +710,47 @@ async function checkForUpdates() {
       body: 'Could not reach the update server. Are you online?',
       icon: '\u26A0\uFE0F',
     });
+  }
+}
+
+// Auto-wire Electron updater events to Astrion notifications on boot.
+// Runs once when the menubar initializes; subscribes to push events so
+// a background update-download fires an Astrion toast without the user
+// having to hit "Check for Updates".
+function wireElectronUpdaterEvents() {
+  const electron = window.astrionElectron || window.novaElectron;
+  if (!electron?.isDesktopApp || !electron.updater) return;
+  import('../kernel/notifications.js').then(({ notifications }) => {
+    electron.updater.onAvailable?.((info) => {
+      notifications.show({
+        title: `Astrion v${info?.version || '?'} is downloading`,
+        body: 'The new version will install after you quit.',
+        icon: '\u2B07\uFE0F',
+      });
+    });
+    electron.updater.onDownloaded?.((info) => {
+      notifications.show({
+        title: `Astrion v${info?.version || '?'} ready to install`,
+        body: 'Restart to apply the update.',
+        icon: '\uD83C\uDF89',
+        duration: 0,
+        actions: [
+          { label: 'Restart', onClick: () => electron.updater.install() },
+          { label: 'Later', onClick: () => {} },
+        ],
+      });
+    });
+    electron.updater.onError?.((info) => {
+      console.warn('[updater] error', info);
+    });
+  });
+}
+// Fire after DOM is ready
+if (typeof window !== 'undefined') {
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(wireElectronUpdaterEvents, 100);
+  } else {
+    window.addEventListener('DOMContentLoaded', () => setTimeout(wireElectronUpdaterEvents, 100));
   }
 }
 
