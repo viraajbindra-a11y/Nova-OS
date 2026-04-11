@@ -98,6 +98,9 @@ apt-get install -y -qq xfce4-screenshooter galculator eog vlc evince xarchiver s
 # Disk installer dependencies (for nova-install)
 apt-get install -y -qq parted rsync dosfstools e2fsprogs util-linux 2>/dev/null || true
 
+# First-boot install prompt dialog (nova-first-boot.sh uses zenity)
+apt-get install -y -qq zenity xterm 2>/dev/null || true
+
 # LibreOffice (big but essential for a real OS)
 apt-get install -y -qq libreoffice-writer libreoffice-calc libreoffice-impress || true
 
@@ -255,6 +258,8 @@ cp "$SCRIPT_DIR/nova-renderer/nova-renderer.c" "$CHROOT/opt/nova-os/renderer/"
 cp "$SCRIPT_DIR/nova-renderer/astrion-browser.c" "$CHROOT/opt/nova-os/renderer/"
 cp "$SCRIPT_DIR/nova-renderer/Makefile" "$CHROOT/opt/nova-os/renderer/"
 cp "$SCRIPT_DIR/nova-renderer/nova-start.sh" "$CHROOT/opt/nova-os/renderer/"
+cp "$SCRIPT_DIR/nova-renderer/nova-first-boot.sh" "$CHROOT/opt/nova-os/renderer/"
+install -m 755 "$SCRIPT_DIR/nova-renderer/nova-first-boot.sh" "$CHROOT/usr/bin/nova-first-boot"
 
 # Compile inside chroot (has access to GTK/WebKitGTK headers)
 cat > "$CHROOT/tmp/build-renderer.sh" << 'BUILD_RENDERER'
@@ -716,6 +721,13 @@ code { display:block; background:rgba(255,255,255,0.08); padding:12px; border-ra
 ERRHTML
   fi
 done
+
+# ── First-boot install prompt (M0.P4) ──
+# On live boots, ask if the user wants to install to disk. Skipped
+# silently on installed systems or if the user picked 'Never ask again'.
+if command -v nova-first-boot >/dev/null 2>&1; then
+  nova-first-boot
+fi
 
 # Launch Astrion OS
 # nova-shell = native C/GTK3 desktop shell (primary — the real OS substrate)
