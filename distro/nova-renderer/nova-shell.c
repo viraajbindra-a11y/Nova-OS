@@ -104,6 +104,7 @@ static GtkWidget     *battery_label    = NULL;
 static GtkWidget     *wifi_label       = NULL;
 static GtkWidget     *volume_label     = NULL;
 static GtkWidget     *bluetooth_label  = NULL;
+static GtkWidget     *brain_label      = NULL;  /* S1/S2/OFF dual-brain indicator */
 static GtkWidget     *date_label       = NULL;
 
 static NovaWindow     windows[MAX_WINDOWS];
@@ -1648,6 +1649,17 @@ static void create_panel(void)
     GtkStyleContext *right_ctx = gtk_widget_get_style_context(right_box);
     gtk_style_context_add_class(right_ctx, "nova-panel-right");
     gtk_box_pack_end(GTK_BOX(hbox), right_box, FALSE, FALSE, 8);
+
+    /* Brain indicator — the "not-a-Mac-clone" signature feature.
+     * Shows S1 (cyan, fast local AI), S2 (purple, slow cloud AI),
+     * or OFF (gray, no AI connected). In native mode we default to S1
+     * since Ollama is bundled with the ISO; real routing lands in M3.
+     * Click shows a status notification. */
+    brain_label = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(brain_label),
+        "<span background='#8be9fd' foreground='#0a0a1a' weight='bold'"
+        " font='9'> S1 </span>");
+    gtk_box_pack_start(GTK_BOX(right_box), brain_label, FALSE, FALSE, 0);
 
     /* WiFi status — real, updated every 15 seconds.
      * Click opens the native Wi-Fi picker (M0.P2). Wrapped in an eventbox
