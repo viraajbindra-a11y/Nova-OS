@@ -229,6 +229,12 @@ static void show_wifi_picker(void);
 static gboolean on_wifi_label_click(GtkWidget *w, GdkEventButton *ev, gpointer d);
 static void on_wifi_row_activated(GtkListBox *box, GtkListBoxRow *row, gpointer d);
 
+/* M0.P2: Native volume slider popover */
+static void show_volume_slider(void);
+static gboolean on_volume_label_click(GtkWidget *w, GdkEventButton *ev, gpointer d);
+static void on_volume_slider_changed(GtkRange *range, gpointer data);
+static void on_volume_mute_toggled(GtkToggleButton *btn, gpointer data);
+
 /* App switcher forward declarations */
 static void show_app_switcher(void);
 static void cycle_app_switcher(void);
@@ -615,6 +621,163 @@ static gboolean on_wifi_label_click(GtkWidget *widget, GdkEventButton *event, gp
 {
     if (event->button == 1) {
         show_wifi_picker();
+        return TRUE;
+    }
+    return FALSE;
+}
+
+/* ═══════════════════════════════════════════════
+ * M0.P2: Native Volume Slider Popover
+ * ═══════════════════════════════════════════════
+ *
+ * Click the volume icon in the menubar → opens a small native popover
+ * with a GtkScale slider + mute toggle. Writes via `pactl set-sink-volume`.
+ */
+
+static GtkWidget *volume_popover = NULL;
+
+static void on_volume_slider_changed(GtkRange *range, gpointer data)
+{
+    int pct = (int)gtk_range_get_value(range);
+    if (pct < 0) pct = 0;
+    if (pct > 100) pct = 100;
+    char cmd[128];
+    snprintf(cmd, sizeof(cmd),
+        "pactl set-sink-volume @DEFAULT_SINK@ %d%% 2>/dev/null &", pct);
+    int r = system(cmd);
+    (void)r;
+    /* Refresh the menubar label */
+    if (volume_label) update_volume(volume_label);
+}
+
+static void on_volume_mute_toggled(GtkToggleButton *btn, gpointer data)
+{
+    int muted = gtk_toggle_button_get_active(btn) ? 1 : 0;
+    char cmd[128];
+    snprintf(cmd, sizeof(cmd),
+        "pactl set-sink-mute @DEFAULT_SINK@ %d 2>/dev/null &", muted);
+    int r = system(cmd);
+    (void)r;
+    if (volume_label) update_volume(volume_label);
+}
+
+static void show_volume_slider(void)
+{
+    /* If already open, close it (toggle behavior) */
+    if (volume_popover && gtk_widget_get_visible(volume_popover)) {
+        gtk_widget_destroy(volume_popover);
+        volume_popover = NULL;
+        return;
+    }
+
+    /* Read current volume + mute state to seed the slider */
+    int cur_vol = 50;
+    int cur_muted = 0;
+    FILE *fp = popen(
+        "pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null | head -1", "r");
+    if (fp) {
+        char line[256] = "";
+        if (fgets(line, sizeof(line), fp)) {
+            char *p = strchr(line, '%');
+            if (p) {
+                char *num_start = p;
+                while (num_start > line &&
+                       (isdigit((unsigned char)*(num_start - 1)) ||
+                        *(num_start - 1) == ' ')) {
+                    num_start--;
+                }
+                while (*num_start == ' ') num_start++;
+                if (isdigit((unsigned char)*num_start)) {
+                    cur_vol = atoi(num_start);
+                }
+            }
+        }
+        pclose(fp);
+    }
+    FILE *mfp = popen(
+        "pactl get-sink-mute @DEFAULT_SINK@ 2>/dev/null", "r");
+    if (mfp) {
+        char mline[64] = "";
+        if (fgets(mline, sizeof(mline), mfp)) {
+            if (strstr(mline, "yes")) cur_muted = 1;
+        }
+        pclose(mfp);
+    }
+
+    volume_popover = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_decorated(GTK_WINDOW(volume_popover), FALSE);
+    gtk_window_set_resizable(GTK_WINDOW(volume_popover), FALSE);
+    gtk_window_set_type_hint(GTK_WINDOW(volume_popover), GDK_WINDOW_TYPE_HINT_POPUP_MENU);
+    gtk_window_set_keep_above(GTK_WINDOW(volume_popover), TRUE);
+    gtk_window_set_default_size(GTK_WINDOW(volume_popover), 280, 110);
+
+    GtkStyleContext *ctx = gtk_widget_get_style_context(volume_popover);
+    gtk_style_context_add_class(ctx, "nova-about-dialog");
+
+    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+    gtk_widget_set_margin_start(vbox, 16);
+    gtk_widget_set_margin_end(vbox, 16);
+    gtk_widget_set_margin_top(vbox, 12);
+    gtk_widget_set_margin_bottom(vbox, 12);
+    gtk_container_add(GTK_CONTAINER(volume_popover), vbox);
+
+    /* Header with icon */
+    GtkWidget *header = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(header),
+        "<span foreground='#ffffff' size='13000' weight='bold'>"
+        "\xF0\x9F\x94\x8A Volume</span>");
+    gtk_widget_set_halign(header, GTK_ALIGN_START);
+    gtk_box_pack_start(GTK_BOX(vbox), header, FALSE, FALSE, 0);
+
+    /* Slider row */
+    GtkWidget *slider_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_box_pack_start(GTK_BOX(vbox), slider_row, FALSE, FALSE, 0);
+
+    GtkWidget *scale = gtk_scale_new_with_range(
+        GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+    gtk_range_set_value(GTK_RANGE(scale), (double)cur_vol);
+    gtk_scale_set_draw_value(GTK_SCALE(scale), FALSE);
+    gtk_widget_set_hexpand(scale, TRUE);
+    gtk_widget_set_sensitive(scale, !cur_muted);
+    g_signal_connect(scale, "value-changed",
+        G_CALLBACK(on_volume_slider_changed), NULL);
+    gtk_box_pack_start(GTK_BOX(slider_row), scale, TRUE, TRUE, 0);
+
+    /* Mute toggle */
+    GtkWidget *mute_btn = gtk_toggle_button_new_with_label(
+        cur_muted ? "Unmute" : "Mute");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(mute_btn), cur_muted);
+    g_signal_connect(mute_btn, "toggled",
+        G_CALLBACK(on_volume_mute_toggled), NULL);
+    gtk_box_pack_start(GTK_BOX(vbox), mute_btn, FALSE, FALSE, 4);
+
+    /* Position near the volume label in the top panel */
+    if (volume_label) {
+        GdkWindow *gw = gtk_widget_get_window(volume_label);
+        if (gw) {
+            int lx, ly;
+            gdk_window_get_origin(gw, &lx, &ly);
+            GtkAllocation alloc;
+            gtk_widget_get_allocation(volume_label, &alloc);
+            int pop_x = lx + alloc.x + alloc.width / 2 - 140;
+            int pop_y = ly + alloc.y + alloc.height + 8;
+            if (pop_x < 8) pop_x = 8;
+            gtk_window_move(GTK_WINDOW(volume_popover), pop_x, pop_y);
+        }
+    }
+
+    /* Close when focus is lost */
+    g_signal_connect(volume_popover, "focus-out-event",
+        G_CALLBACK(gtk_widget_destroy), NULL);
+
+    gtk_widget_show_all(volume_popover);
+    gtk_widget_grab_focus(volume_popover);
+}
+
+static gboolean on_volume_label_click(GtkWidget *widget, GdkEventButton *event, gpointer data)
+{
+    if (event->button == 1) {
+        show_volume_slider();
         return TRUE;
     }
     return FALSE;
@@ -1293,12 +1456,17 @@ static void create_panel(void)
     update_wifi(wifi_label);
     g_timeout_add(15000, update_wifi, wifi_label);
 
-    /* Volume — real, updated every 5 seconds (pactl). Display only;
-     * the native slider lands in M0.P2. Shows 🔈/🔉/🔊 + % or "Muted" or "N/A". */
+    /* Volume — real, updated every 5 seconds (pactl). Click to open
+     * native slider popover (M0.P2). Shows 🔈/🔉/🔊 + % or "Muted" or "N/A". */
     volume_label = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(volume_label),
         "<span foreground='#c0c0c0'>\xF0\x9F\x94\x89</span>");
-    gtk_box_pack_start(GTK_BOX(right_box), volume_label, FALSE, FALSE, 0);
+    GtkWidget *volume_evbox = gtk_event_box_new();
+    gtk_widget_set_events(volume_evbox, GDK_BUTTON_PRESS_MASK);
+    gtk_container_add(GTK_CONTAINER(volume_evbox), volume_label);
+    g_signal_connect(volume_evbox, "button-press-event",
+        G_CALLBACK(on_volume_label_click), NULL);
+    gtk_box_pack_start(GTK_BOX(right_box), volume_evbox, FALSE, FALSE, 0);
     update_volume(volume_label);
     g_timeout_add(5000, update_volume, volume_label);
 
