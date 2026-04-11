@@ -1,8 +1,26 @@
 # Contributors Log
 
-This file tracks everyone who has contributed to Astrion OS. If Astrion ever makes money (via the revenue paths in `PLAN.md`), early contributors get first dibs on revenue share / equity / whatever comes. This log is the proof of who was early and what they did.
+This file tracks everyone who has contributed to Astrion OS. **Astrion is built to make real money** — this isn't a volunteer forever project. This log is the proof-of-contribution that determines revenue share when the money starts flowing.
 
-**Viraaj's promise:** I'm 12 and I can't sign contracts. But if Astrion hits, I will look at this file and be generous proportional to what people contributed.
+## The revenue model (as of 2026-04-11)
+
+Astrion has 4 revenue streams in the pipeline:
+
+1. **AI markup** — a small convenience margin on every AI call routed through Astrion. BYO your own API key = zero markup. Use the built-in AI = you pay Viraaj a few cents on top of model cost.
+2. **Install fee** — the web version stays free forever. The installed bootable ISO is a one-time paid download (target: $5–10).
+3. **Skills marketplace** — 70/30 split, creators keep 70%. Ships with M7 (~month 10).
+4. **Enterprise tier** — bigger packages for teams. Ships with M8+.
+
+**Expected timeline:** M3 (month 4) is when the premium AI tier ships and real cash starts flowing. Anyone on this log before M3 is an "early contributor" — that's the status that matters.
+
+## Viraaj's promise
+
+I'm 12 and I can't sign contracts. But I commit in writing here:
+
+- **This log is the source of truth** for who helped when and how much.
+- **When Astrion starts making money, early contributors get revenue share.** Not vague equity — actual cash from actual sales, proportional to what you contributed before the revenue started.
+- **I will be generous.** If Astrion hits, the people who helped me when I was 12 and had nothing will be taken care of.
+- **No contracts, just my word.** Which is all I have right now, but it's real.
 
 ## The format
 
@@ -25,11 +43,15 @@ Role tier: <friend | contributor | core>
 
 ## Role tiers (my internal ranking)
 
-- **friend** — did 1-2 starter tasks, helped once or twice. Gets credit in release notes.
-- **contributor** — did 5+ meaningful contributions, stayed involved over weeks. Gets credit + named mention in the About Astrion dialog.
-- **core** — contributed regularly for months, shaped real features, reliable. If Astrion makes money, core contributors get meaningful revenue share.
+| Tier | What it means | Revenue share when money starts |
+|---|---|---|
+| **friend** | Did 1-2 starter tasks, helped once or twice. | Small thank-you bonus (~$10-50) from first revenue. Credit in release notes. |
+| **contributor** | Did 5+ meaningful contributions, stayed involved over weeks. | Small % of monthly revenue (proportional to contribution), paid out monthly or quarterly. Credit + named mention in the About Astrion dialog. |
+| **core** | Contributed regularly for months, shaped real features, reliable. | Meaningful ongoing revenue share. Early access to enterprise deals. Possibly formal equity if/when I can legally sign (I turn 18 in 6 years — if Astrion lasts that long, we'll revisit). |
 
 Nobody starts as core. Everyone starts as friend. Advancement happens by doing the work consistently.
+
+**Important:** the earlier you contribute, the higher your effective cut. Someone who joins in month 8 does NOT get the same treatment as Koa/Naren/Lauren/Jian who joined day 1, even if they contribute the same total amount of work. Early = bigger multiplier.
 
 ---
 
