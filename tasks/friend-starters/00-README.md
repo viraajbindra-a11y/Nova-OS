@@ -1,6 +1,8 @@
 # Friend Starter Tasks
 
-Hand these out to Koa, Naren, or Lauren after the presentation. Each file is one job from slide 10 of the deck. When a friend says "I pick X", open the matching file and send them that text.
+Hand these out to Koa, Naren, Lauren, or Jian after the presentation. Each file is one job from slide 10 of the deck. When a friend says "I pick X", open the matching file and send them that text.
+
+**Friends can pick more than one job.** Koa picked Bug Hunter + Tester. Naren picked Hype Person + Designer. That's totally fine — just send them both starter tasks.
 
 Each starter task is designed to:
 - Take 15 minutes or less for the friend
