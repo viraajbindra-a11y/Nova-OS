@@ -391,11 +391,15 @@ function updateClock() {
   }
 }
 
-function showForceQuitDialog() {
+async function showForceQuitDialog() {
   document.querySelectorAll('.about-dialog-overlay').forEach(d => d.remove());
+  const { trapFocus } = await import('./focus-trap.js');
 
   const overlay = document.createElement('div');
   overlay.className = 'about-dialog-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', 'Force Quit Applications');
   overlay.style.cssText = `
     position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:96000;
     display:flex;align-items:center;justify-content:center;
@@ -415,21 +419,21 @@ function showForceQuitDialog() {
   const running = processManager.getRunningApps();
   const appRows = running.map(proc => {
     const app = proc.app;
-    return `<div class="fq-app-row" data-instance="${proc.instanceId}" style="display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:default;font-size:13px;">
-      <span style="font-size:18px;">${app?.icon || '\uD83D\uDCC4'}</span>
+    return `<div class="fq-app-row" role="option" tabindex="0" aria-label="${app?.name || proc.appId}" data-instance="${proc.instanceId}" style="display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:default;font-size:13px;">
+      <span style="font-size:18px;" aria-hidden="true">${app?.icon || '\uD83D\uDCC4'}</span>
       <span style="flex:1;">${app?.name || proc.appId}</span>
     </div>`;
   }).join('');
 
   dialog.innerHTML = `
-    <div style="padding:16px 16px 8px;font-size:14px;font-weight:600;">Force Quit Applications</div>
+    <div id="fq-heading" style="padding:16px 16px 8px;font-size:14px;font-weight:600;">Force Quit Applications</div>
     <div style="padding:0 16px 8px;font-size:11px;color:rgba(255,255,255,0.4);">Select an application to force quit</div>
-    <div style="max-height:200px;overflow-y:auto;border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.06);">
+    <div role="listbox" aria-labelledby="fq-heading" style="max-height:200px;overflow-y:auto;border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.06);">
       ${appRows || '<div style="padding:16px;text-align:center;color:rgba(255,255,255,0.3);font-size:13px;">No applications running</div>'}
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;">
-      <button id="fq-cancel" style="padding:6px 16px;background:rgba(255,255,255,0.08);color:white;border:none;border-radius:6px;font-size:13px;font-family:var(--font);cursor:pointer;">Cancel</button>
-      <button id="fq-quit" style="padding:6px 16px;background:var(--red);color:white;border:none;border-radius:6px;font-size:13px;font-family:var(--font);cursor:pointer;font-weight:500;" disabled>Force Quit</button>
+      <button id="fq-cancel" aria-label="Cancel" style="padding:6px 16px;background:rgba(255,255,255,0.08);color:white;border:none;border-radius:6px;font-size:13px;font-family:var(--font);cursor:pointer;">Cancel</button>
+      <button id="fq-quit" aria-label="Force quit selected app" style="padding:6px 16px;background:var(--red);color:white;border:none;border-radius:6px;font-size:13px;font-family:var(--font);cursor:pointer;font-weight:500;" disabled>Force Quit</button>
     </div>
   `;
 
@@ -438,18 +442,32 @@ function showForceQuitDialog() {
 
   let selectedInstance = null;
 
-  // Click app rows to select
+  // Click or keyboard-select app rows
   dialog.querySelectorAll('.fq-app-row').forEach(row => {
-    row.addEventListener('click', () => {
-      dialog.querySelectorAll('.fq-app-row').forEach(r => r.style.background = 'none');
+    const selectRow = () => {
+      dialog.querySelectorAll('.fq-app-row').forEach(r => {
+        r.style.background = 'none';
+        r.setAttribute('aria-selected', 'false');
+      });
       row.style.background = 'var(--accent)';
+      row.setAttribute('aria-selected', 'true');
       selectedInstance = row.dataset.instance;
       dialog.querySelector('#fq-quit').disabled = false;
+    };
+    row.addEventListener('click', selectRow);
+    row.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        selectRow();
+      }
     });
   });
 
-  // Cancel
-  const close = () => overlay.remove();
+  // Close handler + focus trap
+  const close = () => {
+    releaseFocusTrap();
+    overlay.remove();
+  };
   dialog.querySelector('#fq-cancel').addEventListener('click', close);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
@@ -464,8 +482,9 @@ function showForceQuitDialog() {
     close();
   });
 
-  document.addEventListener('keydown', function handler(e) {
-    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', handler); }
+  const releaseFocusTrap = trapFocus(dialog, {
+    onEscape: close,
+    initialFocus: '#fq-cancel',
   });
 }
 

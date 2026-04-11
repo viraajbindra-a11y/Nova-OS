@@ -26,6 +26,8 @@ const dockApps = [
 export function initDock() {
   const container = document.getElementById('dock-container');
   container.innerHTML = '';
+  container.setAttribute('role', 'toolbar');
+  container.setAttribute('aria-label', 'App dock');
 
   dockApps.forEach(app => {
     const item = document.createElement('div');
