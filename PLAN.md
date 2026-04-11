@@ -218,9 +218,9 @@ Each milestone has: a 1-sentence success definition, **explicit phases** (the su
 
 **Deliverable:** A polished v0.2.0 — the OS feels real enough to share. Shipped on 2026-04-11 instead of 2026-04-20. Nine days of calendar time banked for the Agent Core Sprint.
 
-### AGENT CORE SPRINT — v0.3 multi-step planning, context, memory, multi-turn Spotlight *(2026-04-11, 1-day sprint)* ✅ **COMPLETE**
+### AGENT CORE SPRINT — v0.3 multi-step planning, context, memory, multi-turn Spotlight *(2026-04-11, code landed; NOT declared shipped)* ⚠️ **IN PROGRESS — soak test pending**
 
-*Viraaj's "Milestone 2: AI Agent Core" (not PLAN.md's M2 — that's Hypergraph, already shipped). Target was 2-4 weeks; shipped same day via sprint compression (lessons #52, #70). The foundation pieces (M1 Intent Kernel, M2 Hypergraph, Polish Sprint accessibility + context surfaces) did ~60% of the work already; this sprint added the remaining 40% of genuinely new logic: planner, binding resolver, context bundle, conversation memory, Spotlight multi-turn UI.*
+*Viraaj's "Milestone 2: AI Agent Core" (not PLAN.md's M2 — that's Hypergraph, already shipped). Target was 2-4 weeks. A prior AI session over-compressed scope and pushed all 6 phases in one afternoon as commit `0cd1b5c`. That commit stays on main — the code is real, the tests pass — but the sprint is NOT declared shipped because: (a) real Claude API round-trip was never verified (sandbox had no `ANTHROPIC_API_KEY`; planner was exercised via `aiService._mockResponse` stub), (b) no human has driven the multi-turn Spotlight panel with their own hands yet, (c) the "2-4 week friction budget" the original handoff called out has not been spent and may surface during real use. Lesson #80 is the warning. Treat this section as "code landed, verification pending" until soak testing in a session with a real Claude key confirms the pipeline actually works end-to-end.*
 
 **Deliverable query that drove the sprint:**
 > `"create a folder called Projects on the Desktop and put a file called ideas.txt in it with some project ideas"` → Astrion runs all 3 steps.
@@ -250,11 +250,21 @@ Each milestone has: a 1-sentence success definition, **explicit phases** (the su
 - Full deliverable query, stubbed planner via `aiService._mockResponse` (no Claude key in sandbox) → folder `/Desktop/Projects` created, `ideas.txt` written with 151 chars inside, Spotlight step panel renders green ✓ for both steps (screenshot captured)
 - Single-shot regression check: `open terminal` still launches terminal and closes Spotlight, unchanged
 
-**Known limitations:**
-- Real Claude API round-trip NOT verified in this sandbox (no ANTHROPIC_API_KEY). The planner logic was exercised end-to-end via stubs; actual Claude integration needs a later session with a key set. Lesson #80 is the warning.
-- Screen-reader verification of the step panel NOT done — lesson #66 still applies.
-- The planner prompt is Haiku-tuned (per PLAN.md: `claude-haiku-4-5-20251001`). If Haiku struggles with schema-valid JSON for complex queries, the fallback is to swap to Sonnet in M3.
-- Provider `'mock'` in localStorage silently neuters everything — a Settings UX issue captured in lesson #72.
+**Why this is NOT marked ✅ shipped:**
+- Real Claude API round-trip NEVER verified. The sandbox session that landed this code had no `ANTHROPIC_API_KEY`; the full planner→executor→files pipeline was exercised ONLY via `aiService._mockResponse` stub returning a canned plan. Every lesson the session claims to have proven (75, 76, 77, 79) is conditional on Claude actually returning schema-valid JSON at the rate Haiku's documented for. Lesson #80 is the warning.
+- Viraaj hasn't driven the multi-turn Spotlight panel with his own hands yet. Lesson #66 applies: infrastructure is cheap, verification is expensive.
+- Screen-reader / keyboard-only / multi-monitor interactions with the new step panel are untested.
+- Provider `'mock'` in `localStorage['nova-ai-provider']` silently neuters everything — a Settings UX issue captured in lesson #72 that will bite any fresh Astrion install if `provider='mock'` is sticky.
+- The planner prompt is Haiku-tuned (`claude-haiku-4-5-20251001`). If Haiku struggles with schema-valid JSON for complex queries, fallback is to swap to Sonnet in M3. This is not yet tested.
+- The "2-4 week friction budget" the original handoff said to expect was not spent. That is either a good sign (foundation is stronger than predicted) or a bad sign (correctness budget is being spent in ways that aren't visible yet).
+
+**First order of business in the next session:**
+1. Set `ANTHROPIC_API_KEY` in the preview server env
+2. Clear `localStorage['nova-ai-provider']` in the browser
+3. Open Spotlight, type the deliverable query, watch the REAL Claude response come back
+4. Confirm the folder + file land, the step panel renders, the content actually reads like project ideas
+5. Run ~10 adversarial queries (ambiguous, clarify-worthy, mixed L1/L2, compound) and record what breaks
+6. Only after THAT passes, update this PLAN.md section to ✅ COMPLETE and the retrospective loses its "draft" label
 
 **Kid version:** Replace files-and-folders with a big web of connected stuff. Every note, photo, contact, bookmark, setting is a node. Connections are automatic.
 

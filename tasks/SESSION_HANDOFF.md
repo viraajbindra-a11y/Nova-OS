@@ -98,7 +98,7 @@ Astrion OS is a real business. From day one. Don't frame friend contributions as
 - Plan file: `/Users/parul/.claude/plans/playful-chasing-stonebraker.md` (overwritten with Polish Sprint plan)
 - Retrospective: `tasks/polish-sprint-complete-2026-04-11.md`
 
-- **Agent Core Sprint (Viraaj's "Milestone 2: AI Agent Core") — v0.3** — **SHIPPED 2026-04-11 (same afternoon as M2 + Polish Sprint).** Target was 2-4 weeks; shipped in one session via sprint compression (lessons #52, #70). Deliverable query: `"create a folder called Projects on the Desktop and put a file called ideas.txt in it with some project ideas"` → Astrion runs all 3 steps. Phases:
+- **Agent Core Sprint (Viraaj's "Milestone 2: AI Agent Core") — v0.3** — ⚠️ **CODE LANDED 2026-04-11 AS COMMIT `0cd1b5c`, NOT DECLARED SHIPPED.** A prior session over-compressed scope (target was 2-4 weeks) and pushed all 6 phases in one afternoon. Viraaj caught it mid-session and asked for option 3: keep the code, revert the docs, soak-test before calling it done. The real Claude API round-trip was never verified — everything was tested against a stubbed `aiService._mockResponse`. **First job of the next session** is to set `ANTHROPIC_API_KEY`, clear `localStorage['nova-ai-provider']`, drive the Spotlight multi-turn panel with real hands, and run ~10 adversarial queries. Phases that landed in code:
   - Phase 1: `files.createFolder` + `files.createFile` capabilities with path-root guard (10/10 sanity)
   - Phase 2: `js/kernel/context-bundle.js` — openApps + activeApp + clipboard + selection + terminal tail snapshot (4/4 sanity)
   - Phase 3: `js/kernel/intent-planner.js` — catalog-aware prompt builder, JSON plan parser, schema validator against live capability registry, `routeQuery` heuristic router (15/15 sanity)
@@ -107,8 +107,8 @@ Astrion OS is a real business. From day one. Don't frame friend contributions as
   - Phase 6: Spotlight multi-turn panel (streaming step status ⏳/▶/✓/✗, L2+ confirm gate UI, clarify-question UI, selection snapshot on `spotlight:will-open`, fast M1 path unchanged)
   - Phase 7: lessons 71-80, PLAN.md Agent Core section, retrospective (`tasks/agent-core-sprint-complete-2026-04-11.md`), SESSION_HANDOFF bump
 - Plan file: `/Users/parul/.claude/plans/foamy-floating-snowflake.md`
-- Retrospective: `tasks/agent-core-sprint-complete-2026-04-11.md`
-- **Caveat**: real Claude API round-trip NOT verified in this preview sandbox (no ANTHROPIC_API_KEY). Planner logic exercised end-to-end by stubbing `aiService._mockResponse` with a canned plan. Lesson #80 documents this. Real Claude integration needs a later session with a key set.
+- DRAFT retrospective (not a real retro until soak-tested): `tasks/agent-core-sprint-DRAFT-2026-04-11.md`
+- **Why it's not shipped**: real Claude API round-trip NEVER verified in the sandbox (no ANTHROPIC_API_KEY). Planner was exercised end-to-end ONLY via `aiService._mockResponse` stub. Viraaj hasn't driven the Spotlight multi-turn panel with his own hands. Lessons #71-80 are real regardless. Lesson #80 is the warning about exactly this. Lesson #70 was in the session's active context when the over-compression happened — compression has an off switch and the session forgot to flip it.
 
 ### 🔜 Next work (PLAN.md M3 — Dual-Process Runtime)
 **Agent Core Sprint SHIPPED 2026-04-11 same day as M2 + Polish Sprint.** See `tasks/agent-core-sprint-complete-2026-04-11.md` for the full retrospective. Deliverable query (`create a folder called Projects...`) verified end-to-end in preview, folder + file land in the VFS, Spotlight step panel renders green ✓, `intent-planner 15/15` + `context-bundle 4/4` + `files path-resolve 10/10` sanity tests all green. Stubbed `aiService._mockResponse` to test the planner without a Claude key; real Claude round-trip still needs a session with ANTHROPIC_API_KEY set.

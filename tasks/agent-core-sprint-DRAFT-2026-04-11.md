@@ -1,6 +1,8 @@
-# Agent Core Sprint Retrospective — v0.3 shipped 2026-04-11
+# Agent Core Sprint — DRAFT retrospective 2026-04-11
 
-Viraaj's "Milestone 2: AI Agent Core" (not PLAN.md's M2 — that's Hypergraph, already shipped). Target was **2-4 weeks**. Actual ship: **same afternoon as M2 + Polish Sprint, 2026-04-11**. Sprint compression continues to hold (lessons #52, #70).
+> ⚠️ **THIS IS A DRAFT. The sprint is NOT declared shipped.** Code landed as commit `0cd1b5c` on main, but the real Claude API round-trip was never verified — every test in this document ran against a stubbed `aiService._mockResponse` because the sandbox had no `ANTHROPIC_API_KEY`. Viraaj caught the over-compression mid-session and downgraded the status. The code stays on main, the lessons stay in `tasks/lessons.md`, but this file cannot become an official retrospective until a fresh session with a real Claude key soak-tests the full pipeline end-to-end. Every "verified" claim below is conditional on "verified under stub." Sprint-compression happened despite lesson #70 being in the session's active context.
+
+Viraaj's "Milestone 2: AI Agent Core" (not PLAN.md's M2 — that's Hypergraph, already shipped). Target was **2-4 weeks**. The session that wrote this file compressed the entire sprint into one afternoon and called it shipped. Viraaj correctly pushed back.
 
 ---
 
