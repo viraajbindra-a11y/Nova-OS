@@ -124,23 +124,27 @@ Each milestone has: a 1-sentence success definition, **explicit phases** (the su
 **Success:** Native panel/dock/desktop works, each app opens in its own GTK window, battery/Wi-Fi/volume read from real hardware, Ctrl+R does nothing, tested on Surface Pro 6.
 
 **Phases:**
-- **M0.P1 — Kill Transparency, Add Real Hardware** *(Day 1–2)*
-  - Delete all `gdk_screen_get_rgba_visual()` and `gtk_widget_set_app_paintable()` calls
-  - CSS: all `rgba(20,20,30,0.85)` → `rgb(20,20,30)`
-  - Battery: read `/sys/class/power_supply/BAT0/capacity` + status directly in C
-  - Wi-Fi: parse `nmcli -t -f DEVICE,STATE device`
-  - Volume: read `pactl get-sink-volume`
-- **M0.P2 — Polish the Native Shell** *(Day 3–4)*
-  - Native Wi-Fi picker dialog (C/GTK, not JS)
-  - Native Bluetooth picker dialog
-  - Native volume slider in the panel
-  - Desktop right-click menu (native GtkMenu popup)
-  - Window snap on edge drag
-- **M0.P3 — Web Apps in Native Mode** *(Day 5–6)*
+- **M0.P1 — Kill Transparency, Add Real Hardware** *(Day 1–2)* ✅ **COMPLETE**
+  - ✅ Deleted all `gdk_widget_set_app_paintable()` calls (commit `6332a23`)
+  - ✅ Fixed radial glow alpha-gradient (was rendering white on X11)
+  - ✅ Battery reads from `/sys/class/power_supply/BAT*/capacity` + status
+  - ✅ Wi-Fi parses `nmcli -t -f ACTIVE,SSID dev wifi`
+  - ✅ Volume reads `pactl get-sink-volume` + `pactl get-sink-mute`
+  - ✅ Flipped `.xinitrc` preference: nova-shell is now the default renderer
+  - ✅ Display-aware HiDPI scaling (don't 2x in VMs)
+  - ✅ Responsive wallpaper grid in setup wizard (no more "Geometrys" overlap)
+- **M0.P2 — Polish the Native Shell** *(Day 3–4)* ✅ **COMPLETE**
+  - ✅ Native Wi-Fi picker dialog — click the 📶 icon → GTK dialog lists networks, click to connect, password prompt for secured (commit `e67b173`)
+  - ✅ Native Bluetooth picker dialog — click 🔵 icon → scan + pair + connect flow (commit `93bb443`)
+  - ✅ Native volume slider in the panel — click 🔊 icon → GTK popover with scale + mute toggle (commit `af201fc`)
+  - ✅ Desktop right-click menu — already existed (New Folder, Change Wallpaper, Display, Terminal, Finder, About)
+  - ✅ Keyboard shortcuts — already existed (`Ctrl+Space` Search, `Alt+Tab` app switcher, key snooper global)
+  - ✅ Window snap — already existed (drag to left/right/top edge → snap)
+- **M0.P3 — Web Apps in Native Mode** *(Day 5–6)* — pending
   - Strip OS chrome from web apps when running under nova-shell (no boot, no login, no HTML menubar/dock)
   - Fix browser app to launch `astrion-browser`
   - Test all 52 apps in native GTK windows, one at a time
-- **M0.P4 — Install + Persistence** *(Day 7–8)*
+- **M0.P4 — Install + Persistence** *(Day 7–8)* — pending
   - Default boot path: prompt to install to disk
   - Auto Wi-Fi + NTP on installed systems
   - Full Surface Pro 6 end-to-end test
