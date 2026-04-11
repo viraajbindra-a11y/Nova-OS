@@ -221,6 +221,7 @@ static void update_clock(void);
 static void update_dock(void);
 static gboolean update_battery(gpointer data);
 static gboolean update_wifi(gpointer data);
+static gboolean update_volume(gpointer data);
 static double get_hidpi_zoom(void);
 
 /* App switcher forward declarations */
@@ -335,6 +336,69 @@ static gboolean update_wifi(gpointer data)
     } else {
         snprintf(display, sizeof(display),
             "<span foreground='#888888'>\xF0\x9F\x93\xB6 N/A</span>");
+    }
+
+    gtk_label_set_markup(label, display);
+    return TRUE;
+}
+
+/* ─── Volume (PulseAudio via pactl) ─── */
+static gboolean update_volume(gpointer data)
+{
+    GtkLabel *label = GTK_LABEL(data);
+    char display[160];
+    char line[256] = "";
+    int vol_pct = -1;
+    int muted = 0;
+
+    /* Volume percentage — parse `pactl get-sink-volume @DEFAULT_SINK@`.
+     * Example: "Volume: front-left: 32768 /  50% / -18.06 dB, ..."
+     * We walk back from the first '%' to pick up the integer before it. */
+    FILE *fp = popen(
+        "pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null | head -1", "r");
+    if (fp) {
+        if (fgets(line, sizeof(line), fp)) {
+            char *p = strchr(line, '%');
+            if (p) {
+                char *num_start = p;
+                while (num_start > line &&
+                       (isdigit((unsigned char)*(num_start - 1)) || *(num_start - 1) == ' ')) {
+                    num_start--;
+                }
+                while (*num_start == ' ') num_start++;
+                if (isdigit((unsigned char)*num_start)) {
+                    vol_pct = atoi(num_start);
+                }
+            }
+        }
+        pclose(fp);
+    }
+
+    /* Mute state — parse `pactl get-sink-mute @DEFAULT_SINK@` */
+    FILE *mfp = popen(
+        "pactl get-sink-mute @DEFAULT_SINK@ 2>/dev/null", "r");
+    if (mfp) {
+        char mline[64] = "";
+        if (fgets(mline, sizeof(mline), mfp)) {
+            if (strstr(mline, "yes")) muted = 1;
+        }
+        pclose(mfp);
+    }
+
+    if (vol_pct < 0) {
+        snprintf(display, sizeof(display),
+            "<span foreground='#888888'>\xF0\x9F\x94\x88 N/A</span>");
+    } else if (muted) {
+        snprintf(display, sizeof(display),
+            "<span foreground='#888888'>\xF0\x9F\x94\x87 Muted</span>");
+    } else {
+        /* Pick icon based on level: 🔈 low, 🔉 mid, 🔊 high */
+        const char *icon;
+        if (vol_pct < 34)      icon = "\xF0\x9F\x94\x88"; /* 🔈 */
+        else if (vol_pct < 67) icon = "\xF0\x9F\x94\x89"; /* 🔉 */
+        else                   icon = "\xF0\x9F\x94\x8A"; /* 🔊 */
+        snprintf(display, sizeof(display),
+            "<span foreground='#c0c0c0'>%s %d%%</span>", icon, vol_pct);
     }
 
     gtk_label_set_markup(label, display);
