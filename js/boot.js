@@ -3,6 +3,9 @@
 import { eventBus } from './kernel/event-bus.js';
 import { fileSystem } from './kernel/file-system.js';
 import { graphStore } from './kernel/graph-store.js';
+// M2.P2: side-effect import triggers graph-query's inline sanity tests
+// on every localhost page load. Day 4 consumers import { query } directly.
+import './kernel/graph-query.js';
 import { windowManager } from './kernel/window-manager.js';
 import { processManager } from './kernel/process-manager.js';
 
