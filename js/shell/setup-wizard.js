@@ -160,20 +160,25 @@ export function showSetupWizard() {
           break;
 
         case 2: // Wallpaper
+          // Grid uses auto-fill + minmax so it stays readable even if the
+          // renderer is at a weird effective zoom (e.g., GDK_SCALE=2 in a
+          // small VM window). Labels are positioned with box-sizing so they
+          // don't overflow at large zooms. Fix for the "Geometrys overlap"
+          // bug user reported in UTM on 2026-04-11.
           el.innerHTML = `
             <div style="text-align:center;">
               <h1 style="font-size:30px;font-weight:700;margin-bottom:8px;">Choose your look</h1>
               <p style="font-size:15px;color:rgba(255,255,255,0.45);margin-bottom:28px;">Pick a wallpaper for your desktop</p>
-              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;">
                 ${wallpapers.map(w => {
                   const isSvg = w.colors.startsWith('url(');
                   const bgStyle = isSvg
                     ? `background-image:${w.colors};background-size:cover;background-position:center;`
                     : `background:${w.colors};`;
                   return `
-                  <div data-wp="${w.id}" style="aspect-ratio:16/10;border-radius:12px;${bgStyle}cursor:pointer;border:3px solid ${w.id === selectedWallpaper ? 'var(--accent)' : 'transparent'};transition:border-color 0.2s,transform 0.15s;position:relative;overflow:hidden;"
+                  <div data-wp="${w.id}" style="aspect-ratio:16/10;border-radius:12px;${bgStyle}cursor:pointer;border:3px solid ${w.id === selectedWallpaper ? 'var(--accent)' : 'transparent'};transition:border-color 0.2s,transform 0.15s;position:relative;overflow:hidden;min-width:0;"
                     onmouseenter="this.style.transform='scale(1.03)'" onmouseleave="this.style.transform='scale(1)'">
-                    <div style="position:absolute;bottom:0;left:0;right:0;padding:6px 10px;background:linear-gradient(transparent,rgba(0,0,0,0.5));font-size:11px;color:rgba(255,255,255,0.8);text-align:left;">${w.name}</div>
+                    <div style="position:absolute;bottom:0;left:0;right:0;padding:6px 10px;background:linear-gradient(transparent,rgba(0,0,0,0.5));font-size:11px;color:rgba(255,255,255,0.8);text-align:left;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${w.name}</div>
                   </div>
                 `;
                 }).join('')}

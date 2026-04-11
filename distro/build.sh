@@ -578,11 +578,35 @@ xsetroot -cursor_name left_ptr
 export XCURSOR_THEME=DMZ-White
 export XCURSOR_SIZE=48
 
-# ── HiDPI scaling for native shell ──
-# GDK_SCALE doubles all GTK widgets (panel, dock, menus, window chrome)
-# This is needed because the Surface Pro has 267 DPI (2736x1824)
+# ── HiDPI scaling for native shell (display-aware) ──
+# Only apply 2x scaling on actual HiDPI displays. Previously we hardcoded
+# GDK_SCALE=2 which made Astrion enormous in VMs (UTM/QEMU) and on normal
+# monitors. Now we detect the primary display width from xrandr and only
+# scale if it's at least 2000px wide (Surface Pro territory: 2736x1824).
+#
+# Users can override with ASTRION_GDK_SCALE=1|2 on the kernel cmdline or
+# as a systemd environment variable if auto-detection gets it wrong.
+xrandr --auto 2>/dev/null
+sleep 0.3
+SCREEN_W=$(xrandr 2>/dev/null | awk '/ connected primary/ {print $4}' | grep -oE '^[0-9]+' | head -1)
+if [ -z "$SCREEN_W" ]; then
+  SCREEN_W=$(xrandr 2>/dev/null | awk '/ connected/ {print $3}' | grep -oE '^[0-9]+' | head -1)
+fi
+if [ -z "$SCREEN_W" ]; then SCREEN_W=1920; fi
+echo "Detected screen width: ${SCREEN_W}px"
+
+if [ -n "$ASTRION_GDK_SCALE" ]; then
+  export GDK_SCALE="$ASTRION_GDK_SCALE"
+  echo "HiDPI: forced by ASTRION_GDK_SCALE=$ASTRION_GDK_SCALE"
+elif [ "$SCREEN_W" -ge 2000 ]; then
+  export GDK_SCALE=2
+  echo "HiDPI: enabled (GDK_SCALE=2) for ${SCREEN_W}px display"
+else
+  export GDK_SCALE=1
+  echo "HiDPI: disabled (GDK_SCALE=1) for ${SCREEN_W}px display — looks like a VM or standard monitor"
+fi
 # WebKit content inside app windows has its own zoom from config file
-export GDK_SCALE=2
+# (/opt/nova-os/config/zoom) — the renderer reads it directly.
 
 # ── Auto-reconnect saved Wi-Fi profiles ──
 nmcli device wifi rescan 2>/dev/null &
@@ -694,14 +718,15 @@ ERRHTML
 done
 
 # Launch Astrion OS
-# nova-renderer = polished web UI (primary — looks great)
-# nova-shell = native GTK backup
-if command -v nova-renderer >/dev/null 2>&1; then
-  echo "Launching Astrion OS..."
-  exec nova-renderer
-elif command -v nova-shell >/dev/null 2>&1; then
-  echo "Falling back to native shell..."
+# nova-shell = native C/GTK3 desktop shell (primary — the real OS substrate)
+# nova-renderer = polished web UI (fallback if nova-shell is missing or broken)
+# See PLAN.md M0.P1 Surgery 4: flipping preference to nova-shell as default.
+if command -v nova-shell >/dev/null 2>&1; then
+  echo "Launching Astrion OS (native shell)..."
   exec nova-shell
+elif command -v nova-renderer >/dev/null 2>&1; then
+  echo "Falling back to web renderer..."
+  exec nova-renderer
 else
   echo "ERROR: no renderer found!"
   sleep 5

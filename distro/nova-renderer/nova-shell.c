@@ -102,6 +102,7 @@ static GtkWidget     *launcher_window  = NULL;
 static GtkWidget     *clock_label      = NULL;
 static GtkWidget     *battery_label    = NULL;
 static GtkWidget     *wifi_label       = NULL;
+static GtkWidget     *volume_label     = NULL;
 static GtkWidget     *date_label       = NULL;
 
 static NovaWindow     windows[MAX_WINDOWS];
@@ -566,13 +567,19 @@ static gboolean on_desktop_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
     cairo_paint(cr);
     cairo_pattern_destroy(grad);
 
-    /* Subtle radial glow in center — fully opaque, no compositor needed */
+    /* Subtle radial highlight — alpha-FREE so no compositor is needed.
+     * The previous version used an alpha gradient (alpha 1.0 → 0.0) which
+     * renders WHITE on bare X11 without a compositor (lesson #1). The fix
+     * is to blend the glow color into the base gradient manually: the outer
+     * stop matches the mid-stop of the base linear gradient above (0.06,
+     * 0.06, 0.16), so where the two patterns meet the transition is
+     * invisible without needing any alpha channel. */
     cairo_pattern_t *glow = cairo_pattern_create_radial(
         w * 0.5, h * 0.4, 0,
         w * 0.5, h * 0.4, w * 0.5
     );
-    cairo_pattern_add_color_stop_rgba(glow, 0.0, 0.05, 0.08, 0.20, 1.0);
-    cairo_pattern_add_color_stop_rgba(glow, 1.0, 0.0,  0.0,  0.0,  0.0);
+    cairo_pattern_add_color_stop_rgb(glow, 0.0, 0.08, 0.10, 0.22);
+    cairo_pattern_add_color_stop_rgb(glow, 1.0, 0.06, 0.06, 0.16);
     cairo_set_source(cr, glow);
     cairo_paint(cr);
     cairo_pattern_destroy(glow);
@@ -690,7 +697,10 @@ static void create_desktop(void)
     g_signal_connect(evbox, "button-press-event", G_CALLBACK(on_desktop_button_press), NULL);
     gtk_overlay_add_overlay(GTK_OVERLAY(overlay), evbox);
 
-    gtk_widget_set_app_paintable(desktop_window, TRUE);
+    /* No gtk_widget_set_app_paintable here — we draw via the "draw" signal on
+     * the GtkDrawingArea, which runs regardless of app-paintable. Setting it
+     * would ask GTK for an RGBA visual we can't composite on bare X11. See
+     * tasks/lessons.md #1. */
     gtk_widget_show_all(desktop_window);
     gtk_window_fullscreen(GTK_WINDOW(desktop_window));
 }
@@ -933,6 +943,15 @@ static void create_panel(void)
     gtk_box_pack_start(GTK_BOX(right_box), wifi_label, FALSE, FALSE, 0);
     update_wifi(wifi_label);
     g_timeout_add(15000, update_wifi, wifi_label);
+
+    /* Volume — real, updated every 5 seconds (pactl). Display only;
+     * the native slider lands in M0.P2. Shows 🔈/🔉/🔊 + % or "Muted" or "N/A". */
+    volume_label = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(volume_label),
+        "<span foreground='#c0c0c0'>\xF0\x9F\x94\x89</span>");
+    gtk_box_pack_start(GTK_BOX(right_box), volume_label, FALSE, FALSE, 0);
+    update_volume(volume_label);
+    g_timeout_add(5000, update_volume, volume_label);
 
     /* Battery — real, updated every 10 seconds */
     battery_label = gtk_label_new(NULL);
