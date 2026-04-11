@@ -1,4 +1,16 @@
-// NOVA OS — Window Manager
+// Astrion OS — Window Manager
+//
+// Polish Sprint Day 5 (2026-04-11): multi-monitor awareness.
+//
+// getActiveDisplay() returns the bounds of the display that currently
+// contains the Astrion window, so new app windows get centered within
+// THAT display (instead of falling off a primary monitor when Astrion
+// is on a secondary one). Uses the Window Management API
+// (window.getScreenDetails, Chromium 100+) when available, with a
+// graceful fallback to window.screen + window.innerWidth on everything
+// else. The API isn't pre-fetched on boot — that would trigger a
+// permission prompt users didn't ask for. Apps that need multi-display
+// info call refreshScreenDetails() explicitly.
 
 import { eventBus } from './event-bus.js';
 
@@ -8,6 +20,8 @@ class WindowManager {
     this.topZ = 100;
     this.activeWindowId = null;
     this.container = null;
+    this._screenDetails = null;    // lazy-loaded via refreshScreenDetails()
+    this._screenDetailsRequested = false;
   }
 
   init() {
@@ -22,6 +36,113 @@ class WindowManager {
         }
       });
     }
+
+    // Reflow window positions when the primary display resizes. This
+    // doesn't move open windows; it just clamps new window positions
+    // going forward.
+    window.addEventListener('resize', () => {
+      eventBus.emit('display:changed', { screens: this.getAllDisplays() });
+    });
+  }
+
+  // ---------- multi-monitor API ----------
+
+  // Returns the display bounds for the screen that contains the current
+  // Astrion window. Sync; relies on cached screen details if available,
+  // otherwise falls back to window.screen / window.innerWidth|Height.
+  //
+  // Shape: { id, x, y, width, height, dpi, isPrimary, label }
+  // Where (x, y) are the absolute top-left of the display's usable area,
+  // and (width, height) are the usable dimensions (excluding OS chrome).
+  getActiveDisplay() {
+    if (this._screenDetails && this._screenDetails.currentScreen) {
+      const c = this._screenDetails.currentScreen;
+      return {
+        id: c.label || 'active',
+        x: typeof c.availLeft === 'number' ? c.availLeft : 0,
+        y: typeof c.availTop === 'number' ? c.availTop : 0,
+        width: c.availWidth || c.width || window.innerWidth,
+        height: c.availHeight || c.height || window.innerHeight,
+        dpi: (c.devicePixelRatio || window.devicePixelRatio || 1) * 96,
+        isPrimary: !!c.isPrimary,
+        label: c.label || 'Active display',
+      };
+    }
+    // Fallback: single-display using window.screen
+    const s = window.screen || {};
+    return {
+      id: 'primary',
+      x: 0,
+      y: 0,
+      width: window.innerWidth || s.availWidth || 1280,
+      height: window.innerHeight || s.availHeight || 720,
+      dpi: (window.devicePixelRatio || 1) * 96,
+      isPrimary: true,
+      label: 'Primary display',
+    };
+  }
+
+  // Returns all known displays. If screen details haven't been refreshed,
+  // returns a single-element array (primary only). Apps that actually need
+  // multi-display info should call refreshScreenDetails() first.
+  getAllDisplays() {
+    if (this._screenDetails && Array.isArray(this._screenDetails.screens)) {
+      return this._screenDetails.screens.map((s, i) => ({
+        id: s.label || `screen-${i}`,
+        x: typeof s.availLeft === 'number' ? s.availLeft : 0,
+        y: typeof s.availTop === 'number' ? s.availTop : 0,
+        width: s.availWidth || s.width || 0,
+        height: s.availHeight || s.height || 0,
+        dpi: (s.devicePixelRatio || 1) * 96,
+        isPrimary: !!s.isPrimary,
+        label: s.label || `Display ${i + 1}`,
+      }));
+    }
+    return [this.getActiveDisplay()];
+  }
+
+  // Async. Requests multi-screen details via the Window Management API.
+  // Triggers a user permission prompt the first time it's called in a
+  // browsing session. Returns the list of displays, or null if the API
+  // is unavailable / permission denied. Caches the result so subsequent
+  // calls are free.
+  async refreshScreenDetails() {
+    if (this._screenDetails) return this.getAllDisplays();
+    if (this._screenDetailsRequested) return null;
+    this._screenDetailsRequested = true;
+    if (typeof window.getScreenDetails !== 'function') {
+      // API not available — the fallback getActiveDisplay() handles it
+      return null;
+    }
+    try {
+      const details = await window.getScreenDetails();
+      this._screenDetails = details;
+      // React to hot-plug, monitor arrangement changes, etc.
+      if (details.addEventListener) {
+        details.addEventListener('screenschange', () => {
+          eventBus.emit('display:changed', { screens: this.getAllDisplays() });
+        });
+        details.addEventListener('currentscreenchange', () => {
+          eventBus.emit('display:active-changed', { display: this.getActiveDisplay() });
+        });
+      }
+      eventBus.emit('display:changed', { screens: this.getAllDisplays() });
+      return this.getAllDisplays();
+    } catch (err) {
+      // user denied or API errored — silent fallback to single-display
+      console.warn('[window-manager] getScreenDetails unavailable:', err?.message || err);
+      return null;
+    }
+  }
+
+  // Compute the top-left (x, y) for centering a window of the given size
+  // within the currently-active display. Respects per-call cascade offset
+  // so stacked windows don't pile on the same pixel.
+  centerInActiveDisplay(width, height, cascadeOffset = 0) {
+    const d = this.getActiveDisplay();
+    const x = Math.max(d.x + 50, Math.round(d.x + (d.width - width) / 2 + cascadeOffset));
+    const y = Math.max(d.y + 40, Math.round(d.y + (d.height - height) / 3 + cascadeOffset));
+    return { x, y };
   }
 
   create({ id, title, app, x, y, width = 700, height = 480, minWidth = 300, minHeight = 200 }) {
@@ -30,9 +151,13 @@ class WindowManager {
       return this.windows.get(id).el.querySelector('.window-content');
     }
 
-    // Center if no position given
-    if (x === undefined) x = Math.max(50, (window.innerWidth - width) / 2 + (this.windows.size * 24));
-    if (y === undefined) y = Math.max(40, (window.innerHeight - height) / 3 + (this.windows.size * 24));
+    // Center within the active display if no position given (multi-monitor
+    // aware — falls back to viewport on single-display setups).
+    if (x === undefined || y === undefined) {
+      const centered = this.centerInActiveDisplay(width, height, this.windows.size * 24);
+      if (x === undefined) x = centered.x;
+      if (y === undefined) y = centered.y;
+    }
 
     const el = document.createElement('div');
     el.className = 'window';
