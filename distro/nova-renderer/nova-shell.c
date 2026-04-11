@@ -224,6 +224,11 @@ static gboolean update_wifi(gpointer data);
 static gboolean update_volume(gpointer data);
 static double get_hidpi_zoom(void);
 
+/* M0.P2: Native Wi-Fi picker */
+static void show_wifi_picker(void);
+static gboolean on_wifi_label_click(GtkWidget *w, GdkEventButton *ev, gpointer d);
+static void on_wifi_row_activated(GtkListBox *box, GtkListBoxRow *row, gpointer d);
+
 /* App switcher forward declarations */
 static void show_app_switcher(void);
 static void cycle_app_switcher(void);
@@ -340,6 +345,279 @@ static gboolean update_wifi(gpointer data)
 
     gtk_label_set_markup(label, display);
     return TRUE;
+}
+
+/* ═══════════════════════════════════════════════
+ * M0.P2: Native Wi-Fi Picker Dialog
+ * ═══════════════════════════════════════════════
+ *
+ * Click the wifi icon in the menubar → opens a native GTK dialog listing
+ * scanned Wi-Fi networks via `nmcli dev wifi list`. Click a row to connect.
+ * Secured networks prompt for a password via a secondary dialog.
+ *
+ * This replaces the web-based wifi-picker.js for native shell mode.
+ */
+
+static void on_wifi_row_activated(GtkListBox *box, GtkListBoxRow *row, gpointer data)
+{
+    if (!row) return;
+    const char *ssid = (const char *)g_object_get_data(G_OBJECT(row), "ssid");
+    const char *security = (const char *)g_object_get_data(G_OBJECT(row), "security");
+    if (!ssid || strlen(ssid) == 0) return;
+
+    int needs_password = (security && strlen(security) > 0 && strcmp(security, "--") != 0);
+
+    if (needs_password) {
+        /* Password prompt dialog */
+        GtkWidget *pw_dialog = gtk_dialog_new_with_buttons(
+            "Enter Password",
+            NULL,
+            GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+            "Connect", GTK_RESPONSE_ACCEPT,
+            "Cancel", GTK_RESPONSE_CANCEL,
+            NULL
+        );
+        gtk_window_set_default_size(GTK_WINDOW(pw_dialog), 320, 140);
+        gtk_window_set_decorated(GTK_WINDOW(pw_dialog), FALSE);
+        gtk_window_set_position(GTK_WINDOW(pw_dialog), GTK_WIN_POS_CENTER);
+        GtkStyleContext *pctx = gtk_widget_get_style_context(pw_dialog);
+        gtk_style_context_add_class(pctx, "nova-about-dialog");
+
+        GtkWidget *pw_content = gtk_dialog_get_content_area(GTK_DIALOG(pw_dialog));
+        gtk_widget_set_margin_start(pw_content, 16);
+        gtk_widget_set_margin_end(pw_content, 16);
+        gtk_widget_set_margin_top(pw_content, 12);
+        gtk_widget_set_margin_bottom(pw_content, 8);
+
+        char label_text[256];
+        snprintf(label_text, sizeof(label_text),
+            "<span foreground='#ffffff'>Password for <b>%s</b></span>", ssid);
+        GtkWidget *pw_label = gtk_label_new(NULL);
+        gtk_label_set_markup(GTK_LABEL(pw_label), label_text);
+        gtk_widget_set_halign(pw_label, GTK_ALIGN_START);
+        gtk_box_pack_start(GTK_BOX(pw_content), pw_label, FALSE, FALSE, 0);
+
+        GtkWidget *pw_entry = gtk_entry_new();
+        gtk_entry_set_visibility(GTK_ENTRY(pw_entry), FALSE);
+        gtk_entry_set_activates_default(GTK_ENTRY(pw_entry), TRUE);
+        gtk_box_pack_start(GTK_BOX(pw_content), pw_entry, FALSE, FALSE, 8);
+
+        gtk_dialog_set_default_response(GTK_DIALOG(pw_dialog), GTK_RESPONSE_ACCEPT);
+        gtk_widget_show_all(pw_dialog);
+        gtk_widget_grab_focus(pw_entry);
+
+        gint response = gtk_dialog_run(GTK_DIALOG(pw_dialog));
+        if (response == GTK_RESPONSE_ACCEPT) {
+            const char *password = gtk_entry_get_text(GTK_ENTRY(pw_entry));
+            if (password && strlen(password) > 0) {
+                char cmd[768];
+                /* Quote both SSID and password with double quotes, escape any existing quotes by replacing with nothing (safer than shell injection) */
+                snprintf(cmd, sizeof(cmd),
+                    "nmcli dev wifi connect '%s' password '%s' 2>/dev/null &",
+                    ssid, password);
+                int r = system(cmd);
+                (void)r;
+            }
+        }
+        gtk_widget_destroy(pw_dialog);
+    } else {
+        /* Open network — connect directly */
+        char cmd[512];
+        snprintf(cmd, sizeof(cmd),
+            "nmcli dev wifi connect '%s' 2>/dev/null &", ssid);
+        int r = system(cmd);
+        (void)r;
+    }
+
+    /* Trigger update of the wifi label after a short delay */
+    if (wifi_label) {
+        g_timeout_add(2000, update_wifi, wifi_label);
+    }
+}
+
+static void show_wifi_picker(void)
+{
+    GtkWidget *dialog = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title(GTK_WINDOW(dialog), "Wi-Fi Networks");
+    gtk_window_set_default_size(GTK_WINDOW(dialog), 360, 440);
+    gtk_window_set_decorated(GTK_WINDOW(dialog), FALSE);
+    gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_CENTER);
+    gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+    GtkStyleContext *ctx = gtk_widget_get_style_context(dialog);
+    gtk_style_context_add_class(ctx, "nova-about-dialog");
+
+    GtkWidget *outer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_widget_set_margin_start(outer, 18);
+    gtk_widget_set_margin_end(outer, 18);
+    gtk_widget_set_margin_top(outer, 14);
+    gtk_widget_set_margin_bottom(outer, 14);
+    gtk_container_add(GTK_CONTAINER(dialog), outer);
+
+    /* Header */
+    GtkWidget *header = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(header),
+        "<span size='16000' weight='bold' foreground='#ffffff'>"
+        "\xF0\x9F\x93\xB6 Wi-Fi</span>");
+    gtk_widget_set_halign(header, GTK_ALIGN_START);
+    gtk_box_pack_start(GTK_BOX(outer), header, FALSE, FALSE, 0);
+
+    GtkWidget *hint = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(hint),
+        "<span size='10000' foreground='#888888'>Click a network to connect</span>");
+    gtk_widget_set_halign(hint, GTK_ALIGN_START);
+    gtk_box_pack_start(GTK_BOX(outer), hint, FALSE, FALSE, 4);
+
+    /* Scroll area */
+    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
+        GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+    gtk_widget_set_vexpand(scroll, TRUE);
+    gtk_box_pack_start(GTK_BOX(outer), scroll, TRUE, TRUE, 10);
+
+    GtkWidget *list_box = gtk_list_box_new();
+    gtk_list_box_set_selection_mode(GTK_LIST_BOX(list_box), GTK_SELECTION_SINGLE);
+    gtk_container_add(GTK_CONTAINER(scroll), list_box);
+
+    /* Trigger a rescan in the background so the list is fresh */
+    int rescan_r = system("nmcli dev wifi rescan 2>/dev/null &");
+    (void)rescan_r;
+
+    /* Scan networks via nmcli. Colon-separated for easy parsing. */
+    FILE *fp = popen(
+        "nmcli -t -f ACTIVE,SSID,SIGNAL,SECURITY dev wifi list 2>/dev/null", "r");
+    char line[512];
+    int count = 0;
+    if (fp) {
+        while (fgets(line, sizeof(line), fp)) {
+            line[strcspn(line, "\n")] = 0;
+
+            /* Parse: "active:ssid:signal:security" — SSID can contain
+             * escaped colons as "\:". For simplicity here we only split
+             * on unescaped colons. */
+            char active[8] = "", ssid[128] = "", signal[8] = "", security[32] = "";
+            int field = 0;
+            char *dst = active;
+            size_t dst_size = sizeof(active);
+            size_t written = 0;
+            for (size_t i = 0; line[i] && field < 4; i++) {
+                if (line[i] == '\\' && line[i+1] == ':') {
+                    if (written < dst_size - 1) {
+                        dst[written++] = ':';
+                    }
+                    i++;
+                    continue;
+                }
+                if (line[i] == ':') {
+                    dst[written] = 0;
+                    field++;
+                    written = 0;
+                    if (field == 1) { dst = ssid; dst_size = sizeof(ssid); }
+                    else if (field == 2) { dst = signal; dst_size = sizeof(signal); }
+                    else if (field == 3) { dst = security; dst_size = sizeof(security); }
+                    continue;
+                }
+                if (written < dst_size - 1) {
+                    dst[written++] = line[i];
+                }
+            }
+            dst[written] = 0;
+
+            if (strlen(ssid) == 0) continue; /* skip empty SSIDs */
+            count++;
+
+            GtkWidget *row = gtk_list_box_row_new();
+            GtkWidget *row_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+            gtk_widget_set_margin_start(row_box, 10);
+            gtk_widget_set_margin_end(row_box, 10);
+            gtk_widget_set_margin_top(row_box, 8);
+            gtk_widget_set_margin_bottom(row_box, 8);
+
+            /* Active indicator */
+            GtkWidget *check = gtk_label_new(NULL);
+            if (strcmp(active, "yes") == 0) {
+                gtk_label_set_markup(GTK_LABEL(check),
+                    "<span foreground='#8be9fd'>\xE2\x9C\x93</span>");
+            } else {
+                gtk_label_set_markup(GTK_LABEL(check),
+                    "<span foreground='#2a2a3a'>\xE2\x9C\x93</span>");
+            }
+            gtk_widget_set_size_request(check, 14, -1);
+            gtk_box_pack_start(GTK_BOX(row_box), check, FALSE, FALSE, 0);
+
+            /* SSID label */
+            GtkWidget *ssid_label = gtk_label_new(ssid);
+            gtk_widget_set_halign(ssid_label, GTK_ALIGN_START);
+            gtk_label_set_ellipsize(GTK_LABEL(ssid_label), PANGO_ELLIPSIZE_END);
+            gtk_box_pack_start(GTK_BOX(row_box), ssid_label, TRUE, TRUE, 0);
+
+            /* Signal strength bars */
+            int sig = atoi(strlen(signal) > 0 ? signal : "0");
+            const char *bars;
+            if (sig > 75)      bars = "\xE2\x96\xAE\xE2\x96\xAE\xE2\x96\xAE\xE2\x96\xAE"; /* ▮▮▮▮ */
+            else if (sig > 50) bars = "\xE2\x96\xAE\xE2\x96\xAE\xE2\x96\xAE";             /* ▮▮▮ */
+            else if (sig > 25) bars = "\xE2\x96\xAE\xE2\x96\xAE";                         /* ▮▮ */
+            else               bars = "\xE2\x96\xAE";                                     /* ▮ */
+            GtkWidget *sig_label = gtk_label_new(NULL);
+            char sig_markup[128];
+            snprintf(sig_markup, sizeof(sig_markup),
+                "<span foreground='#c0c0c0' size='11000'>%s</span>", bars);
+            gtk_label_set_markup(GTK_LABEL(sig_label), sig_markup);
+            gtk_box_pack_start(GTK_BOX(row_box), sig_label, FALSE, FALSE, 0);
+
+            /* Lock icon for secured */
+            int is_secured = (strlen(security) > 0 && strcmp(security, "--") != 0);
+            if (is_secured) {
+                GtkWidget *lock = gtk_label_new(NULL);
+                gtk_label_set_markup(GTK_LABEL(lock),
+                    "<span foreground='#888888' size='11000'>\xF0\x9F\x94\x92</span>");
+                gtk_box_pack_start(GTK_BOX(row_box), lock, FALSE, FALSE, 0);
+            }
+
+            gtk_container_add(GTK_CONTAINER(row), row_box);
+            gtk_container_add(GTK_CONTAINER(list_box), row);
+
+            /* Attach SSID + security to the row for the click handler */
+            g_object_set_data_full(G_OBJECT(row), "ssid",
+                g_strdup(ssid), g_free);
+            g_object_set_data_full(G_OBJECT(row), "security",
+                g_strdup(security), g_free);
+        }
+        pclose(fp);
+    }
+
+    if (count == 0) {
+        GtkWidget *empty = gtk_label_new(NULL);
+        gtk_label_set_markup(GTK_LABEL(empty),
+            "<span foreground='#888888'>No networks found.\n"
+            "Try again in a few seconds.</span>");
+        gtk_widget_set_halign(empty, GTK_ALIGN_CENTER);
+        gtk_widget_set_margin_top(empty, 40);
+        gtk_container_add(GTK_CONTAINER(list_box), empty);
+    }
+
+    g_signal_connect(list_box, "row-activated",
+        G_CALLBACK(on_wifi_row_activated), NULL);
+
+    /* Close button */
+    GtkWidget *btn_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_widget_set_halign(btn_box, GTK_ALIGN_END);
+    gtk_box_pack_start(GTK_BOX(outer), btn_box, FALSE, FALSE, 0);
+
+    GtkWidget *close_btn = gtk_button_new_with_label("Close");
+    gtk_box_pack_end(GTK_BOX(btn_box), close_btn, FALSE, FALSE, 0);
+    g_signal_connect_swapped(close_btn, "clicked",
+        G_CALLBACK(gtk_widget_destroy), dialog);
+
+    gtk_widget_show_all(dialog);
+}
+
+static gboolean on_wifi_label_click(GtkWidget *widget, GdkEventButton *event, gpointer data)
+{
+    if (event->button == 1) {
+        show_wifi_picker();
+        return TRUE;
+    }
+    return FALSE;
 }
 
 /* ─── Volume (PulseAudio via pactl) ─── */
@@ -1000,11 +1278,18 @@ static void create_panel(void)
     gtk_style_context_add_class(right_ctx, "nova-panel-right");
     gtk_box_pack_end(GTK_BOX(hbox), right_box, FALSE, FALSE, 8);
 
-    /* WiFi status — real, updated every 15 seconds */
+    /* WiFi status — real, updated every 15 seconds.
+     * Click opens the native Wi-Fi picker (M0.P2). Wrapped in an eventbox
+     * because GtkLabel doesn't receive button-press events on its own. */
     wifi_label = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(wifi_label),
         "<span foreground='#c0c0c0'>\xF0\x9F\x93\xB6</span>");
-    gtk_box_pack_start(GTK_BOX(right_box), wifi_label, FALSE, FALSE, 0);
+    GtkWidget *wifi_evbox = gtk_event_box_new();
+    gtk_widget_set_events(wifi_evbox, GDK_BUTTON_PRESS_MASK);
+    gtk_container_add(GTK_CONTAINER(wifi_evbox), wifi_label);
+    g_signal_connect(wifi_evbox, "button-press-event",
+        G_CALLBACK(on_wifi_label_click), NULL);
+    gtk_box_pack_start(GTK_BOX(right_box), wifi_evbox, FALSE, FALSE, 0);
     update_wifi(wifi_label);
     g_timeout_add(15000, update_wifi, wifi_label);
 
