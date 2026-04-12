@@ -111,7 +111,11 @@ RULES:
    unless the user asks to open something.
 7. If the query is a simple single-capability intent (like "open terminal"
    or "5 + 3"), still respond with a one-step plan — the executor handles it.
-8. Respond with JSON only. Nothing before, nothing after.`;
+8. If the user's intent CANNOT be satisfied by any combination of catalog
+   capabilities (e.g. "delete everything" when no delete capability exists),
+   respond with a CLARIFY status explaining what you can't do. NEVER force
+   a plan that doesn't match the user's actual intent.
+9. Respond with JSON only. Nothing before, nothing after.`;
 }
 
 // ---------- JSON parsing (tolerant) ----------
@@ -200,7 +204,10 @@ export async function planIntent({ query, context, memory, parsedIntent }) {
   // ─── First attempt ───
   let raw;
   try {
-    raw = await aiService.ask(prompt, { maxTokens: 1500 });
+    // Agent Core soak test: 1500 was overkill — a 5-step plan is ~300 tokens.
+    // Local Ollama models (qwen2.5:7b) ramble past the JSON close-brace if given
+    // too much room. 500 is plenty and keeps response times under 10s on M2.
+    raw = await aiService.ask(prompt, { maxTokens: 500 });
   } catch (err) {
     return { status: 'failed', error: `planner ai call threw: ${err?.message || err}` };
   }
@@ -222,7 +229,7 @@ Try again. Respond with JSON only. No prose, no markdown.`;
 
     let retryRaw;
     try {
-      retryRaw = await aiService.ask(retryPrompt, { maxTokens: 1500 });
+      retryRaw = await aiService.ask(retryPrompt, { maxTokens: 500 });
     } catch (err) {
       return { status: 'failed', error: `planner retry threw: ${err?.message || err}`, raw };
     }

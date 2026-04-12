@@ -202,6 +202,10 @@ export function initSpotlight() {
   eventBus.on('plan:clarify', ({ query, question, choices }) => {
     planState.clarify = { question, choices: Array.isArray(choices) ? choices : [] };
     planState.query = query || planState.query;
+    // Soak-test fix: re-enable input so user can interact with choices
+    // (handleSubmit disabled it when entering the plan branch).
+    input.disabled = false;
+    activePlanId = null;
     renderPlanPanel();
     if (!isOpen) open();
   });
@@ -320,6 +324,10 @@ export function initSpotlight() {
     eventBus.emit('spotlight:will-open');
     spotlight.classList.remove('hidden');
     input.value = '';
+    // Soak-test fix: always re-enable input on open. The plan branch in
+    // handleSubmit disables it, but if the plan ends in clarify/abort/fail
+    // without hitting plan:completed, input stays disabled forever.
+    input.disabled = false;
     // Show suggested apps when empty
     const suggestions = ['Notes', 'Terminal', 'Messages', 'Browser', 'Music', 'Weather', 'Calculator', 'Beat Studio'];
     results.innerHTML = `
@@ -349,7 +357,11 @@ export function initSpotlight() {
     spotlight.classList.add('hidden');
     isOpen = false;
     input.value = '';
+    input.disabled = false; // soak-test fix: reset disabled state on close
     results.innerHTML = '';
+    activePlanId = null;
+    pendingConfirmPlanId = null;
+    resetPlanState();
     // Agent Core Sprint: let context-bundle drop the cached selection.
     eventBus.emit('spotlight:closed');
   }
