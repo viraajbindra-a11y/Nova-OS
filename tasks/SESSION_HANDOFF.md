@@ -98,44 +98,42 @@ Astrion OS is a real business. From day one. Don't frame friend contributions as
 - Plan file: `/Users/parul/.claude/plans/playful-chasing-stonebraker.md` (overwritten with Polish Sprint plan)
 - Retrospective: `tasks/polish-sprint-complete-2026-04-11.md`
 
-- **Agent Core Sprint (Viraaj's "Milestone 2: AI Agent Core") — v0.3** — ⚠️ **CODE LANDED 2026-04-11 AS COMMIT `0cd1b5c`, NOT DECLARED SHIPPED.** A prior session over-compressed scope (target was 2-4 weeks) and pushed all 6 phases in one afternoon. Viraaj caught it mid-session and asked for option 3: keep the code, revert the docs, soak-test before calling it done. The real Claude API round-trip was never verified — everything was tested against a stubbed `aiService._mockResponse`. **First job of the next session** is to set `ANTHROPIC_API_KEY`, clear `localStorage['nova-ai-provider']`, drive the Spotlight multi-turn panel with real hands, and run ~10 adversarial queries. Phases that landed in code:
+- **Agent Core Sprint (Viraaj's "Milestone 2: AI Agent Core") — v0.3** — ✅ **SHIPPED 2026-04-11.** Soak-tested against real Ollama (qwen2.5:7b) with Viraaj driving Spotlight. 7 bugs found and fixed across two review sessions (commits `0cd1b5c` → `24234ed` → `2b7806b`). Canonical deliverable query passes. Branch merged to main as a clean 4-commit fast-forward. Phases:
   - Phase 1: `files.createFolder` + `files.createFile` capabilities with path-root guard (10/10 sanity)
   - Phase 2: `js/kernel/context-bundle.js` — openApps + activeApp + clipboard + selection + terminal tail snapshot (4/4 sanity)
-  - Phase 3: `js/kernel/intent-planner.js` — catalog-aware prompt builder, JSON plan parser, schema validator against live capability registry, `routeQuery` heuristic router (15/15 sanity)
-  - Phase 4: `executePlan` added to `js/kernel/intent-executor.js` with binding resolver (`${binds.NAME}`), L2+ preview gate, full `plan:*` event lifecycle
-  - Phase 5: `js/kernel/conversation-memory.js` — session-scoped short-term memory as `conversation-turn` graph nodes, 10-min idle rollover, last-5-turns feed into planner prompt
-  - Phase 6: Spotlight multi-turn panel (streaming step status ⏳/▶/✓/✗, L2+ confirm gate UI, clarify-question UI, selection snapshot on `spotlight:will-open`, fast M1 path unchanged)
-  - Phase 7: lessons 71-80, PLAN.md Agent Core section, retrospective (`tasks/agent-core-sprint-complete-2026-04-11.md`), SESSION_HANDOFF bump
-- Plan file: `/Users/parul/.claude/plans/foamy-floating-snowflake.md`
-- DRAFT retrospective (not a real retro until soak-tested): `tasks/agent-core-sprint-DRAFT-2026-04-11.md`
-- **Why it's not shipped**: real Claude API round-trip NEVER verified in the sandbox (no ANTHROPIC_API_KEY). Planner was exercised end-to-end ONLY via `aiService._mockResponse` stub. Viraaj hasn't driven the Spotlight multi-turn panel with his own hands. Lessons #71-80 are real regardless. Lesson #80 is the warning about exactly this. Lesson #70 was in the session's active context when the over-compression happened — compression has an off switch and the session forgot to flip it.
+  - Phase 3: `js/kernel/intent-planner.js` — catalog-aware prompt builder, JSON plan parser, schema validator, `routeQuery` heuristic router (15/15 sanity)
+  - Phase 4: `executePlan` in `js/kernel/intent-executor.js` — binding resolver, L2+ preview gate, `plan:*` event lifecycle
+  - Phase 5: `js/kernel/conversation-memory.js` — session-scoped short-term memory on the hypergraph
+  - Phase 6: Spotlight multi-turn panel (step streaming, L2+ confirm gate, clarify UI, 3-mode Escape)
+  - Soak test: 11 adversarial tests under stub + canonical query against real Ollama. Bugs: summarizeContext crash on empty timestamp (critical, fixed), initConversationMemory missing from web boot (fixed), unresolved bindings gave confusing errors (fixed), maxTokens rambling (fixed), semantically wrong plans for unsatisfiable intents (prompt rule added), input.disabled stuck after clarify/abort (fixed), clarify choices not clickable (fixed).
+- Retrospective: `tasks/agent-core-sprint-complete-2026-04-11.md`
+- Soak test report: `tasks/agent-core-soak-test-BLOCKED-2026-04-11.md`
+- Lessons: #71–87 (17 new lessons from this sprint + review)
 
-### 🔜 Next work — FINISH the Agent Core Sprint soak test (not M3 yet)
-**Agent Core Sprint is NOT shipped.** Code landed on branch `agent-core-sprint` (local), commits `0cd1b5c` + `69b9ad9`. A follow-up review session (2026-04-11 afternoon) deep-read every changed file, ran 11 adversarial tests through the real `intent:plan` handler chain under stub, found 3 real bugs the prior session missed, and fixed them on the same branch. See `tasks/agent-core-soak-test-BLOCKED-2026-04-11.md` for the full report and the exact 5-minute keyed-session checklist.
+### 🔜 Next work — Agent Core EXPANSION (Phase 0: Chat Foundation)
 
-Bugs the follow-up review found and fixed (all on-branch, NOT merged to main):
-1. **CRITICAL:** `summarizeContext()` threw `RangeError` on empty/null `bundle.timestamp`, silently killing every `intent:plan` that passed a bare `{}` context. Prior session's "defensive readers, never throws" claim was false. Fixed with `Number.isFinite` guard.
-2. **LOW:** `initConversationMemory()` was wired into the native boot branch but NOT the normal branch. Currently a no-op but inconsistent with the retrospective's claim. Fixed for symmetry.
-3. **LOW:** Unresolved `${binds.X}` references produced a confusing "path outside roots" error instead of a clean "unresolved binding" error. Fixed with a pre-execution scan in `executePlan`.
-4. **INFO:** Planner error labels conflated parse failures and schema failures. Fixed with distinct labels ("unparseable twice" vs "invalid twice").
+**Viraaj's vision (2026-04-11):** "I want Agent Core to be special. It should be able to do anything — from making apps to playing video games for you." The current Agent Core is the skeleton (planner + executor + 17 capabilities). The expansion turns it into the real product.
 
-**First job of the NEXT session (still — the blocker hasn't lifted):**
-1. Get a real funded `ANTHROPIC_API_KEY` into the preview server env. Claude Code's sandbox exports the var name with an empty value; that's a dead end.
-2. `localStorage.removeItem('nova-ai-provider')` before any test (lesson #72).
-3. Run the 5-minute soak checklist in `tasks/agent-core-soak-test-BLOCKED-2026-04-11.md` section "The 5-minute keyed-session soak test."
-4. If every check passes: rename DRAFT retrospective to COMPLETE, update PLAN.md Agent Core section to ✅, fast-forward `main` → `agent-core-sprint`, write the real retrospective, bump the tag.
-5. If anything fails: debug in place, add findings to `tasks/agent-core-sprint-soak-<date>.md`, add lessons for anything new, do NOT merge to main.
+**Approved 9-phase roadmap (April–December 2026):** See plan file `/Users/parul/.claude/plans/sorted-sprouting-candle.md` for the full plan with inversion tables, demo scripts, and file paths.
 
-**Only after Agent Core is genuinely shipped does M3 start.** Do not skip ahead.
+| Phase | Dates | Ships |
+|---|---|---|
+| 0 | Apr 12–27 | Messages becomes an agent (chat + actions) |
+| 1 | Apr 28–May 11 | AI reads/writes actual source code (server file I/O bridge) |
+| 2 | May 12–Jun 8 | M3 Dual brain (Ollama S1 + Claude S2 + calibration) |
+| 3 | Jun 9–Jul 6 | M4 App generation ("build me a pomodoro timer") |
+| 4 | Jul 7–20 | Game autoplay (AI plays Snake/Chess/2048) |
+| 5 | Jul 21–Aug 10 | Bug fix pipeline (describe bug → AI proposes fix) |
+| 6 | Aug 11–Sep 7 | M5 Reversibility (undo everything, visual timeline) |
+| 7 | Sep 8–Oct 5 | M6 Socratic loop + red-team agent |
+| 8 | Oct 6–Dec 1 | M8 Self-modification with safety rails |
+| 9 | Dec 1–31 | M7 Skill marketplace + polish |
 
-After that: **PLAN.md M3 (Dual-Process Runtime)** — this is when premium AI tier ships and revenue starts.
-1. S1 runtime: bundle Ollama, always-on, handles simple intents + pattern-matched plans
-2. S2 budget manager: per-day + per-intent caps, multi-provider fallback
-3. Calibration tracker: post-hoc "did this work?" on conversation-turn nodes (substrate ready from Agent Core memory layer)
-4. UI tags on every response: which brain + confidence %
-5. Auto-escalate categories where S1 accuracy < 70% to S2 permanently
+**First job of the next session:** Start Phase 0 — wire Messages app to route actionable queries through the planner instead of raw `aiService.ask`. Key file: `js/apps/messages.js` line 215 (`sendMessage`). Use `EnterPlanMode`, follow the dad-rules, no compression.
 
-**~50% of the M3 substrate is already built:** the planner calls Claude today (just needs to try Ollama first and fall back); the `conversation-turn` graph nodes become the calibration feedback substrate; the `context-bundle` is ready to feed per-intent category data to the calibration tracker; the L2+ preview gate already shows the user which steps are touching real data.
+**Ollama is installed and working:** `brew install ollama` done, `qwen2.5:7b` pulled, tested, working on port 11434. Provider config: `localStorage['nova-ai-provider'] = 'ollama'`, `localStorage['nova-ai-ollama-model'] = 'qwen2.5:7b'`. No Anthropic API key needed for development — Ollama is the dev-time brain.
+
+**Anthropic API key status:** Viraaj has a Max (20x) plan. console.anthropic.com key was generated and authenticates, but $0 credit balance (Max promo credits didn't materialize). When/if API credits are needed (M3 S2 integration), he'll need to either claim credits or add a small prepaid balance.
 
 **Recommended:** start in a fresh session (this one will be ~80%+ context after Agent Core ships). Read `tasks/agent-core-sprint-complete-2026-04-11.md` first, then this doc, then PLAN.md.
 
