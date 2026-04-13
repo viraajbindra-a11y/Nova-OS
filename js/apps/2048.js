@@ -115,11 +115,108 @@ export function register2048() {
 
       state.move = moveDir;
 
+      let autoPlay = false;
+      let autoTimer = null;
+
+      // ─── AI Autoplay: try all 4 moves on a clone, pick best ───
+      function aiDecide() {
+        const dirs = ['down', 'right', 'left', 'up']; // priority order
+        let bestDir = null, bestScore = -1;
+        for (const dir of dirs) {
+          // Clone grid
+          const clone = state.grid.map(r => [...r]);
+          const origScore = state.score;
+          let moved = false;
+
+          // Simulate move on clone
+          const simSlide = (row) => {
+            let a = row.filter(x => x), i = 0, s = 0;
+            while (i < a.length - 1) {
+              if (a[i] === a[i + 1]) { a[i] *= 2; s += a[i]; a.splice(i + 1, 1); }
+              i++;
+            }
+            while (a.length < 4) a.push(0);
+            return { row: a, score: s };
+          };
+
+          let simScore = 0;
+          if (dir === 'left') {
+            for (let r = 0; r < 4; r++) {
+              const res = simSlide(clone[r]);
+              if (res.row.join() !== clone[r].join()) moved = true;
+              clone[r] = res.row; simScore += res.score;
+            }
+          } else if (dir === 'right') {
+            for (let r = 0; r < 4; r++) {
+              const res = simSlide([...clone[r]].reverse());
+              const row = res.row.reverse();
+              if (row.join() !== clone[r].join()) moved = true;
+              clone[r] = row; simScore += res.score;
+            }
+          } else if (dir === 'up') {
+            for (let c = 0; c < 4; c++) {
+              const col = clone.map(r => r[c]);
+              const res = simSlide(col);
+              if (res.row.join() !== col.join()) moved = true;
+              res.row.forEach((v, r) => { clone[r][c] = v; }); simScore += res.score;
+            }
+          } else if (dir === 'down') {
+            for (let c = 0; c < 4; c++) {
+              const col = clone.map(r => r[c]).reverse();
+              const res = simSlide(col);
+              const row = res.row.reverse();
+              const orig = clone.map(r => r[c]);
+              if (row.join() !== orig.join()) moved = true;
+              row.forEach((v, r) => { clone[r][c] = v; }); simScore += res.score;
+            }
+          }
+
+          if (moved) {
+            // Heuristic: score gain + empty cells + monotonicity bonus
+            const emptyCells = clone.flat().filter(x => x === 0).length;
+            const heuristic = simScore + emptyCells * 10;
+            if (heuristic > bestScore) {
+              bestScore = heuristic;
+              bestDir = dir;
+            }
+          }
+        }
+        return bestDir;
+      }
+
+      function toggleAuto() {
+        autoPlay = !autoPlay;
+        const btn = el.querySelector('#g-auto');
+        if (btn) {
+          btn.style.background = autoPlay ? 'var(--accent)' : 'rgba(255,255,255,0.08)';
+          btn.style.color = autoPlay ? 'white' : 'rgba(255,255,255,0.7)';
+          btn.textContent = autoPlay ? '🤖 Auto ON' : '🤖 Auto';
+        }
+        if (autoPlay) {
+          autoTimer = setInterval(() => {
+            if (!autoPlay || state.gameOver || !el.isConnected) {
+              clearInterval(autoTimer); autoTimer = null;
+              autoPlay = false;
+              const b = el.querySelector('#g-auto');
+              if (b) { b.style.background = 'rgba(255,255,255,0.08)'; b.style.color = 'rgba(255,255,255,0.7)'; b.textContent = '🤖 Auto'; }
+              return;
+            }
+            const dir = aiDecide();
+            if (dir) moveDir(dir);
+          }, 200);
+        } else {
+          if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+        }
+      }
+
       function render() {
         el.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;height:100%;background:#1a1a22;padding:16px;font-family:var(--font);color:white;">
           <div style="display:flex;justify-content:space-between;width:100%;margin-bottom:12px;padding:0 20px;">
             <span style="font-size:18px;font-weight:700;">2048</span>
-            <span style="font-size:14px;">Score: ${state.score}</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button id="g-auto" style="padding:4px 12px;border-radius:6px;border:none;background:${autoPlay ? 'var(--accent)' : 'rgba(255,255,255,0.08)'};color:${autoPlay ? 'white' : 'rgba(255,255,255,0.7)'};font-size:11px;cursor:pointer;font-family:var(--font);">${autoPlay ? '🤖 Auto ON' : '🤖 Auto'}</button>
+              <span style="font-size:14px;">Score: ${state.score}</span>
+            </div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(4,80px);gap:6px;background:#1e1e2e;padding:8px;border-radius:10px;">
             ${state.grid.flat().map(v => `<div style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;background:${COLORS[v] || '#3c3a32'};color:${TCOLORS[v] || '#f9f6f2'};font-size:${v >= 1024 ? '20px' : v >= 100 ? '24px' : '28px'};font-weight:700;border-radius:6px;">${v || ''}</div>`).join('')}
@@ -138,6 +235,8 @@ export function register2048() {
           addTile();
           render();
         };
+        const autoBtn = el.querySelector('#g-auto');
+        if (autoBtn) autoBtn.onclick = toggleAuto;
       }
 
       document.addEventListener('keydown', (e) => {

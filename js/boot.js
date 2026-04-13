@@ -100,6 +100,7 @@ import { registerTodo } from './apps/todo.js';
 import { registerBeatStudio } from './apps/beat-studio.js';
 import { registerLiveChat } from './apps/live-chat.js';
 import { registerYouTube } from './apps/youtube.js';
+import { registerPixelArt } from './apps/pixel-art.js';
 import { verifyPassword } from './kernel/crypto.js';
 import { sounds } from './kernel/sound.js';
 import { initVolumeHud } from './shell/volume-hud.js';
@@ -138,7 +139,7 @@ import { initVolumeHud } from './shell/volume-hud.js';
     registerChess(); registerSnake(); register2048();
     registerBudget(); registerQuotes(); registerTypingTest();
     registerTodo(); registerBeatStudio(); registerLiveChat();
-    registerYouTube();
+    registerYouTube(); registerPixelArt();
 
     windowManager.init();
 
@@ -229,6 +230,7 @@ import { initVolumeHud } from './shell/volume-hud.js';
   registerBeatStudio();
   registerLiveChat();
   registerYouTube();
+  registerPixelArt();
   await animate(progressBar, 85, 200);
 
   // Init kernel

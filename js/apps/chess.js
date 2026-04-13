@@ -124,16 +124,79 @@ export function registerChess() {
         board: INITIAL.map(r => [...r]),
         selected: null,
         turn: 'white',
-        render: null, // set below
+        render: null,
+        autoPlay: false,
+        autoTimer: null,
       };
       _game = state;
 
       function isWhite(p) { return p === p.toUpperCase() && p !== ' '; }
 
+      // ─── AI: find all legal moves, evaluate, pick best ───
+      const PIECE_VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+
+      function getAllLegalMoves(board, isWhiteTurn) {
+        const moves = [];
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            const p = board[r][c];
+            if (p === ' ') continue;
+            if ((isWhiteTurn && p !== p.toUpperCase()) || (!isWhiteTurn && p === p.toUpperCase())) continue;
+            for (let tr = 0; tr < 8; tr++) {
+              for (let tc = 0; tc < 8; tc++) {
+                if (r === tr && c === tc) continue;
+                if (isValidMove(board, r, c, tr, tc)) {
+                  const captured = board[tr][tc];
+                  const captureVal = captured !== ' ' ? (PIECE_VALUES[captured.toLowerCase()] || 0) : 0;
+                  // Prefer center control for non-captures
+                  const centerBonus = (3.5 - Math.abs(tr - 3.5)) * 0.1 + (3.5 - Math.abs(tc - 3.5)) * 0.1;
+                  moves.push({ fromR: r, fromC: c, toR: tr, toC: tc, score: captureVal * 10 + centerBonus + Math.random() * 0.5 });
+                }
+              }
+            }
+          }
+        }
+        // Sort by score descending (captures first, then center preference)
+        moves.sort((a, b) => b.score - a.score);
+        return moves;
+      }
+
+      function aiMove() {
+        if (!state.autoPlay || !_game) return;
+        const isW = state.turn === 'white';
+        const moves = getAllLegalMoves(state.board, isW);
+        if (moves.length === 0) return; // stalemate
+        // Pick from top 3 moves randomly for variety
+        const pick = moves[Math.floor(Math.random() * Math.min(3, moves.length))];
+        makeChessMove(pick.fromR, pick.fromC, pick.toR, pick.toC);
+      }
+
+      function toggleAutoPlay() {
+        state.autoPlay = !state.autoPlay;
+        if (state.autoPlay) {
+          state.autoTimer = setInterval(() => {
+            if (!state.autoPlay || !el.isConnected) {
+              clearInterval(state.autoTimer);
+              state.autoTimer = null;
+              state.autoPlay = false;
+              render();
+              return;
+            }
+            aiMove();
+          }, 800);
+        } else {
+          if (state.autoTimer) { clearInterval(state.autoTimer); state.autoTimer = null; }
+        }
+        render();
+      }
+
       function render() {
         const sz = 56;
         el.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;height:100%;font-family:var(--font);color:white;background:#1a1a22;padding:16px;">
-          <div style="font-size:14px;font-weight:600;margin-bottom:8px;">${state.turn === 'white' ? '♔' : '♚'} ${state.turn}'s turn</div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+            <span style="font-size:14px;font-weight:600;">${state.turn === 'white' ? '♔' : '♚'} ${state.turn}'s turn</span>
+            <button id="ch-auto" style="padding:4px 12px;border-radius:6px;border:none;background:${state.autoPlay ? 'var(--accent)' : 'rgba(255,255,255,0.08)'};color:${state.autoPlay ? 'white' : 'rgba(255,255,255,0.7)'};font-size:11px;cursor:pointer;font-family:var(--font);">${state.autoPlay ? '🤖 Auto ON' : '🤖 Auto'}</button>
+          </div>
           <div style="display:grid;grid-template-columns:repeat(8,${sz}px);border:2px solid #555;">
             ${state.board.flatMap((row, r) => row.map((p, c) => {
               const light = (r + c) % 2 === 0;
@@ -167,12 +230,24 @@ export function registerChess() {
           state.board = INITIAL.map(r => [...r]);
           state.turn = 'white';
           state.selected = null;
+          if (state.autoPlay) { state.autoPlay = false; if (state.autoTimer) { clearInterval(state.autoTimer); state.autoTimer = null; } }
           render();
         };
+        el.querySelector('#ch-auto').onclick = toggleAutoPlay;
       }
 
       state.render = render;
       render();
+
+      // Cleanup on window close
+      const _obs = new MutationObserver(() => {
+        if (!el.isConnected) {
+          if (state.autoTimer) clearInterval(state.autoTimer);
+          _game = null;
+          _obs.disconnect();
+        }
+      });
+      if (el.parentElement) _obs.observe(el.parentElement, { childList: true, subtree: true });
     },
   });
 }

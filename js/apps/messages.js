@@ -283,7 +283,7 @@ function initMessages(container) {
             background:${isMe ? 'var(--accent)' : 'rgba(255,255,255,0.08)'};
             font-size:13px; line-height:1.5; word-break:break-word;
           ">
-            ${esc(m.text).replace(/\n/g, '<br>')}
+            ${isMe ? esc(m.text).replace(/\n/g, '<br>') : renderMarkdown(m.text)}
             <div style="font-size:9px; color:rgba(255,255,255,0.35); margin-top:4px; text-align:${isMe ? 'right' : 'left'};">
               ${formatTime(m.time)}
             </div>
@@ -511,6 +511,27 @@ function formatTime(ts) {
 
 function esc(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+/**
+ * Simple markdown → HTML for AI responses.
+ * Supports: **bold**, *italic*, `inline code`, ```code blocks```, - lists
+ */
+function renderMarkdown(text) {
+  let html = esc(text);
+  // Code blocks (```...```)
+  html = html.replace(/```([\s\S]*?)```/g, '<pre style="background:rgba(255,255,255,0.06);padding:8px 10px;border-radius:6px;font-family:var(--mono,monospace);font-size:12px;overflow-x:auto;margin:4px 0;">$1</pre>');
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.08);padding:1px 5px;border-radius:3px;font-family:var(--mono,monospace);font-size:12px;">$1</code>');
+  // Bold
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // Italic
+  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  // List items (- or *)
+  html = html.replace(/^[\-\*] (.+)$/gm, '<div style="padding-left:12px;">• $1</div>');
+  // Line breaks
+  html = html.replace(/\n/g, '<br>');
+  return html;
 }
 
 // ═══════════════════════════════════════════════════════════════

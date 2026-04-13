@@ -65,13 +65,19 @@ export function registerSnake() {
       canvas.width = W * SZ;
       canvas.height = H * SZ;
       canvas.style.cssText = 'display:block;margin:0 auto;background:#111;border-radius:8px;';
+      let autoPlay = false;
+      let autoInterval = null;
+
       el.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;height:100%;background:#1a1a22;padding:16px;font-family:var(--font);color:white;">
         <div style="display:flex;justify-content:space-between;width:${W * SZ}px;margin-bottom:8px;">
           <span style="font-size:14px;font-weight:600;">Snake</span>
-          <span id="sn-score" style="font-size:14px;">Score: 0</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button id="sn-auto" style="padding:4px 12px;border-radius:6px;border:none;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);font-size:11px;cursor:pointer;font-family:var(--font);">🤖 Auto</button>
+            <span id="sn-score" style="font-size:14px;">Score: 0</span>
+          </div>
         </div>
         <div id="sn-canvas"></div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:8px;">Arrow keys to move. Space to restart.</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:8px;">Arrow keys to move · Space to restart · Auto = AI plays</div>
       </div>`;
       el.querySelector('#sn-canvas').appendChild(canvas);
       const ctx = canvas.getContext('2d');
@@ -116,6 +122,76 @@ export function registerSnake() {
         draw();
       }
 
+      // ─── AI Autoplay: BFS pathfinding to food ───
+      function aiDecide() {
+        const head = state.snake[0];
+        const bodySet = new Set(state.snake.map(s => `${s.x},${s.y}`));
+        const target = state.food;
+
+        // BFS from head to food
+        const queue = [{ x: head.x, y: head.y, firstDir: null }];
+        const visited = new Set([`${head.x},${head.y}`]);
+        const moves = [
+          { dx: 0, dy: -1, name: 'up',    blocked: { x: 0, y: 1 } },
+          { dx: 0, dy: 1,  name: 'down',  blocked: { x: 0, y: -1 } },
+          { dx: -1, dy: 0, name: 'left',  blocked: { x: 1, y: 0 } },
+          { dx: 1, dy: 0,  name: 'right', blocked: { x: -1, y: 0 } },
+        ];
+
+        while (queue.length > 0) {
+          const curr = queue.shift();
+          if (curr.x === target.x && curr.y === target.y && curr.firstDir) {
+            return curr.firstDir;
+          }
+          for (const m of moves) {
+            const nx = curr.x + m.dx, ny = curr.y + m.dy;
+            const key = `${nx},${ny}`;
+            if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
+            if (visited.has(key) || bodySet.has(key)) continue;
+            visited.add(key);
+            const fd = curr.firstDir || m.name;
+            // Don't allow 180° reversal as first move
+            if (!curr.firstDir && state.dir.x === m.blocked.x && state.dir.y === m.blocked.y) continue;
+            queue.push({ x: nx, y: ny, firstDir: fd });
+          }
+        }
+
+        // No path to food — pick any safe direction
+        for (const m of moves) {
+          if (state.dir.x === m.blocked.x && state.dir.y === m.blocked.y) continue;
+          const nx = head.x + m.dx, ny = head.y + m.dy;
+          if (nx >= 0 && nx < W && ny >= 0 && ny < H && !bodySet.has(`${nx},${ny}`)) {
+            return m.name;
+          }
+        }
+        return null; // doomed
+      }
+
+      function toggleAuto() {
+        autoPlay = !autoPlay;
+        const btn = el.querySelector('#sn-auto');
+        if (btn) {
+          btn.style.background = autoPlay ? 'var(--accent)' : 'rgba(255,255,255,0.08)';
+          btn.style.color = autoPlay ? 'white' : 'rgba(255,255,255,0.7)';
+          btn.textContent = autoPlay ? '🤖 Auto ON' : '🤖 Auto';
+        }
+        if (autoPlay && !state.alive) reset();
+        if (autoPlay) {
+          if (autoInterval) clearInterval(autoInterval);
+          autoInterval = setInterval(() => {
+            if (!autoPlay || !state.alive || !el.isConnected) {
+              clearInterval(autoInterval);
+              autoInterval = null;
+              return;
+            }
+            const dir = aiDecide();
+            if (dir) makeSnakeMove(dir);
+          }, 80);
+        } else {
+          if (autoInterval) { clearInterval(autoInterval); autoInterval = null; }
+        }
+      }
+
       function reset() {
         state.snake = [{ x: 10, y: 10 }];
         state.dir = { x: 1, y: 0 };
@@ -136,11 +212,14 @@ export function registerSnake() {
         else if (e.key === ' ' && !state.alive) reset();
       });
 
+      el.querySelector('#sn-auto').addEventListener('click', toggleAuto);
+
       reset();
       // Cleanup on window close
       const _obs = new MutationObserver(() => {
         if (!el.isConnected) {
           if (state.interval) clearInterval(state.interval);
+          if (autoInterval) clearInterval(autoInterval);
           _game = null;
           _obs.disconnect();
         }
