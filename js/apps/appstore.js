@@ -475,7 +475,8 @@ function initAppStore(container) {
         appList.innerHTML = '<div style="color:rgba(255,255,255,0.3); font-size:12px;">Could not load apps</div>';
       }
     } catch (err) {
-      content.innerHTML = `<div style="padding:40px; text-align:center; color:rgba(255,255,255,0.4);">Android runtime unavailable<br><span style="font-size:11px;">${err.message}</span></div>`;
+      const _em = document.createElement('span'); _em.textContent = err.message;
+      content.innerHTML = `<div style="padding:40px; text-align:center; color:rgba(255,255,255,0.4);">Android runtime unavailable<br><span style="font-size:11px;">${_em.innerHTML}</span></div>`;
     }
   }
 
@@ -527,7 +528,8 @@ function initAppStore(container) {
         `;
         bindFlatpakButtons(resultsEl);
       } catch (err) {
-        resultsEl.innerHTML = `<div style="color:#ff6b6b; font-size:12px; padding:10px;">Search failed: ${err.message}. Flatpak may not be available.</div>`;
+        const _em2 = document.createElement('span'); _em2.textContent = err.message;
+        resultsEl.innerHTML = `<div style="color:#ff6b6b; font-size:12px; padding:10px;">Search failed: ${_em2.innerHTML}. Flatpak may not be available.</div>`;
       }
     };
 

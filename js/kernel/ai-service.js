@@ -234,7 +234,7 @@ class AIService {
     if (mathMatch) {
       try {
         const expr = mathMatch[1].trim();
-        if (/^[\d\s+\-*/.()]+$/.test(expr) && expr.length > 1) {
+        if (/^[\d\s+\-*/.()]+$/.test(expr) && expr.length > 1 && expr.length < 100 && !/[a-zA-Z_$\\]/.test(expr)) {
           const result = Function('"use strict"; return (' + expr + ')')();
           if (typeof result === 'number' && isFinite(result)) return `${expr} = ${result}`;
         }

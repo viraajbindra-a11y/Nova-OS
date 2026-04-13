@@ -81,12 +81,12 @@ function open() {
 
   // Click background to close
   el.addEventListener('click', (e) => {
-    if (e.target === el) close();
+    if (e.target === el) close(escHandler);
   });
 
   // Escape to close
   const escHandler = (e) => {
-    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', escHandler); }
+    if (e.key === 'Escape') close(escHandler);
   };
   document.addEventListener('keydown', escHandler);
 
@@ -95,12 +95,13 @@ function open() {
   isOpen = true;
 }
 
-function close() {
+function close(escHandler) {
   const el = document.getElementById('launchpad');
   if (el) {
     el.style.opacity = '0';
     el.style.transition = 'opacity 0.2s';
     setTimeout(() => el.remove(), 200);
   }
+  if (escHandler) document.removeEventListener('keydown', escHandler);
   isOpen = false;
 }
