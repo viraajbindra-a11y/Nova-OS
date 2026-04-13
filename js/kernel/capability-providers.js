@@ -808,6 +808,180 @@ const codeWriteFile = {
 registerCapability(codeWriteFile);
 
 // ═══════════════════════════════════════════════════════════════
+// PROVIDERS: game.* — Game Autoplay Bridge (Phase 4 prep)
+// ═══════════════════════════════════════════════════════════════
+//
+// Capabilities that let the AI interact with running game instances.
+// Each game exports getState() and makeMove() — the capabilities
+// just dispatch to the right game.
+
+// Lazy imports — games aren't loaded until actually needed
+async function getGameModule(gameId) {
+  const modules = {
+    snake: () => import('../apps/snake.js'),
+    chess: () => import('../apps/chess.js'),
+    '2048': () => import('../apps/2048.js'),
+  };
+  const loader = modules[gameId];
+  if (!loader) return null;
+  return loader();
+}
+
+const gameGetState = {
+  id: 'game.getState',
+  verb: 'find',
+  target: '*',
+  level: LEVEL.OBSERVE,
+  reversibility: REVERSIBILITY.FREE,
+  blastRadius: BLAST_RADIUS.NONE,
+  summary: 'Get the current state of a running game',
+  estimateCost: () => ({ timeMs: 10, irreversibilityTokens: 0 }),
+  execute: async function(args) {
+    return runCapability(this, args, async () => {
+      const gameId = args.game || args.name || args._intent?.target || '';
+      const mod = await getGameModule(gameId);
+      if (!mod) throw new Error(`Unknown game: ${gameId}. Available: snake, chess, 2048`);
+      const getter = {
+        snake: mod.getSnakeState,
+        chess: mod.getChessState,
+        '2048': mod.get2048State,
+      }[gameId];
+      if (!getter) throw new Error(`No getState for ${gameId}`);
+      const state = getter();
+      if (!state) throw new Error(`${gameId} is not currently running — open it first`);
+      return { game: gameId, ...state };
+    });
+  },
+};
+registerCapability(gameGetState);
+
+const gameMakeMove = {
+  id: 'game.makeMove',
+  verb: 'play',
+  target: '*',
+  level: LEVEL.SANDBOX,
+  reversibility: REVERSIBILITY.FREE,
+  blastRadius: BLAST_RADIUS.NONE,
+  summary: 'Make a move in a running game',
+  estimateCost: () => ({ timeMs: 10, irreversibilityTokens: 0 }),
+  execute: async function(args) {
+    return runCapability(this, args, async () => {
+      const gameId = args.game || args.name || args._intent?.target || '';
+      const mod = await getGameModule(gameId);
+      if (!mod) throw new Error(`Unknown game: ${gameId}. Available: snake, chess, 2048`);
+      if (gameId === 'snake') {
+        const dir = args.direction || args.move || args._rawArgs || '';
+        return mod.makeSnakeMove(dir);
+      } else if (gameId === 'chess') {
+        const { fromR, fromC, toR, toC } = args;
+        if (fromR == null || fromC == null || toR == null || toC == null) {
+          throw new Error('Chess move requires fromR, fromC, toR, toC');
+        }
+        return mod.makeChessMove(fromR, fromC, toR, toC);
+      } else if (gameId === '2048') {
+        const dir = args.direction || args.move || args._rawArgs || '';
+        return mod.make2048Move(dir);
+      }
+      throw new Error(`No makeMove for ${gameId}`);
+    });
+  },
+};
+registerCapability(gameMakeMove);
+
+const gameAutoplay = {
+  id: 'game.autoplay',
+  verb: 'play',
+  target: '*',
+  level: LEVEL.SANDBOX,
+  reversibility: REVERSIBILITY.FREE,
+  blastRadius: BLAST_RADIUS.NONE,
+  summary: 'Start AI autoplay for a game (snake/2048)',
+  estimateCost: () => ({ timeMs: 100, irreversibilityTokens: 0 }),
+  execute: async function(args) {
+    return runCapability(this, args, async () => {
+      const gameId = args.game || args.name || args._intent?.target || 'snake';
+      if (gameId !== 'snake' && gameId !== '2048') {
+        throw new Error(`Autoplay only supported for snake and 2048 (chess needs a real engine)`);
+      }
+
+      // Launch the game if not running
+      if (!processManager.isRunning(gameId)) {
+        processManager.launch(gameId);
+        await new Promise(r => setTimeout(r, 300)); // let it mount
+      }
+
+      const mod = await getGameModule(gameId);
+      if (!mod) throw new Error(`Could not load ${gameId} module`);
+
+      // Simple autoplay loop — runs for up to 200 ticks or until game over
+      const MAX_TICKS = 200;
+      let ticks = 0;
+
+      if (gameId === 'snake') {
+        const autoInterval = setInterval(() => {
+          const state = mod.getSnakeState();
+          if (!state || !state.alive || ticks >= MAX_TICKS) {
+            clearInterval(autoInterval);
+            safeNotify({
+              title: '🐍 Autoplay finished',
+              body: `Score: ${state?.score || 0} in ${ticks} moves`,
+            });
+            return;
+          }
+          // Simple greedy strategy: move toward the food, avoid walls and self
+          const { snake, dir, food, width, height } = state;
+          const head = snake[0];
+          const dirs = [
+            { name: 'up', x: 0, y: -1 },
+            { name: 'down', x: 0, y: 1 },
+            { name: 'left', x: -1, y: 0 },
+            { name: 'right', x: 1, y: 0 },
+          ];
+          // Filter out reverse direction
+          const validDirs = dirs.filter(d => !(d.x === -dir.x && d.y === -dir.y));
+          // Score each direction: prefer moves toward food that don't hit walls/snake
+          const scored = validDirs.map(d => {
+            const nx = head.x + d.x, ny = head.y + d.y;
+            if (nx < 0 || nx >= width || ny < 0 || ny >= height) return { ...d, score: -100 };
+            if (snake.some(s => s.x === nx && s.y === ny)) return { ...d, score: -100 };
+            const dist = Math.abs(nx - food.x) + Math.abs(ny - food.y);
+            return { ...d, score: -dist };
+          });
+          scored.sort((a, b) => b.score - a.score);
+          if (scored[0] && scored[0].score > -100) {
+            mod.makeSnakeMove(scored[0].name);
+          }
+          ticks++;
+        }, 130); // Slightly slower than game tick (120ms)
+      } else if (gameId === '2048') {
+        // Simple 2048 strategy: cycle through left, down, left, down, right, up
+        const moves = ['left', 'down', 'left', 'down', 'right', 'up'];
+        let mi = 0;
+        const autoInterval = setInterval(() => {
+          const state = mod.get2048State();
+          if (!state || state.gameOver || ticks >= MAX_TICKS) {
+            clearInterval(autoInterval);
+            safeNotify({
+              title: '🎲 Autoplay finished',
+              body: `Score: ${state?.score || 0} in ${ticks} moves`,
+            });
+            return;
+          }
+          const result = mod.make2048Move(moves[mi % moves.length]);
+          if (!result.moved) mi++; // try next direction if current didn't move
+          else mi = 0; // reset cycle on successful move
+          ticks++;
+        }, 200);
+      }
+
+      safeNotify({ title: `🤖 Autoplay started`, body: `Playing ${gameId}...` });
+      return { game: gameId, autoplay: true, maxTicks: MAX_TICKS };
+    });
+  },
+};
+registerCapability(gameAutoplay);
+
+// ═══════════════════════════════════════════════════════════════
 // PROVIDER BUNDLE EXPORT
 // ═══════════════════════════════════════════════════════════════
 
@@ -837,6 +1011,9 @@ export const CORE_CAPABILITIES = [
   'code.listDir',
   'code.search',
   'code.writeFile',
+  'game.getState',
+  'game.makeMove',
+  'game.autoplay',
 ];
 
 // Path-resolution sanity check — runs only on localhost, at import time.
