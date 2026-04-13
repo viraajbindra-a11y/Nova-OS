@@ -15,6 +15,8 @@ import { parseIntent, summarizeIntent, intentToNaturalLanguage } from '../kernel
 import { routeQuery } from '../kernel/intent-planner.js';
 import { getContextBundle } from '../kernel/context-bundle.js';
 import { recordSample } from '../kernel/calibration-tracker.js';
+import { graphStore } from '../kernel/graph-store.js';
+import { query as graphQuery } from '../kernel/graph-query.js';
 
 let isOpen = false;
 // Agent Core Sprint: the id of the plan currently streaming in the panel,
@@ -508,6 +510,59 @@ export function initSpotlight() {
       html += `</div>`;
     }
 
+    // Search graph nodes (notes, todos, reminders)
+    try {
+      const graphTypes = ['note', 'todo', 'reminder'];
+      const graphResults = [];
+      for (const gType of graphTypes) {
+        const nodes = await graphQuery(graphStore, {
+          type: 'select',
+          from: gType,
+          where: { 'props.title': { contains: query } },
+          orderBy: { field: 'updatedAt', dir: 'desc' },
+          limit: 3,
+        });
+        graphResults.push(...nodes.map(n => ({ ...n, _gType: gType })));
+      }
+      // Also search content for notes
+      if (graphResults.length < 5) {
+        const contentHits = await graphQuery(graphStore, {
+          type: 'select',
+          from: 'note',
+          where: { 'props.content': { contains: query } },
+          orderBy: { field: 'updatedAt', dir: 'desc' },
+          limit: 3,
+        });
+        for (const n of contentHits) {
+          if (!graphResults.find(r => r.id === n.id)) {
+            graphResults.push({ ...n, _gType: 'note' });
+          }
+        }
+      }
+      if (graphResults.length > 0) {
+        const gIcons = { note: '\uD83D\uDCDD', todo: '\u2705', reminder: '\u23F0' };
+        const gLabels = { note: 'Note', todo: 'To-Do', reminder: 'Reminder' };
+        html += `<div class="spotlight-result-group">
+          <div class="spotlight-result-label">Graph</div>`;
+        graphResults.slice(0, 6).forEach(node => {
+          const title = node.props?.title || node.props?.text || 'Untitled';
+          const sub = node._gType === 'todo' ? (node.props?.done ? 'Done' : 'Pending')
+            : node._gType === 'reminder' ? (node.props?.list || 'Reminder')
+            : (node.props?.content || '').substring(0, 60).replace(/\n/g, ' ') || gLabels[node._gType];
+          html += `<div class="spotlight-result-item" data-action="open-graph-node" data-node-id="${node.id}" data-node-type="${node._gType}">
+            <div class="spotlight-result-icon">${gIcons[node._gType] || '\uD83D\uDCC4'}</div>
+            <div class="spotlight-result-text">
+              <div class="spotlight-result-title">${escapeHtml(title)}</div>
+              <div class="spotlight-result-subtitle">${escapeHtml(sub)}</div>
+            </div>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+    } catch (err) {
+      console.warn('[spotlight] graph search failed:', err);
+    }
+
     // Search files
     const files = await fileSystem.search(query);
     if (files.length > 0) {
@@ -776,6 +831,18 @@ export function initSpotlight() {
           filePath: item.dataset.path,
           title: fileSystem.getFileName(item.dataset.path)
         });
+      }
+      close();
+    } else if (action === 'open-graph-node') {
+      const nodeType = item.dataset.nodeType;
+      const nodeId = item.dataset.nodeId;
+      // Open the right app for the node type, passing the node ID
+      if (nodeType === 'note') {
+        processManager.launch('notes', { openNodeId: nodeId });
+      } else if (nodeType === 'todo') {
+        processManager.launch('todos', { openNodeId: nodeId });
+      } else if (nodeType === 'reminder') {
+        processManager.launch('reminders', { openNodeId: nodeId });
       }
       close();
     } else if (action === 'ask-ai') {
