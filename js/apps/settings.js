@@ -49,6 +49,8 @@ function initSettings(container) {
     keyboard: { icon: '\u2328\uFE0F', name: 'Keyboard' },
     sound: { icon: '\uD83D\uDD0A', name: 'Sound' },
     ai: { icon: '\u2728', name: 'AI Assistant' },
+    system: { icon: '\uD83D\uDCE6', name: 'System Config' },
+    security: { icon: '\uD83D\uDD12', name: 'Security & Privacy' },
     about: { icon: '\u2139\uFE0F', name: 'About Astrion OS' },
   };
 
@@ -86,6 +88,8 @@ function initSettings(container) {
       case 'keyboard': renderKeyboard(); break;
       case 'sound': renderSound(); break;
       case 'ai': renderAI(); break;
+      case 'system': renderSystemConfig(); break;
+      case 'security': renderSecurity(); break;
       case 'about': renderAbout(); break;
     }
   }
@@ -622,6 +626,153 @@ function initSettings(container) {
     main.querySelector('#toggle-notif-sound')?.addEventListener('click', function() {
       this.classList.toggle('on');
     });
+  }
+
+  // ─── System Config: declarative export/import ───
+  function renderSystemConfig() {
+    const CONFIG_KEYS = [
+      'nova-wallpaper', 'nova-accent', 'nova-username', 'nova-ui-zoom',
+      'nova-dock-size', 'nova-dock-magnify', 'nova-ai-provider',
+      'nova-ai-ollama-url', 'nova-ai-ollama-model', 'nova-volume',
+      'nova-sound-effects', 'nova-focus-mode', 'nova-focus-enabled',
+      'nova-screensaver-timeout', 'nova-idle-timeout',
+      'astrion-s2-budget-settings',
+    ];
+
+    main.innerHTML = `
+      <div class="settings-section-title">System Configuration</div>
+      <div class="settings-group">
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Export System Config</div>
+            <div class="settings-row-desc">Save all your preferences as a JSON file. Restore them on any Astrion install.</div>
+          </div>
+          <button id="cfg-export" style="padding:6px 16px;border-radius:8px;border:none;background:var(--accent);color:white;font-size:12px;cursor:pointer;font-family:var(--font);">Export</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Import System Config</div>
+            <div class="settings-row-desc">Restore preferences from a previously exported config file.</div>
+          </div>
+          <label style="padding:6px 16px;border-radius:8px;border:none;background:rgba(255,255,255,0.08);color:white;font-size:12px;cursor:pointer;font-family:var(--font);">
+            Import
+            <input type="file" accept=".json" id="cfg-import" style="display:none;">
+          </label>
+        </div>
+      </div>
+      <div class="settings-group" style="margin-top:16px;">
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Current Config Preview</div>
+            <div class="settings-row-desc">What would be exported</div>
+          </div>
+        </div>
+        <pre id="cfg-preview" style="background:rgba(0,0,0,0.3);padding:12px;border-radius:8px;font-size:11px;font-family:var(--mono,monospace);color:rgba(255,255,255,0.6);max-height:200px;overflow:auto;margin:0 0 8px;"></pre>
+      </div>
+      <div id="cfg-status" style="padding:8px 0;font-size:12px;color:rgba(255,255,255,0.5);"></div>
+    `;
+
+    // Build config object
+    const config = { _astrion_config: true, _version: '0.3.0', _exported: new Date().toISOString() };
+    for (const key of CONFIG_KEYS) {
+      const val = localStorage.getItem(key);
+      if (val !== null) config[key] = val;
+    }
+    main.querySelector('#cfg-preview').textContent = JSON.stringify(config, null, 2);
+
+    // Export
+    main.querySelector('#cfg-export').addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `astrion-config-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      main.querySelector('#cfg-status').textContent = 'Config exported!';
+      main.querySelector('#cfg-status').style.color = '#50fa7b';
+    });
+
+    // Import
+    main.querySelector('#cfg-import').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const imported = JSON.parse(reader.result);
+          if (!imported._astrion_config) throw new Error('Not an Astrion config file');
+          let count = 0;
+          for (const [key, val] of Object.entries(imported)) {
+            if (key.startsWith('_')) continue;
+            localStorage.setItem(key, val);
+            count++;
+          }
+          main.querySelector('#cfg-status').textContent = `Imported ${count} settings. Reload to apply.`;
+          main.querySelector('#cfg-status').style.color = '#50fa7b';
+        } catch (err) {
+          main.querySelector('#cfg-status').textContent = 'Import failed: ' + err.message;
+          main.querySelector('#cfg-status').style.color = '#ff5f57';
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  // ─── Security & Privacy: capability tiers + app permissions ───
+  function renderSecurity() {
+    const levels = [
+      { level: 'L0', name: 'Observe', desc: 'Read-only access. Can see data but not change anything.', color: '#50fa7b' },
+      { level: 'L1', name: 'Edit Sandbox', desc: 'Can create/modify data in scratch space only.', color: '#8be9fd' },
+      { level: 'L2', name: 'Edit Real', desc: 'Can touch real user data. Requires per-session unlock.', color: '#f1fa8c' },
+      { level: 'L3', name: 'Self-Modify', desc: 'Can change Astrion\'s own code. Requires per-action unlock + red-team review.', color: '#ff5f57' },
+    ];
+
+    main.innerHTML = `
+      <div class="settings-section-title">Security & Privacy</div>
+      <div class="settings-group">
+        <div style="padding:8px 0 12px;">
+          <div class="settings-row-label">Capability Tier System</div>
+          <div class="settings-row-desc">Every AI action is assigned a privilege level. Higher levels require your explicit permission.</div>
+        </div>
+        ${levels.map(l => `
+          <div class="settings-row" style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="background:${l.color};color:#0a0a1a;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;min-width:24px;text-align:center;">${l.level}</span>
+              <div>
+                <div class="settings-row-label">${l.name}</div>
+                <div class="settings-row-desc">${l.desc}</div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="settings-group" style="margin-top:16px;">
+        <div style="padding:8px 0 12px;">
+          <div class="settings-row-label">Active Safeguards</div>
+          <div class="settings-row-desc">Always-on protections that cannot be disabled.</div>
+        </div>
+        <div class="settings-row" style="padding:6px 0;">
+          <div class="settings-row-label" style="flex:1;">AI budget cap</div>
+          <span style="color:#50fa7b;font-size:12px;">Active</span>
+        </div>
+        <div class="settings-row" style="padding:6px 0;">
+          <div class="settings-row-label" style="flex:1;">L2+ action preview gate</div>
+          <span style="color:#50fa7b;font-size:12px;">Active</span>
+        </div>
+        <div class="settings-row" style="padding:6px 0;">
+          <div class="settings-row-label" style="flex:1;">Provenance tracking (every AI artifact logged)</div>
+          <span style="color:#50fa7b;font-size:12px;">Active</span>
+        </div>
+        <div class="settings-row" style="padding:6px 0;">
+          <div class="settings-row-label" style="flex:1;">S1/S2 calibration + auto-escalation</div>
+          <span style="color:#50fa7b;font-size:12px;">Active</span>
+        </div>
+        <div class="settings-row" style="padding:6px 0;">
+          <div class="settings-row-label" style="flex:1;">VFS path restriction (sandbox roots only)</div>
+          <span style="color:#50fa7b;font-size:12px;">Active</span>
+        </div>
+      </div>
+    `;
   }
 
   function renderAbout() {
