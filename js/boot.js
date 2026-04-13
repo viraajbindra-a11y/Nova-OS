@@ -101,6 +101,10 @@ import { registerBeatStudio } from './apps/beat-studio.js';
 import { registerLiveChat } from './apps/live-chat.js';
 import { registerYouTube } from './apps/youtube.js';
 import { registerPixelArt } from './apps/pixel-art.js';
+import { registerTetris } from './apps/tetris.js';
+import { registerMinesweeper } from './apps/minesweeper.js';
+import { registerMatrixRain } from './apps/matrix-rain.js';
+import { registerNeonVoid } from './apps/neon-void.js';
 import { verifyPassword } from './kernel/crypto.js';
 import { sounds } from './kernel/sound.js';
 import { initVolumeHud } from './shell/volume-hud.js';
@@ -139,7 +143,8 @@ import { initVolumeHud } from './shell/volume-hud.js';
     registerChess(); registerSnake(); register2048();
     registerBudget(); registerQuotes(); registerTypingTest();
     registerTodo(); registerBeatStudio(); registerLiveChat();
-    registerYouTube(); registerPixelArt();
+    registerYouTube(); registerPixelArt(); registerTetris();
+    registerMinesweeper(); registerMatrixRain(); registerNeonVoid();
 
     windowManager.init();
 
@@ -231,6 +236,10 @@ import { initVolumeHud } from './shell/volume-hud.js';
   registerLiveChat();
   registerYouTube();
   registerPixelArt();
+  registerTetris();
+  registerMinesweeper();
+  registerMatrixRain();
+  registerNeonVoid();
   await animate(progressBar, 85, 200);
 
   // Init kernel
