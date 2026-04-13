@@ -605,6 +605,31 @@ const filesCreateFile = {
 registerCapability(filesCreateFile);
 
 // ═══════════════════════════════════════════════════════════════
+// PROVIDER: chat.sendAsAgent — cross-context AI reply into Messages
+// ═══════════════════════════════════════════════════════════════
+
+const chatSendAsAgent = {
+  id: 'chat.sendAsAgent',
+  verb: 'send',
+  target: 'message',
+  level: LEVEL.OBSERVE,
+  reversibility: REVERSIBILITY.FREE,
+  blastRadius: BLAST_RADIUS.NONE,
+  summary: 'Send a reply as Astrion into the Messages chat',
+  estimateCost: () => ({ timeMs: 50, irreversibilityTokens: 0 }),
+  execute: async function(args) {
+    return runCapability(this, args, async () => {
+      const text = args.text || args.message || '';
+      if (!text) throw new Error('No message text');
+      const convoId = args.conversationId || 'astrion-ai';
+      eventBus.emit('chat:agent-reply', { text, conversationId: convoId });
+      return { sent: true, conversationId: convoId };
+    });
+  },
+};
+registerCapability(chatSendAsAgent);
+
+// ═══════════════════════════════════════════════════════════════
 // PROVIDER BUNDLE EXPORT
 // ═══════════════════════════════════════════════════════════════
 
@@ -629,6 +654,7 @@ export const CORE_CAPABILITIES = [
   'screenshot.take',
   'files.createFolder',
   'files.createFile',
+  'chat.sendAsAgent',
 ];
 
 // Path-resolution sanity check — runs only on localhost, at import time.

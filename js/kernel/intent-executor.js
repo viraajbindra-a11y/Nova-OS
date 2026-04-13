@@ -153,7 +153,7 @@ const PLAN_CONFIRM_TIMEOUT_MS = 60_000;
  * corresponding value from the bindings map. Returns a fresh object; never
  * mutates the original.
  */
-function resolveBindings(args, bindings) {
+export function resolveBindings(args, bindings) {
   if (args == null) return args;
   if (typeof args === 'string') {
     return args.replace(/\$\{binds\.([a-zA-Z0-9_]+)\}/g, (match, name) => {
@@ -179,7 +179,7 @@ function resolveBindings(args, bindings) {
  * clean error instead of letting the downstream capability complain about a
  * nonsense path or string.
  */
-function findUnresolvedBindings(value) {
+export function findUnresolvedBindings(value) {
   const out = new Set();
   const walk = (v) => {
     if (v == null) return;
@@ -201,7 +201,7 @@ function findUnresolvedBindings(value) {
  * `binds` field). For files.createFolder we want the `path` field; for a
  * generic capability we take `path` if present, otherwise the whole output.
  */
-function pickBindValue(output) {
+export function pickBindValue(output) {
   if (output == null || typeof output !== 'object') return output;
   if (typeof output.path === 'string') return output.path;
   if (typeof output.id === 'string') return output.id;

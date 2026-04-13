@@ -1,12 +1,24 @@
-// Astrion OS — Messages App
+// Astrion OS — Messages App (Phase 0: Chat Foundation)
 // Chat interface with AI assistant + local conversation history.
+// Phase 0: Messages routes actionable intents through the planner so the
+// AI can DO things mid-conversation, not just chat.
 // Future: Matrix/XMPP integration for real messaging.
 
 import { processManager } from '../kernel/process-manager.js';
 import { aiService } from '../kernel/ai-service.js';
 import { sounds } from '../kernel/sound.js';
+import { parseIntent } from '../kernel/intent-parser.js';
+import { routeQuery, planIntent } from '../kernel/intent-planner.js';
+import { getCapability, resolveCapability } from '../kernel/capability-api.js';
+import { getContextBundle } from '../kernel/context-bundle.js';
+import { getOrCreateSession, getRecentTurns, recordTurn } from '../kernel/conversation-memory.js';
+import { resolveBindings, findUnresolvedBindings, pickBindValue } from '../kernel/intent-executor.js';
+import { eventBus } from '../kernel/event-bus.js';
 
 const CONVERSATIONS_KEY = 'nova-messages-conversations';
+
+// Capability IDs whose output IS the reply — don't double-call AI for these
+const DIRECT_REPLY_CAPS = new Set(['ai.ask', 'ai.explain', 'ai.summarize']);
 
 export function registerMessages() {
   processManager.register('messages', {
@@ -30,9 +42,114 @@ function saveConversations(convos) {
   localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(convos));
 }
 
+// ═══════════════════════════════════════════════════════════════
+// CHAT HELPERS (Phase 0)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Mini-executor for Messages. Runs plan steps sequentially via cap.execute()
+ * WITHOUT emitting plan:* events (prevents Spotlight from hijacking the UI).
+ */
+async function executeStepsInChat(steps, query, container) {
+  const bindings = {};
+  const results = [];
+
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+
+    // Skip chat.sendAsAgent — Messages handles its own reply
+    if (step.cap === 'chat.sendAsAgent') {
+      results.push({ index: i, cap: step.cap, ok: true, output: { skipped: true } });
+      continue;
+    }
+
+    const cap = getCapability(step.cap);
+    if (!cap) {
+      results.push({ index: i, cap: step.cap, ok: false, error: `unknown capability: ${step.cap}` });
+      break;
+    }
+
+    // Resolve bindings from prior steps
+    const resolvedArgs = resolveBindings(step.args || {}, bindings);
+
+    // Check for unresolved bindings
+    const unresolved = findUnresolvedBindings(resolvedArgs);
+    if (unresolved.length > 0) {
+      results.push({ index: i, cap: step.cap, ok: false, error: `unresolved: ${unresolved.join(', ')}` });
+      break;
+    }
+
+    // Inject _intent context for capability providers that read it
+    resolvedArgs._intent = { raw: query, args: step.args || {} };
+
+    // Show step progress in typing indicator
+    updateTypingStatus(container, `Step ${i + 1}/${steps.length}: ${cap.summary}...`);
+
+    try {
+      const result = await cap.execute(resolvedArgs);
+      if (result.ok) {
+        if (step.binds) {
+          bindings[step.binds] = pickBindValue(result.output);
+        }
+        results.push({ index: i, cap: step.cap, ok: true, output: result.output });
+      } else {
+        results.push({ index: i, cap: step.cap, ok: false, error: result.error });
+      }
+    } catch (err) {
+      results.push({ index: i, cap: step.cap, ok: false, error: err?.message || String(err) });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Build a summary prompt so the AI generates a conversational reply about
+ * what it just did. The AI sees the action results and the original query,
+ * and writes a natural reply that covers both actions and any chat-only parts.
+ */
+function buildChatSummaryPrompt(query, actionResults) {
+  const successes = actionResults.filter(r => r.ok && !r.output?.skipped);
+  const failures = actionResults.filter(r => !r.ok);
+
+  let summary = `The user said: "${query}"\n\n`;
+
+  if (successes.length > 0) {
+    summary += 'I successfully completed these actions:\n';
+    for (const r of successes) {
+      summary += `- ${r.cap}: ${JSON.stringify(r.output)}\n`;
+    }
+  }
+  if (failures.length > 0) {
+    summary += '\nThese actions failed:\n';
+    for (const r of failures) {
+      summary += `- ${r.cap}: ${r.error}\n`;
+    }
+  }
+
+  summary += '\nNow reply to the user conversationally. Confirm what you did (or explain what failed). If the user also asked a question, joke, or chat-only request, answer that too. Be concise, warm, and helpful. Do NOT use markdown.';
+
+  return summary;
+}
+
+/**
+ * Replace the typing dots with a status message showing step progress.
+ */
+function updateTypingStatus(container, statusText) {
+  const dots = container?.querySelector('.typing-dots');
+  if (dots && dots.parentElement) {
+    dots.parentElement.textContent = statusText;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MAIN APP
+// ═══════════════════════════════════════════════════════════════
+
 function initMessages(container) {
   let conversations = getConversations();
   let activeConvo = conversations[0]?.id || null;
+  let _processing = false; // guard against interleaved rapid sends
 
   // Ensure default AI conversation exists
   if (!conversations.find(c => c.id === 'astrion-ai')) {
@@ -41,7 +158,7 @@ function initMessages(container) {
       name: 'Astrion AI',
       avatar: '\u2728',
       messages: [
-        { from: 'them', text: "Hey! I'm Astrion, your AI assistant. Ask me anything — code, homework, ideas, or just chat.", time: Date.now() }
+        { from: 'them', text: "Hey! I'm Astrion, your AI assistant. Ask me anything, or tell me to do something — I can create files, open apps, do math, and more.", time: Date.now() }
       ],
       isAI: true,
     });
@@ -179,53 +296,200 @@ function initMessages(container) {
     container.querySelector('#msg-input')?.focus();
   }
 
+  // ─── Typing indicator helpers ───
+
+  function showTypingIndicator() {
+    const chat = container.querySelector('#msg-chat');
+    if (!chat) return;
+    const typing = document.createElement('div');
+    typing.id = 'msg-typing';
+    typing.style.cssText = 'display:flex; justify-content:flex-start;';
+    typing.innerHTML = `<div style="padding:10px 14px; border-radius:18px 18px 18px 4px; background:rgba(255,255,255,0.08); font-size:13px; color:rgba(255,255,255,0.5);">
+      <span class="typing-dots" style="display:inline-flex; gap:3px;">
+        <span style="animation:blink 1.4s infinite;">.</span>
+        <span style="animation:blink 1.4s infinite 0.2s;">.</span>
+        <span style="animation:blink 1.4s infinite 0.4s;">.</span>
+      </span>
+    </div>`;
+    chat.appendChild(typing);
+    chat.scrollTop = chat.scrollHeight;
+
+    if (!document.getElementById('typing-css')) {
+      const s = document.createElement('style');
+      s.id = 'typing-css';
+      s.textContent = '@keyframes blink { 0%,100% { opacity:0.3; } 50% { opacity:1; } }';
+      document.head.appendChild(s);
+    }
+  }
+
+  function removeTypingIndicator() {
+    const el = container.querySelector('#msg-typing');
+    if (el) el.remove();
+  }
+
+  // ─── Core send logic (Phase 0: planner-aware) ───
+
   async function sendMessage(text) {
     const convo = conversations.find(c => c.id === activeConvo);
     if (!convo) return;
 
+    // Push user bubble
     convo.messages.push({ from: 'me', text, time: Date.now() });
     saveConversations(conversations);
     renderChat();
     sounds.tap();
 
-    // AI response
-    if (convo.isAI) {
-      // Show typing indicator
-      const chat = container.querySelector('#msg-chat');
-      const typing = document.createElement('div');
-      typing.style.cssText = 'display:flex; justify-content:flex-start;';
-      typing.innerHTML = `<div style="padding:10px 14px; border-radius:18px 18px 18px 4px; background:rgba(255,255,255,0.08); font-size:13px; color:rgba(255,255,255,0.5);">
-        <span class="typing-dots" style="display:inline-flex; gap:3px;">
-          <span style="animation:blink 1.4s infinite;">.</span>
-          <span style="animation:blink 1.4s infinite 0.2s;">.</span>
-          <span style="animation:blink 1.4s infinite 0.4s;">.</span>
-        </span>
-      </div>`;
-      chat.appendChild(typing);
-      chat.scrollTop = chat.scrollHeight;
+    // Non-AI conversations: no response
+    if (!convo.isAI) return;
 
-      if (!document.getElementById('typing-css')) {
-        const s = document.createElement('style');
-        s.id = 'typing-css';
-        s.textContent = '@keyframes blink { 0%,100% { opacity:0.3; } 50% { opacity:1; } }';
-        document.head.appendChild(s);
+    // Guard against interleaved rapid sends
+    if (_processing) return;
+    _processing = true;
+
+    const input = container.querySelector('#msg-input');
+    if (input) input.disabled = true;
+
+    showTypingIndicator();
+
+    try {
+      let reply;
+
+      // ─── Route decision ───
+      const intent = parseIntent(text);
+      const route = routeQuery(text, intent);
+
+      if (route === 'plan') {
+        // ─── COMPOUND PLAN PATH ───
+        reply = await handlePlanPath(text, intent, convo);
+      } else if (intent && intent.confidence >= 0.55) {
+        // ─── FAST SINGLE-CAPABILITY PATH ───
+        reply = await handleFastPath(text, intent, convo);
+      } else {
+        // ─── PURE CHAT FALLBACK ───
+        reply = await aiService.ask(text);
       }
 
-      try {
-        const response = await aiService.ask(text);
-        convo.messages.push({ from: 'them', text: response, time: Date.now() });
-        sounds.notification();
-      } catch {
-        convo.messages.push({ from: 'them', text: "Sorry, I couldn't process that. Are you connected to the internet?", time: Date.now() });
-      }
-
+      convo.messages.push({ from: 'them', text: reply, time: Date.now() });
+      sounds.notification();
+    } catch (err) {
+      console.warn('[messages] sendMessage error:', err);
+      convo.messages.push({ from: 'them', text: "Sorry, I couldn't process that. Are you connected to the internet?", time: Date.now() });
+    } finally {
+      _processing = false;
+      if (input) input.disabled = false;
+      removeTypingIndicator();
       saveConversations(conversations);
       renderChat();
     }
   }
 
+  /**
+   * Handle compound/multi-step queries via the planner.
+   * Calls planIntent(), executes steps inline, generates conversational reply.
+   */
+  async function handlePlanPath(text, intent, convo) {
+    const context = getContextBundle();
+    const sessionId = getOrCreateSession();
+    const memory = await getRecentTurns(sessionId);
+
+    const plan = await planIntent({ query: text, context, memory, parsedIntent: intent });
+
+    if (plan.status === 'clarify') {
+      // Record the clarify turn
+      await recordTurn({ sessionId, query: text, parsedIntent: intent, ok: false, error: 'clarify', capSummary: 'clarify' });
+      return plan.question + (plan.choices?.length ? '\n\nOptions: ' + plan.choices.join(', ') : '');
+    }
+
+    if (plan.status !== 'plan') {
+      // Planner failed — fall through to pure chat
+      await recordTurn({ sessionId, query: text, parsedIntent: intent, ok: false, error: plan.error, capSummary: 'planner-failed' });
+      return await aiService.ask(text);
+    }
+
+    // Execute plan steps inline (no event bus → no Spotlight hijack)
+    const actionResults = await executeStepsInChat(plan.steps, text, container);
+    const allOk = actionResults.every(r => r.ok);
+
+    // Record the turn
+    await recordTurn({
+      sessionId, query: text, parsedIntent: intent, plan,
+      ok: allOk, error: allOk ? null : actionResults.find(r => !r.ok)?.error,
+      capSummary: `plan (${plan.steps.length} steps)`,
+    });
+
+    // Generate conversational reply about the results
+    updateTypingStatus(container, 'Composing reply...');
+    const summaryPrompt = buildChatSummaryPrompt(text, actionResults);
+    return await aiService.ask(summaryPrompt, { skipHistory: true });
+  }
+
+  /**
+   * Handle single-capability intents on the fast path.
+   * For ai.ask/explain/summarize, use the output directly (no double AI call).
+   * For other capabilities, execute then generate a conversational summary.
+   */
+  async function handleFastPath(text, intent, convo) {
+    const cap = resolveCapability(intent);
+    if (!cap) {
+      // No capability matches — pure chat fallback
+      return await aiService.ask(text);
+    }
+
+    // Direct reply caps (ai.ask, ai.explain, ai.summarize) — just forward to AI
+    if (DIRECT_REPLY_CAPS.has(cap.id)) {
+      const sessionId = getOrCreateSession();
+      const result = await aiService.ask(text);
+      await recordTurn({ sessionId, query: text, parsedIntent: intent, ok: true, capSummary: cap.id });
+      return result;
+    }
+
+    // Execute the single capability
+    const args = { ...intent.args, _intent: intent };
+
+    updateTypingStatus(container, cap.summary + '...');
+
+    let result;
+    try {
+      result = await cap.execute(args);
+    } catch (err) {
+      const sessionId = getOrCreateSession();
+      await recordTurn({ sessionId, query: text, parsedIntent: intent, ok: false, error: err?.message, capSummary: cap.id });
+      return `I tried to ${cap.summary.toLowerCase()} but hit an error: ${err?.message || 'unknown error'}`;
+    }
+
+    const sessionId = getOrCreateSession();
+    await recordTurn({
+      sessionId, query: text, parsedIntent: intent,
+      ok: result.ok, error: result.error || null, capSummary: cap.id,
+    });
+
+    if (!result.ok) {
+      return `I tried to ${cap.summary.toLowerCase()} but it failed: ${result.error || 'unknown error'}`;
+    }
+
+    // Generate a conversational reply about the result
+    updateTypingStatus(container, 'Composing reply...');
+    const actionResults = [{ index: 0, cap: cap.id, ok: true, output: result.output }];
+    const summaryPrompt = buildChatSummaryPrompt(text, actionResults);
+    return await aiService.ask(summaryPrompt, { skipHistory: true });
+  }
+
+  // ─── Cross-context agent replies (e.g. Spotlight → Messages) ───
+  eventBus.on('chat:agent-reply', ({ text, conversationId }) => {
+    const convo = conversations.find(c => c.id === (conversationId || 'astrion-ai'));
+    if (!convo) return;
+    convo.messages.push({ from: 'them', text, time: Date.now() });
+    saveConversations(conversations);
+    if (activeConvo === convo.id) renderChat();
+    sounds.notification();
+  });
+
   render();
 }
+
+// ═══════════════════════════════════════════════════════════════
+// UTILITY FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
 
 function stringColor(str) {
   let hash = 0;
@@ -241,4 +505,52 @@ function formatTime(ts) {
 
 function esc(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INLINE SANITY TESTS (localhost only)
+// ═══════════════════════════════════════════════════════════════
+
+if (typeof window !== 'undefined' && window.location?.hostname === 'localhost') {
+  let fail = 0;
+
+  // Test 1: resolveBindings substitution
+  const bound = resolveBindings({ path: '${binds.folder}/test.txt' }, { folder: '/Desktop/Homework' });
+  if (bound.path !== '/Desktop/Homework/test.txt') {
+    console.warn('[messages] FAIL: binding resolution:', bound.path);
+    fail++;
+  }
+
+  // Test 2: findUnresolvedBindings detection
+  const unresolved = findUnresolvedBindings({ path: '${binds.missing}/file.txt' });
+  if (unresolved.length !== 1 || unresolved[0] !== 'missing') {
+    console.warn('[messages] FAIL: unresolved detection:', unresolved);
+    fail++;
+  }
+
+  // Test 3: buildChatSummaryPrompt structure
+  const prompt = buildChatSummaryPrompt('make a folder', [
+    { index: 0, cap: 'files.createFolder', ok: true, output: { path: '/Desktop/Test' } },
+  ]);
+  if (!prompt.includes('files.createFolder') || !prompt.includes('successfully')) {
+    console.warn('[messages] FAIL: summary prompt:', prompt.slice(0, 100));
+    fail++;
+  }
+
+  // Test 4: compound query routes to 'plan'
+  const compoundRoute = routeQuery('create a folder called Homework on the Desktop and tell me a joke', parseIntent('create a folder called Homework on the Desktop and tell me a joke'));
+  if (compoundRoute !== 'plan') {
+    console.warn('[messages] FAIL: compound route:', compoundRoute);
+    fail++;
+  }
+
+  // Test 5: pure chat routes correctly (should be a string)
+  const chatRoute = routeQuery('tell me about the history of bread', parseIntent('tell me about the history of bread'));
+  if (typeof chatRoute !== 'string') {
+    console.warn('[messages] FAIL: chat route type:', typeof chatRoute);
+    fail++;
+  }
+
+  if (fail === 0) console.log('[messages] all 5 sanity tests pass');
+  else console.warn(`[messages] ${fail}/5 sanity tests FAILED`);
 }

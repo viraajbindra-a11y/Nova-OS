@@ -354,6 +354,14 @@ import { initVolumeHud } from './shell/volume-hud.js';
   // was false. Kept symmetric so the web preview + native shell behave
   // identically.
   initConversationMemory();
+
+  // Phase 0: kill mock provider trap permanently (lesson #72).
+  // If a prior Settings test left provider='mock', every AI path silently
+  // falls to _mockResponse and nothing works.
+  if (localStorage.getItem('nova-ai-provider') === 'mock') {
+    localStorage.removeItem('nova-ai-provider');
+  }
+
   initControlCenter();
   initLaunchpad();
   notifications.init();

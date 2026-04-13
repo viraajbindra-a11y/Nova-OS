@@ -56,8 +56,11 @@ class AIService {
 
   async ask(prompt, options = {}) {
     const systemContext = this._buildSystemContext();
+    // skipHistory: don't include prior turns and don't record this exchange.
+    // Used by the intent planner so planner prompts don't pollute chat history.
+    const skip = !!options.skipHistory;
     const messages = [
-      ...this.conversationHistory.slice(-6),
+      ...(skip ? [] : this.conversationHistory.slice(-6)),
       { role: 'user', content: prompt }
     ];
 
@@ -70,7 +73,7 @@ class AIService {
     if (provider === 'auto' || provider === 'ollama') {
       const reply = await this._tryOllama(systemContext, messages, options);
       if (reply) {
-        this._addToHistory(prompt, reply);
+        if (!skip) this._addToHistory(prompt, reply);
         eventBus.emit('ai:response', { brain: 's1', confidence: 0.85, provider: 'ollama' });
         return reply;
       }
@@ -84,7 +87,7 @@ class AIService {
     if (provider === 'auto' || provider === 'anthropic') {
       const reply = await this._tryAnthropic(systemContext, messages, options);
       if (reply) {
-        this._addToHistory(prompt, reply);
+        if (!skip) this._addToHistory(prompt, reply);
         eventBus.emit('ai:response', { brain: 's2', confidence: 0.85, provider: 'anthropic' });
         return reply;
       }

@@ -73,7 +73,7 @@ RECENT TURNS THIS SESSION:
 ${memLines}
 ${parsedHint}
 
-USER QUERY: "${query}"
+USER QUERY: ${JSON.stringify(query)}
 
 RESPOND WITH ONE OF:
 
@@ -162,6 +162,9 @@ function validatePlan(plan) {
   if (!Array.isArray(plan.steps) || plan.steps.length === 0) {
     return { ok: false, error: 'plan has no steps' };
   }
+  if (plan.steps.length > 20) {
+    return { ok: false, error: `plan too large: ${plan.steps.length} steps (max 20)` };
+  }
   for (let i = 0; i < plan.steps.length; i++) {
     const step = plan.steps[i];
     if (!step || typeof step !== 'object') return { ok: false, error: `step ${i} not an object` };
@@ -207,7 +210,7 @@ export async function planIntent({ query, context, memory, parsedIntent }) {
     // Agent Core soak test: 1500 was overkill — a 5-step plan is ~300 tokens.
     // Local Ollama models (qwen2.5:7b) ramble past the JSON close-brace if given
     // too much room. 500 is plenty and keeps response times under 10s on M2.
-    raw = await aiService.ask(prompt, { maxTokens: 500 });
+    raw = await aiService.ask(prompt, { maxTokens: 500, skipHistory: true });
   } catch (err) {
     return { status: 'failed', error: `planner ai call threw: ${err?.message || err}` };
   }
@@ -229,7 +232,7 @@ Try again. Respond with JSON only. No prose, no markdown.`;
 
     let retryRaw;
     try {
-      retryRaw = await aiService.ask(retryPrompt, { maxTokens: 500 });
+      retryRaw = await aiService.ask(retryPrompt, { maxTokens: 500, skipHistory: true });
     } catch (err) {
       return { status: 'failed', error: `planner retry threw: ${err?.message || err}`, raw };
     }
@@ -292,7 +295,7 @@ export function routeQuery(query, parsedIntent) {
     // a verb word — keep it simple: if the query has " and " plus a second
     // verb word AFTER the "and", plan it.
     const afterAnd = q.split(/\s+and\s+/)[1] || '';
-    const VERB_HINTS = /\b(create|make|open|find|put|save|delete|send|add|copy|paste|move|ask|write|read|list|show|play|mute|navigate|explain|summarize|install|remind|schedule|upload|download|turn|set|close|quit|kill|launch|run)\b/;
+    const VERB_HINTS = /\b(create|make|open|find|put|save|delete|send|add|copy|paste|move|ask|tell|write|read|list|show|play|mute|unmute|navigate|explain|summarize|translate|install|remind|schedule|upload|download|turn|set|close|quit|kill|launch|run|increase|decrease|take|capture|compute|calculate)\b/;
     if (VERB_HINTS.test(afterAnd)) return 'plan';
   }
   if (q.includes(';')) return 'plan';
