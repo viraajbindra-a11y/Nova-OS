@@ -20,13 +20,25 @@ export function initClipboardManager() {
   document.addEventListener('copy', onCopyEvent, true);
   document.addEventListener('cut', onCopyEvent, true);
 
-  // Shortcut — Cmd+Shift+V
+  // Shortcut — Cmd+Shift+V = clipboard history
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'v' || e.key === 'V')) {
       e.preventDefault();
       toggle();
     }
   });
+
+  // System-wide Paste as Plain Text — intercept paste and strip formatting
+  // This makes ALL paste operations in Astrion strip HTML/RTF by default.
+  document.addEventListener('paste', (e) => {
+    const target = e.target;
+    // Only intercept contentEditable / designMode, not <input>/<textarea>
+    if (target.isContentEditable || (target.ownerDocument && target.ownerDocument.designMode === 'on')) {
+      e.preventDefault();
+      const plain = (e.clipboardData || window.clipboardData).getData('text/plain');
+      document.execCommand('insertText', false, plain);
+    }
+  }, true);
 }
 
 async function pollClipboard() {

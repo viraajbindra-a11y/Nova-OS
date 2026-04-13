@@ -552,6 +552,55 @@ class WindowManager {
     document.getElementById('desktop').appendChild(el);
     return el;
   }
+  // ─── Window Layout Save/Restore (#23 from the research list) ───
+  // Save the positions/sizes of all open windows. Restore them later.
+
+  saveLayout(name = 'default') {
+    const layout = [];
+    for (const [id, state] of this.windows) {
+      if (state.minimized) continue;
+      layout.push({
+        app: state.app,
+        left: state.el.style.left,
+        top: state.el.style.top,
+        width: state.el.style.width,
+        height: state.el.style.height,
+      });
+    }
+    const saved = JSON.parse(localStorage.getItem('nova-window-layouts') || '{}');
+    saved[name] = { windows: layout, savedAt: Date.now() };
+    localStorage.setItem('nova-window-layouts', JSON.stringify(saved));
+    return layout.length;
+  }
+
+  restoreLayout(name = 'default') {
+    const saved = JSON.parse(localStorage.getItem('nova-window-layouts') || '{}');
+    const layout = saved[name];
+    if (!layout || !layout.windows) return 0;
+    let restored = 0;
+    for (const win of layout.windows) {
+      if (!win.app) continue;
+      // Import processManager lazily to avoid circular dependency
+      import('./process-manager.js').then(({ processManager }) => {
+        processManager.launch(win.app);
+        // Apply saved position after the window renders
+        setTimeout(() => {
+          const state = [...this.windows.values()].find(s => s.app === win.app);
+          if (state) {
+            Object.assign(state.el.style, {
+              left: win.left, top: win.top, width: win.width, height: win.height,
+            });
+          }
+        }, 200);
+      });
+      restored++;
+    }
+    return restored;
+  }
+
+  getSavedLayouts() {
+    return Object.keys(JSON.parse(localStorage.getItem('nova-window-layouts') || '{}'));
+  }
 }
 
 export const windowManager = new WindowManager();
