@@ -202,6 +202,7 @@ class WindowManager {
     this._setupResize(el, id, minWidth, minHeight);
     this._setupButtons(el, id);
     this._setupFocusOnClick(el, id);
+    this._setupOpacityControl(el);
     this.focus(id);
 
     eventBus.emit('window:created', { id, title, app });
@@ -482,6 +483,18 @@ class WindowManager {
         this.focus(id);
       }
     });
+  }
+
+  // Alt+scroll on titlebar adjusts window opacity (20% → 100%)
+  _setupOpacityControl(el) {
+    const titlebar = el.querySelector('.window-titlebar');
+    titlebar.addEventListener('wheel', (e) => {
+      if (!e.altKey) return;
+      e.preventDefault();
+      const current = parseFloat(el.style.opacity) || 1;
+      const next = Math.max(0.2, Math.min(1, current + (e.deltaY > 0 ? -0.05 : 0.05)));
+      el.style.opacity = next;
+    }, { passive: false });
   }
 
   // Window snapping

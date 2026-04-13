@@ -27,6 +27,7 @@ import { initMenubar } from './shell/menubar.js';
 import { initDock } from './shell/dock.js';
 import { initDesktop } from './shell/desktop.js';
 import { initSpotlight } from './shell/spotlight.js';
+import { initShortcutsOverlay } from './shell/shortcuts-overlay.js';
 import { registerFinder } from './apps/finder.js';
 import { registerNotes } from './apps/notes.js';
 import { registerTerminal } from './apps/terminal.js';
@@ -370,6 +371,7 @@ import { initVolumeHud } from './shell/volume-hud.js';
   initDock();
   initDesktop();
   initSpotlight();
+  initShortcutsOverlay();
   initIntentExecutor();
   initContextBundle();
   // Agent Core Sprint follow-up: the original sprint commit only wired

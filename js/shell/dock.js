@@ -65,6 +65,33 @@ export function initDock() {
   eventBus.on('app:terminated', updateRunningDots);
   eventBus.on('window:closed', () => setTimeout(updateRunningDots, 200));
 
+  // ─── Dock Badges (notification counts) ───
+  // Apps can emit dock:badge to show a count on their dock icon.
+  // Example: eventBus.emit('dock:badge', { appId: 'messages', count: 3 })
+  eventBus.on('dock:badge', ({ appId, count }) => {
+    const item = container.querySelector(`.dock-item[data-app-id="${appId}"]`);
+    if (!item) return;
+    let badge = item.querySelector('.dock-badge');
+    if (count <= 0) {
+      if (badge) badge.remove();
+      return;
+    }
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.className = 'dock-badge';
+      badge.style.cssText = `
+        position:absolute; top:-2px; right:-2px; min-width:16px; height:16px;
+        background:#ff3b30; color:white; font-size:9px; font-weight:700;
+        border-radius:8px; display:flex; align-items:center; justify-content:center;
+        padding:0 4px; pointer-events:none; font-family:var(--font);
+        box-shadow:0 1px 3px rgba(0,0,0,0.4);
+      `;
+      item.style.position = 'relative';
+      item.appendChild(badge);
+    }
+    badge.textContent = count > 99 ? '99+' : count;
+  });
+
   // ─── Dock Magnification ───
   setupDockMagnification(container);
 }
