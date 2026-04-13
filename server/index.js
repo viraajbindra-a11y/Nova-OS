@@ -232,6 +232,16 @@ app.get('/api/files/read', async (req, res) => {
   try {
     const filePath = safeResolvePath(req.query.path);
     if (!filePath) return res.status(400).json({ error: 'Invalid or disallowed path' });
+
+    // Block reads from sensitive directories (same list as write + node_modules)
+    const rel = relative(PROJECT_ROOT, filePath);
+    const READ_BLOCKED = ['.git/', 'node_modules/', '.env'];
+    for (const b of READ_BLOCKED) {
+      if (rel.startsWith(b) || rel === b.replace(/\/$/, '')) {
+        return res.status(403).json({ error: `Read blocked: ${b} is protected` });
+      }
+    }
+
     if (!existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
 
     const s = await stat(filePath);

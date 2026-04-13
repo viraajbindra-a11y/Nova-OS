@@ -657,8 +657,23 @@ const codeReadFile = {
     return runCapability(this, args, async () => {
       const path = args.path || args.name || args._rawArgs || '';
       if (!path) throw new Error('No file path specified');
-      const offset = parseInt(args.offset) || 0;
-      const limit = parseInt(args.limit) || 100;
+
+      // First pass: if fromEnd is set, we need totalLines to compute offset
+      let offset = parseInt(args.offset) || 0;
+      let limit = parseInt(args.limit) || 100;
+
+      if (args.fromEnd) {
+        // Fetch with limit=0 just to get totalLines, then re-fetch the tail
+        const probe = await fetch(`/api/files/read?path=${encodeURIComponent(path)}&offset=0&limit=1`);
+        if (!probe.ok) {
+          const err = await probe.json().catch(() => ({ error: probe.statusText }));
+          throw new Error(err.error || `Read failed: ${probe.status}`);
+        }
+        const probeData = await probe.json();
+        offset = Math.max(0, probeData.totalLines - parseInt(args.fromEnd));
+        limit = parseInt(args.fromEnd);
+      }
+
       const res = await fetch(`/api/files/read?path=${encodeURIComponent(path)}&offset=${offset}&limit=${limit}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }));

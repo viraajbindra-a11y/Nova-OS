@@ -219,6 +219,48 @@ function extractItems(text) {
 }
 
 /**
+ * Detect file paths in the query by looking for common source-code
+ * extensions (.js, .css, .html, .json, .md, .py, .ts, .c, .h, .svg, etc.)
+ * or explicit directory-style paths (js/apps/snake.js, ./foo/bar).
+ * Returns { filePath, target: 'file' } or null.
+ */
+const FILE_EXT_RE = /(?:^|\s)((?:[\w./-]+\/)?[\w.-]+\.(?:js|ts|jsx|tsx|css|html|json|md|py|c|h|cpp|svg|txt|sh|yml|yaml|toml|xml|csv|sql|rs|go|java|rb|php|vue|svelte|astro))\b/i;
+
+function extractFilePath(text) {
+  if (!text) return null;
+  const m = text.match(FILE_EXT_RE);
+  return m ? m[1] : null;
+}
+
+/**
+ * Extract line range from patterns like:
+ *   "first 20 lines" → { offset: 0, limit: 20 }
+ *   "lines 10-30"    → { offset: 9, limit: 21 }
+ *   "line 42"        → { offset: 41, limit: 1 }
+ *   "last 10 lines"  → { fromEnd: 10 }
+ */
+function extractLineRange(text) {
+  if (!text) return null;
+  // "first N lines"
+  let m = text.match(/\bfirst\s+(\d+)\s+lines?\b/i);
+  if (m) return { offset: 0, limit: parseInt(m[1]) };
+  // "lines N-M" or "lines N to M"
+  m = text.match(/\blines?\s+(\d+)\s*[-–to]+\s*(\d+)\b/i);
+  if (m) {
+    const start = parseInt(m[1]);
+    const end = parseInt(m[2]);
+    return { offset: Math.max(0, start - 1), limit: Math.max(1, end - start + 1) };
+  }
+  // "line N"
+  m = text.match(/\bline\s+(\d+)\b/i);
+  if (m) return { offset: parseInt(m[1]) - 1, limit: 1 };
+  // "last N lines"
+  m = text.match(/\blast\s+(\d+)\s+lines?\b/i);
+  if (m) return { fromEnd: parseInt(m[1]) };
+  return null;
+}
+
+/**
  * Extract `url` if the query contains what looks like a URL.
  */
 function extractUrl(text) {
@@ -312,6 +354,22 @@ export function parseIntent(query) {
     }
   }
 
+  // ─── Implicit file target from file extensions ───
+  // If the verb is file-relevant (find/edit/open) and no explicit target was
+  // found, check if the query mentions a file path like "snake.js" or
+  // "js/apps/snake.js". This lets "show me the first 20 lines of snake.js"
+  // route to code.readFile without needing the word "file" in the query.
+  if (!target) {
+    const FILE_VERBS = new Set(['find', 'edit', 'open', 'make', 'delete']);
+    if (FILE_VERBS.has(verb)) {
+      const detected = extractFilePath(lowered);
+      if (detected) {
+        target = 'file';
+        targetIdx = verbIdx; // approximate; args extraction starts after this
+      }
+    }
+  }
+
   // Verb without a target — acceptable for some verbs like "compute 5+3",
   // "explain recursion", or "navigate to github.com" where the target is
   // implicit or free-form.
@@ -396,6 +454,18 @@ function extractArgs(verb, target, argsText, fullRaw) {
       target === 'volume' || target === 'brightness') {
     const n = extractNumber(argsText);
     if (n != null) args.level = n;
+  }
+
+  // File path + line range (for code.readFile / code.writeFile)
+  if (target === 'file') {
+    const filePath = extractFilePath(fullRaw);
+    if (filePath) args.path = filePath;
+    const lineRange = extractLineRange(fullRaw);
+    if (lineRange) {
+      if (lineRange.offset != null) args.offset = lineRange.offset;
+      if (lineRange.limit != null) args.limit = lineRange.limit;
+      if (lineRange.fromEnd != null) args.fromEnd = lineRange.fromEnd;
+    }
   }
 
   // Compute expression
@@ -541,6 +611,13 @@ if (typeof window !== 'undefined' && window.location?.hostname === 'localhost') 
     { input: 'take a screenshot', expect: { verb: 'make', target: 'screenshot' } },
     { input: 'read file snake.js', expect: { verb: 'find', target: 'file' } },
     { input: 'search files for registerMusic', expect: { verb: 'find', target: 'file' } },
+    // Phase 1: file extension detection + line range extraction
+    { input: 'show me the first 20 lines of snake.js', expect: { verb: 'find', target: 'file' } },
+    { input: 'show me js/apps/snake.js', expect: { verb: 'find', target: 'file' } },
+    { input: 'read index.html', expect: { verb: 'find', target: 'file' } },
+    { input: 'show me lines 10-30 of boot.js', expect: { verb: 'find', target: 'file' } },
+    { input: 'cat server/index.js', expect: { verb: 'find', target: 'file' } },
+    { input: 'edit style.css', expect: { verb: 'edit', target: 'file' } },
     { input: 'random text that is not an intent', expect: null },
     { input: '', expect: null },
   ];
