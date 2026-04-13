@@ -28,8 +28,11 @@ export function getChessState() {
  */
 export function makeChessMove(fromR, fromC, toR, toC) {
   if (!_game) return { ok: false, error: 'No chess game running' };
+  if (fromR < 0 || fromR > 7 || fromC < 0 || fromC > 7 || toR < 0 || toR > 7 || toC < 0 || toC > 7) {
+    return { ok: false, error: 'Out of bounds' };
+  }
   const b = _game.board;
-  const piece = b[fromR]?.[fromC];
+  const piece = b[fromR][fromC];
   if (!piece || piece === ' ') return { ok: false, error: 'No piece at source' };
   const pieceIsWhite = piece === piece.toUpperCase();
   if ((_game.turn === 'white' && !pieceIsWhite) || (_game.turn === 'black' && pieceIsWhite)) {
@@ -82,7 +85,7 @@ export function registerChess() {
             ${state.board.flatMap((row, r) => row.map((p, c) => {
               const light = (r + c) % 2 === 0;
               const sel = state.selected && state.selected[0] === r && state.selected[1] === c;
-              return `<div class="sq" data-r="${r}" data-c="${c}" style="width:${sz}px;height:${sz}px;background:${sel ? '#007aff' : light ? '#b58863' : '#f0d9b5'};display:flex;align-items:center;justify-content:center;font-size:36px;cursor:pointer;user-select:none;">${p !== ' ' ? (PIECES[p] || '') : ''}</div>`;
+              return `<div class="sq" data-r="${r}" data-c="${c}" style="width:${sz}px;height:${sz}px;background:${sel ? '#007aff' : light ? '#f0d9b5' : '#b58863'};display:flex;align-items:center;justify-content:center;font-size:36px;cursor:pointer;user-select:none;">${p !== ' ' ? (PIECES[p] || '') : ''}</div>`;
             })).join('')}
           </div>
           <button id="ch-reset" style="margin-top:12px;padding:8px 20px;border-radius:8px;border:none;background:rgba(255,255,255,0.08);color:white;font-size:12px;cursor:pointer;font-family:var(--font);">New Game</button>

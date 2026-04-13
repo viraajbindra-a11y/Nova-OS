@@ -6,6 +6,8 @@
 
 import { eventBus } from './event-bus.js';
 
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
 const STORAGE_KEY = 'astrion-notification-history';
 const MAX_HISTORY = 200;
 
@@ -140,10 +142,10 @@ class NotificationManager {
           ${notif.icon ? `<div style="font-size:20px;flex-shrink:0;">${notif.icon}</div>` : ''}
           <div style="flex:1;min-width:0;">
             <div style="display:flex;justify-content:space-between;align-items:baseline;">
-              <span style="font-weight:600;font-size:12px;color:white;">${notif.title}</span>
+              <span style="font-weight:600;font-size:12px;color:white;">${esc(notif.title)}</span>
               <span style="font-size:10px;color:rgba(255,255,255,0.3);flex-shrink:0;">${timeAgo}</span>
             </div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px;line-height:1.4;">${notif.body}</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px;line-height:1.4;">${esc(notif.body)}</div>
           </div>
         </div>
       `;
@@ -213,8 +215,8 @@ class NotificationManager {
     el.innerHTML = `
       ${iconHtml}
       <div style="flex:1;min-width:0;">
-        <div style="font-weight:600;font-size:13px;margin-bottom:2px;">${title}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,0.6);line-height:1.4;">${body}</div>
+        <div style="font-weight:600;font-size:13px;margin-bottom:2px;">${esc(title)}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.6);line-height:1.4;">${esc(body)}</div>
         ${actionsHtml}
       </div>
       <button style="background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:16px;padding:0 2px;line-height:1;" data-close="true">&times;</button>

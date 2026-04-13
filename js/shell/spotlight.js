@@ -406,9 +406,11 @@ export function initSpotlight() {
 
     // Inline calculator — detect math expressions
     const mathClean = query.replace(/[^0-9+\-*/.() %^]/g, '');
-    if (mathClean.length > 2 && /[\d].*[+\-*/^%].*[\d]/.test(mathClean)) {
+    if (mathClean.length > 2 && mathClean.length < 100 && /^\s*[\d(]/.test(mathClean) && /[\d].*[+\-*/^%].*[\d]/.test(mathClean)) {
       try {
+        // Restrict to pure numeric expressions — reject anything that could be code
         const expr = mathClean.replace(/\^/g, '**');
+        if (/[a-zA-Z_$\\]/.test(expr)) throw new Error('invalid');
         const result = Function('"use strict"; return (' + expr + ')')();
         if (typeof result === 'number' && isFinite(result)) {
           html += `<div class="spotlight-result-group">

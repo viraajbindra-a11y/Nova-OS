@@ -1,5 +1,7 @@
 // NOVA OS — Lock Screen & Shutdown/Restart
 
+import { verifyPassword } from '../kernel/crypto.js';
+
 export function initLockScreen() {
   // Cmd+L or Ctrl+L to lock
   document.addEventListener('keydown', (e) => {
@@ -62,16 +64,35 @@ export function lockScreen() {
     el.querySelector('div').textContent = n.toLocaleTimeString('en-US', {hour:'numeric',minute:'2-digit',hour12:true});
   }, 1000);
 
-  // Unlock on Enter or click
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') unlock(overlay, timer);
+  // Unlock on Enter
+  input.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') {
+      const storedHash = localStorage.getItem('nova-password');
+      if (!storedHash) {
+        // No password set — unlock immediately
+        dismissLock(overlay, timer);
+        return;
+      }
+      const ok = await verifyPassword(input.value, storedHash);
+      if (ok) {
+        dismissLock(overlay, timer);
+      } else {
+        input.value = '';
+        input.style.borderColor = '#ff4444';
+        input.placeholder = 'Incorrect password';
+        setTimeout(() => {
+          input.style.borderColor = 'rgba(255,255,255,0.2)';
+          input.placeholder = 'Enter Password';
+        }, 1500);
+      }
+    }
   });
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) input.focus();
   });
 }
 
-function unlock(overlay, timer) {
+function dismissLock(overlay, timer) {
   clearInterval(timer);
   overlay.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
   overlay.style.opacity = '0';

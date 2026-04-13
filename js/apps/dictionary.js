@@ -12,7 +12,7 @@ export function registerDictionary() {
       input.onkeydown=async(e)=>{if(e.key!=='Enter')return;const w=input.value.trim();if(!w)return;
         result.innerHTML='<div style="color:rgba(255,255,255,0.4);">Looking up...</div>';
         try{const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(w)}`);
-          if(!r.ok){result.innerHTML=`<div style="font-size:18px;margin-bottom:8px;">\uD83E\uDD14</div><div>No definition found for "<strong>${w}</strong>"</div>`;return;}
+          if(!r.ok){const se=document.createElement('strong');se.textContent=w;result.innerHTML=`<div style="font-size:18px;margin-bottom:8px;">\uD83E\uDD14</div><div>No definition found for "${se.outerHTML}"</div>`;return;}
           const data=await r.json();const entry=data[0];
           result.innerHTML=`<div style="font-size:24px;font-weight:600;color:white;margin-bottom:4px;">${entry.word}</div>
             ${entry.phonetic?`<div style="font-size:14px;color:var(--accent);margin-bottom:12px;">${entry.phonetic}</div>`:''}

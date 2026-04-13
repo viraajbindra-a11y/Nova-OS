@@ -25,7 +25,7 @@ async function captureScreen() {
     const canvas = await htmlToCanvas(desktop);
     await saveScreenshot(canvas, 'Screenshot');
   } catch (e) {
-    notifications.show({ title: 'Screenshot', body: 'Screenshot saved to Desktop', icon: '\uD83D\uDCF8', duration: 3000 });
+    notifications.show({ title: 'Screenshot', body: 'Failed to capture screenshot', icon: '\u26A0\uFE0F', duration: 3000 });
   }
 }
 
@@ -36,7 +36,7 @@ async function captureWindow() {
       const canvas = await htmlToCanvas(activeWindow);
       await saveScreenshot(canvas, 'Window Screenshot');
     } catch (e) {
-      notifications.show({ title: 'Screenshot', body: 'Window screenshot saved', icon: '\uD83D\uDCF8', duration: 3000 });
+      notifications.show({ title: 'Screenshot', body: 'Failed to capture window', icon: '\u26A0\uFE0F', duration: 3000 });
     }
   } else {
     await captureScreen();
@@ -69,9 +69,9 @@ async function saveScreenshot(canvas, name) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const fileName = `${name} ${timestamp}.png`;
 
-  // Save as data URL to virtual file system
+  // Save full data URL to virtual file system
   const dataUrl = canvas.toDataURL('image/png');
-  await fileSystem.writeFile(`/Desktop/${fileName}`, `[Screenshot: ${dataUrl.substring(0, 50)}...]`);
+  await fileSystem.writeFile(`/Desktop/${fileName}`, dataUrl);
 
   // Flash effect
   const flash = document.createElement('div');
