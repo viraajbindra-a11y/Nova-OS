@@ -40,7 +40,7 @@
  */
 export const VERB_SYNONYMS = {
   make:      ['make', 'create', 'new', 'add', 'build', 'generate', 'draft', 'write', 'take', 'capture'],
-  find:      ['find', 'search', 'lookup', 'locate', 'list', 'show', 'get', 'see'],
+  find:      ['find', 'search', 'lookup', 'locate', 'list', 'show', 'get', 'see', 'read', 'grep', 'cat'],
   open:      ['open', 'launch', 'start', 'run', 'fire', 'boot'],
   close:     ['close', 'quit', 'exit', 'kill', 'stop', 'end'],
   edit:      ['edit', 'modify', 'change', 'update', 'tweak', 'fix', 'rename'],
@@ -539,6 +539,8 @@ if (typeof window !== 'undefined' && window.location?.hostname === 'localhost') 
     { input: 'summarize this page', expect: { verb: 'summarize' } },
     { input: 'increase volume to 80', expect: { verb: 'increase', target: 'volume' } },
     { input: 'take a screenshot', expect: { verb: 'make', target: 'screenshot' } },
+    { input: 'read file snake.js', expect: { verb: 'find', target: 'file' } },
+    { input: 'grep registerMusic', expect: { verb: 'find' } },
     { input: 'random text that is not an intent', expect: null },
     { input: '', expect: null },
   ];
