@@ -18,6 +18,11 @@ export function registerStopwatch() {
         el.querySelector('#sw-lap').onclick = () => { if(running){laps.unshift(ms);}else if(ms>0){ms=0;laps=[];}render();};
       }
       render();
+      // Cleanup on window close
+      const _obs = new MutationObserver(() => {
+        if (!el.isConnected) { clearInterval(interval); _obs.disconnect(); }
+      });
+      if (el.parentElement) _obs.observe(el.parentElement, { childList: true, subtree: true });
     }
   });
 }

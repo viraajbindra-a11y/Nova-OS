@@ -137,6 +137,15 @@ export function registerSnake() {
       });
 
       reset();
+      // Cleanup on window close
+      const _obs = new MutationObserver(() => {
+        if (!el.isConnected) {
+          if (state.interval) clearInterval(state.interval);
+          _game = null;
+          _obs.disconnect();
+        }
+      });
+      if (el.parentElement) _obs.observe(el.parentElement, { childList: true, subtree: true });
     },
   });
 }

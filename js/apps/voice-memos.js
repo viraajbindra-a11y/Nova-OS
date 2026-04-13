@@ -164,6 +164,15 @@ function initVoiceMemos(container) {
   }
 
   render();
+
+  // Cleanup on window close
+  const _obs = new MutationObserver(() => {
+    if (!container.isConnected) {
+      stopRecording();
+      _obs.disconnect();
+    }
+  });
+  if (container.parentElement) _obs.observe(container.parentElement, { childList: true, subtree: true });
 }
 
 function timeAgo(ts) {

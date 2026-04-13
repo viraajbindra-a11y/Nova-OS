@@ -181,4 +181,14 @@ function initBeatStudio(container) {
   }
 
   render();
+
+  // Cleanup on window close
+  const _obs = new MutationObserver(() => {
+    if (!container.isConnected) {
+      stop();
+      if (ctx) { ctx.close().catch(() => {}); ctx = null; }
+      _obs.disconnect();
+    }
+  });
+  if (container.parentElement) _obs.observe(container.parentElement, { childList: true, subtree: true });
 }

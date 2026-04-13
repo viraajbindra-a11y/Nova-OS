@@ -195,4 +195,14 @@ function initClock(container) {
   }
 
   render();
+
+  // Cleanup timers when window closes
+  const _obs = new MutationObserver(() => {
+    if (!container.isConnected) {
+      clearInterval(swInterval);
+      clearInterval(tmInterval);
+      _obs.disconnect();
+    }
+  });
+  if (container.parentElement) _obs.observe(container.parentElement, { childList: true, subtree: true });
 }

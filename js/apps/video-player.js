@@ -61,4 +61,15 @@ function initVideo(container, options = {}) {
   });
 
   if (options.url) loadVideo(options.url);
+
+  // Pause video and revoke object URLs on window close
+  const _obs = new MutationObserver(() => {
+    if (!container.isConnected) {
+      video.pause();
+      if (video.src.startsWith('blob:')) URL.revokeObjectURL(video.src);
+      video.src = '';
+      _obs.disconnect();
+    }
+  });
+  if (container.parentElement) _obs.observe(container.parentElement, { childList: true, subtree: true });
 }
