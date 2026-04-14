@@ -109,6 +109,12 @@ function open() {
         <div class="cc-quick-label">Lock</div>
       </div>
     </div>
+
+    <div class="cc-accent-row" style="display:flex;gap:8px;justify-content:center;padding:8px 16px;margin-top:4px;">
+      ${['#007aff','#5856d6','#ff2d55','#ff9500','#34c759','#00c7be','#ff6b6b','#ffd60a'].map(c =>
+        `<div class="cc-accent-dot" data-color="${c}" style="width:20px;height:20px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c === (document.documentElement.style.getPropertyValue('--accent') || '#007aff').trim() ? 'white' : 'transparent'};transition:border-color 0.15s;" title="Set accent color"></div>`
+      ).join('')}
+    </div>
   `;
 
   document.getElementById('desktop').appendChild(ccEl);
@@ -216,6 +222,19 @@ function open() {
       if (s) { s.value = d.level; brightness = d.level; }
     }
   }).catch(() => {});
+
+  // Accent color dots
+  ccEl.querySelectorAll('.cc-accent-dot').forEach(dot => {
+    dot.addEventListener('click', () => {
+      const color = dot.dataset.color;
+      document.documentElement.style.setProperty('--accent', color);
+      localStorage.setItem('nova-accent-color', color);
+      // Update all dot borders
+      ccEl.querySelectorAll('.cc-accent-dot').forEach(d => {
+        d.style.borderColor = d.dataset.color === color ? 'white' : 'transparent';
+      });
+    });
+  });
 }
 
 function close() {
