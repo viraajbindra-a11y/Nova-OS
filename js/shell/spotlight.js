@@ -568,14 +568,28 @@ export function initSpotlight() {
       </div>`;
     }
 
-    // Inline calculator — detect math expressions
-    const mathClean = query.replace(/[^0-9+\-*/.() %^]/g, '');
-    if (mathClean.length > 2 && mathClean.length < 100 && /^\s*[\d(]/.test(mathClean) && /[\d].*[+\-*/^%].*[\d]/.test(mathClean)) {
+    // Inline calculator — detect math expressions + math functions
+    // Support: sqrt, sin, cos, tan, log, ln, abs, ceil, floor, round, pow, pi, e
+    const mathFnQuery = query
+      .replace(/\bsqrt\b/gi, 'Math.sqrt')
+      .replace(/\bsin\b/gi, 'Math.sin')
+      .replace(/\bcos\b/gi, 'Math.cos')
+      .replace(/\btan\b/gi, 'Math.tan')
+      .replace(/\blog\b/gi, 'Math.log10')
+      .replace(/\bln\b/gi, 'Math.log')
+      .replace(/\babs\b/gi, 'Math.abs')
+      .replace(/\bceil\b/gi, 'Math.ceil')
+      .replace(/\bfloor\b/gi, 'Math.floor')
+      .replace(/\bround\b/gi, 'Math.round')
+      .replace(/\bpow\b/gi, 'Math.pow')
+      .replace(/\bpi\b/gi, 'Math.PI')
+      .replace(/\be\b/gi, 'Math.E')
+      .replace(/\^/g, '**');
+    const mathClean = mathFnQuery.replace(/[^0-9+\-*/.() %Math.sqrtsincoanlgbefhpow,PI E]/g, '');
+    const hasMathContent = /\d/.test(mathClean) && (/[\d].*[+\-*/^%].*[\d]/.test(mathClean) || /Math\.\w+/.test(mathClean));
+    if (mathClean.length > 2 && mathClean.length < 200 && hasMathContent) {
       try {
-        // Restrict to pure numeric expressions — reject anything that could be code
-        const expr = mathClean.replace(/\^/g, '**');
-        if (/[a-zA-Z_$\\]/.test(expr)) throw new Error('invalid');
-        const result = Function('"use strict"; return (' + expr + ')')();
+        const result = Function('"use strict"; return (' + mathClean + ')')();
         if (typeof result === 'number' && isFinite(result)) {
           html += `<div class="spotlight-result-group">
             <div class="spotlight-result-label">Calculator</div>
