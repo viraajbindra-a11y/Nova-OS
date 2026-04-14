@@ -283,28 +283,9 @@ function initBrowser(container, instanceId, options = {}) {
         return;
       }
 
-      // Heavy JS sites (Google, GitHub, Twitter, etc.): show in a mini browser
-      // with a prominent "Open in real browser" option
-      const HEAVY_SITES = ['google.com', 'github.com', 'twitter.com', 'x.com', 'facebook.com', 'instagram.com', 'linkedin.com', 'discord.com', 'notion.so', 'figma.com'];
-      const urlDomain = url.replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, '');
-      if (HEAVY_SITES.some(s => urlDomain === s || urlDomain.endsWith('.' + s))) {
-        // Show a nice interstitial with an embedded version + open in tab CTA
-        viewport.innerHTML = `
-          <div style="display:flex;flex-direction:column;height:100%;background:#1a1a22;">
-            <div style="padding:12px 16px;display:flex;align-items:center;gap:12px;background:rgba(255,200,0,0.08);border-bottom:1px solid rgba(255,200,0,0.15);">
-              <span style="font-size:16px;">⚡</span>
-              <div style="flex:1;font-size:12px;color:rgba(255,255,255,0.7);">
-                <strong>${urlDomain}</strong> works best in a full browser.
-                The proxy version may have limited functionality.
-              </div>
-              <a href="${url}" target="_blank" style="padding:6px 16px;background:var(--accent);color:white;border-radius:8px;text-decoration:none;font-size:12px;font-weight:500;white-space:nowrap;">Open in Tab ↗</a>
-            </div>
-            <iframe src="/api/proxy?url=${encodeURIComponent(url)}" style="flex:1;border:none;width:100%;background:white;"></iframe>
-          </div>`;
-        loadingBar.style.width = '100%';
-        setTimeout(() => { loadingBar.style.width = '0%'; }, 500);
-        return;
-      }
+      // Note: The server proxy now intercepts fetch/XHR calls, so heavy
+      // JS sites should mostly work. If they don't, the "Open in Tab ↗"
+      // button in the toolbar is always available.
 
       // Detect: running with Express server (localhost:3000 / ISO)?
       const hasServer = window.location.port === '3000' || window.__NOVA_NATIVE__;

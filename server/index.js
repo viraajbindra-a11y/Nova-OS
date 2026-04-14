@@ -439,49 +439,102 @@ app.get('/api/proxy', async (req, res) => {
     const baseUrl = response.url || targetUrl; // follow redirects
     const origin = new URL(baseUrl).origin;
 
-    // Inject a <base> tag so relative URLs resolve against the original site
-    if (!/<base\s/i.test(html)) {
-      html = html.replace(/<head([^>]*)>/i, `<head$1><base href="${baseUrl}">`);
-    }
+    // Helper: rewrite a URL to go through proxy
+    const proxyRewrite = (rawUrl) => {
+      try {
+        const absolute = new URL(rawUrl, baseUrl).href;
+        if (absolute.startsWith('data:') || absolute.startsWith('blob:')) return rawUrl;
+        return '/api/proxy?url=' + encodeURIComponent(absolute);
+      } catch { return rawUrl; }
+    };
 
-    // Rewrite links to go through the proxy (so clicking works)
-    // Only rewrite anchor hrefs to proxy — leave other resources to <base>
+    // Remove any existing <base> tags (we rewrite everything ourselves)
+    html = html.replace(/<base\s[^>]*>/gi, '');
+
+    // Rewrite ALL src/href/action attributes to go through proxy
+    // This covers <a>, <link>, <script>, <img>, <video>, <source>, <iframe>, <form>
     html = html.replace(
-      /(<a\s[^>]*href\s*=\s*["'])(?!javascript:|mailto:|tel:|#|data:)([^"']+)(["'])/gi,
+      /(<(?:a|link|script|img|video|audio|source|iframe|form|embed|object)\s[^>]*?(?:src|href|action|data)\s*=\s*["'])(?!javascript:|data:|blob:|#|mailto:|tel:)([^"']*)(["'])/gi,
       (match, prefix, url, suffix) => {
-        try {
-          const absolute = new URL(url, baseUrl).href;
-          return `${prefix}/api/proxy?url=${encodeURIComponent(absolute)}${suffix}`;
-        } catch { return match; }
+        if (!url || url.startsWith('/api/proxy')) return match;
+        return prefix + proxyRewrite(url) + suffix;
       }
     );
 
-    // Rewrite form actions to go through proxy
+    // Also rewrite srcset attributes (responsive images)
     html = html.replace(
-      /(<form\s[^>]*action\s*=\s*["'])([^"']+)(["'])/gi,
-      (match, prefix, url, suffix) => {
-        try {
-          const absolute = new URL(url, baseUrl).href;
-          return `${prefix}/api/proxy?url=${encodeURIComponent(absolute)}${suffix}`;
-        } catch { return match; }
+      /(srcset\s*=\s*["'])([^"']+)(["'])/gi,
+      (match, prefix, srcset, suffix) => {
+        const rewritten = srcset.split(',').map(entry => {
+          const parts = entry.trim().split(/\s+/);
+          if (parts[0] && !parts[0].startsWith('data:')) {
+            parts[0] = proxyRewrite(parts[0]);
+          }
+          return parts.join(' ');
+        }).join(', ');
+        return prefix + rewritten + suffix;
       }
     );
 
-    // Inject a small script to intercept navigation
-    const navScript = `<script>
-      // Intercept clicks on dynamically added links
+    // Rewrite url() in inline styles
+    html = html.replace(
+      /url\(\s*["']?((?!data:)[^"')]+)["']?\s*\)/gi,
+      (match, url) => {
+        return 'url("' + proxyRewrite(url) + '")';
+      }
+    );
+
+    // Inject fetch/XHR interceptor so JavaScript API calls also go through proxy
+    const interceptScript = `<script>
+    (function() {
+      var PROXY = '/api/proxy?url=';
+      var BASE = '${origin}';
+
+      // Intercept fetch()
+      var origFetch = window.fetch;
+      window.fetch = function(input, init) {
+        var url = (typeof input === 'string') ? input : (input && input.url) ? input.url : '';
+        if (url && !url.startsWith(window.location.origin) && !url.startsWith('/api/proxy') && !url.startsWith('data:') && !url.startsWith('blob:')) {
+          // Relative URL: resolve against original site
+          if (url.startsWith('/')) url = BASE + url;
+          else if (!url.startsWith('http')) url = BASE + '/' + url;
+          var proxyUrl = PROXY + encodeURIComponent(url);
+          if (typeof input === 'string') input = proxyUrl;
+          else if (input && input.url) input = new Request(proxyUrl, input);
+        }
+        return origFetch.call(this, input, init);
+      };
+
+      // Intercept XMLHttpRequest
+      var origOpen = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function(method, url) {
+        if (url && !url.startsWith(window.location.origin) && !url.startsWith('/api/proxy') && !url.startsWith('data:') && !url.startsWith('blob:')) {
+          if (url.startsWith('/')) url = BASE + url;
+          else if (!url.startsWith('http')) url = BASE + '/' + url;
+          arguments[1] = PROXY + encodeURIComponent(url);
+        }
+        return origOpen.apply(this, arguments);
+      };
+
+      // Intercept link clicks (for dynamically added elements)
       document.addEventListener('click', function(e) {
         var a = e.target.closest('a');
         if (a && a.href && !a.href.startsWith('javascript:') && !a.href.includes('/api/proxy')) {
-          // Check if it's an external link that needs proxying
           if (a.href.startsWith('http') && !a.href.startsWith(window.location.origin)) {
             e.preventDefault();
-            window.location.href = '/api/proxy?url=' + encodeURIComponent(a.href);
+            window.location.href = PROXY + encodeURIComponent(a.href);
           }
         }
       }, true);
+    })();
     </script>`;
-    html = html.replace('</body>', navScript + '</body>');
+
+    // Inject interceptor as FIRST script in <head> (before any other JS runs)
+    if (/<head/i.test(html)) {
+      html = html.replace(/<head([^>]*)>/i, '<head$1>' + interceptScript);
+    } else {
+      html = interceptScript + html;
+    }
 
     // Serve with permissive headers
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
