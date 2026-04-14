@@ -1,96 +1,114 @@
-# Session Handoff: Audit Fixes + M3 Completion + Feature Blitz
+# Session Handoff: QoL Blitz + Browser Overhaul + Smart Answers
 
-**Date:** 2026-04-12 (evening session)
+**Date:** 2026-04-13 (afternoon session)
 **Branch:** main (all pushed)
-**Commits this session:** 9
+**Commits this session:** 18
 
 ---
 
 ## What Was Done This Session
 
-### 1. Remaining Audit Fixes (commit `b4747b1`)
-- **Global localStorage safety** — `js/lib/safe-storage.js` patches Storage.prototype; imported first in boot.js. JSON.parse callers wrapped in 6 more files.
-- **Window manager** — abort drag on close (pointer leak), parseInt(zIndex) || 0 fallback
-- **File system** — rename() transaction rejects on error/abort instead of hanging
-- **Activity monitor** — event delegation replaces per-element listeners (no accumulation on 2s refresh)
-- **Sound.js** — AudioContext.resume() catches rejection outside user gesture
-- **Chess** — basic move validation for all 6 piece types (pawn/rook/knight/bishop/queen/king)
+### 1. Phase 1 File I/O Bridge Completion (commit `8db9586`)
+- Intent parser detects file extensions (.js/.css/.html/etc.) as implicit target=file
+- Line range extraction: "first 20 lines", "lines 10-30", "last 10 lines"
+- code.readFile handles fromEnd via probe-then-fetch
+- Security: /api/files/read now blocks node_modules/ and .env reads
+- All 4 endpoints + 4 capabilities were already built (prior session); this session wired the parser
 
-### 2. M3 Completion — Brain Badges + Feedback (commit `764d20c`)
-- **Brain badge pill** on every AI response: S1 (cyan) / S2 (purple) / OFF (gray) + confidence% + response time
-- **Thumbs up/down feedback buttons** — fire recordSample() with userFeedback: true, closes the calibration human-in-the-loop
-- **Click-to-expand reasoning trace** — brain name, model, response time, confidence, escalation note
-- **Enriched ai:response events** with model, escalated, query fields
-- **Budget estimate** now scales with prompt length instead of hardcoded 2000 tokens
-- Badge + feedback on plan:completed/failed panels too
+### 2. YouTube Fix + Window QoL (commit `adddf97`)
+- **YouTube search fix** — removed `videoCategoryId=10` filter; shows all videos now
+- **Corner snap** — drag windows to corners for quadrant layout
+- **Pin on Top** — right-click titlebar → 📌 Pin on Top
+- **Mini Mode (PiP)** — right-click titlebar → shrink to 320×200 floating widget
+- **Recent Apps** — Spotlight shows last 10 launched apps instead of hardcoded suggestions
 
-### 3. Spotlight → Hypergraph Search (commit `3c5cd49`)
-- Spotlight now queries graphStore via graphQuery for notes (title + content), todos, reminders
-- Results appear in a "Graph" section with type icons (📝/✅/⏰) and content previews
-- Clicking a graph result opens the matching app with the node ID
-- Closes M2.P2's "Spotlight integration" gap
+### 3. Smart Spotlight Instant Answers (commits `9ef7051`, `1de31a5`, `22d4d0d`)
+All work offline, no AI key needed:
+- Unit conversion (lbs→kg, cm→inches, °F→°C, GB→MB, miles→km, etc.)
+- Currency conversion (20+ currencies + BTC, offline approximate rates)
+- Time zones (30+ cities: "time in tokyo")
+- Color preview ("#ff6b6b" → swatch + RGB/HSL)
+- Percentages ("15% of 200", "200 + 15%")
+- Base conversion ("255 in hex", "0xff in decimal")
+- Fun: coin flip, dice roll, UUID gen, date info, days-until
+- Utility: lorem ipsum, password generator, base64 encode/decode, timestamp
+- Timer/stopwatch commands ("timer 5m" → open Clock app)
 
-### 4. Feature Blitz Round 1 (commit `4941609`)
-- **Snake autoplay** — 🤖 Auto button, BFS pathfinding to food, avoids walls/self
-- **2048 autoplay** — 🤖 Auto button, greedy move evaluation (score gain + empty cells)
-- **Chess autoplay** — 🤖 Auto button, evaluates captures + center control, two AIs play each other
-- **Pixel Art** (new app) — 16×16 grid, 16 colors, pencil/eraser/flood fill, export PNG
-- **Messages markdown** — AI responses render **bold**, *italic*, `code`, ```blocks```, bullets
+### 4. Browser Overhaul — Real Web Browsing (commits `4e223a4`, `acc68c2`, `8adc538`, `9174320`)
+- **Server-side web proxy** (`/api/proxy?url=...`) — fetches pages server-side, strips X-Frame-Options/CSP, rewrites ALL URLs (src, href, action, srcset, url()), injects fetch/XHR interceptors
+- **YouTube URLs** auto-embed via youtube.com/embed (no proxy needed)
+- **Google search** auto-redirects to Astrion Search page
+- **Back/forward navigation** — history stack for web mode
+- **Bookmarks** — persist to localStorage, ☆/★ toggle in toolbar
+- **Tab bar** — shows current page title with domain-specific emoji favicons
+- **Open in Tab** button (↗) opens page in real browser
+- **Fix: initialUrl bug** — Spotlight/capability-providers now work with browser
 
-### 5. Feature Blitz Round 2 (commit `60f54a5`)
-- **Tetris** (new app) — all 7 tetrominoes, ghost piece, wall-kick rotation, levels, next preview
-- **Minesweeper** (new app) — 9×9, 10 mines, flood fill, first-click safe, timer, smiley
-- **Matrix Rain** (new app) — full-screen digital rain canvas with katakana + ASCII
-- **Neon Void** (new app) — Viraaj's space shooter embedded from GitHub Pages
+### 5. Search Page Overhaul (commit `34b6020`)
+- Wikipedia REST API + DuckDuckGo fetched in parallel
+- Wikipedia cards with article extract + thumbnail
+- 7 search engine shortcuts always visible at bottom
+- Modernized UI with rounded cards and hover states
 
-### 6. OS Polish Round 3 (commit `39cf397`)
-- **Window opacity** — Alt+Scroll on titlebar adjusts opacity 20%-100%
-- **Keyboard shortcuts overlay** — Ctrl+/ toggles frosted-glass cheatsheet
-- **Dock notification badges** — apps can emit dock:badge events, red pill badges appear
+### 6. QoL Features Batch
+- **Smart clipboard** — detects URLs, emails, colors, JSON, code, phone numbers with icons
+- **Text editor word count** — status bar shows words alongside chars
+- **Smart reply chips** — Messages shows quick-action suggestions after AI responses
+- **Selection info tooltip** — select text anywhere → floating word/char count
+- **Spotlight web search** — search option opens Astrion Search
+- **Spotlight keyboard nav** — ArrowDown/Up to cycle, Enter to activate, Esc to close
+- **Spotlight rotating tips** — placeholder shows smart answer examples
+- **Spotlight search history** — saved to localStorage
+- **Finder: file size + date** — shown under filenames
+- **Finder: Open in Terminal** — right-click context menu option
+- **Finder: Copy Path** — right-click context menu option
+- **Keyboard shortcuts**: Ctrl+Shift+P (PiP), Ctrl+Shift+T (pin), corner snap
+- **Menubar app names** — added 10 new apps to the name mapping
 
-### 7. Settings: System Config + Security (commit `d0c0f4d`)
-- **System Config export/import** — export all preferences as versioned JSON, import to restore
-- **Security & Privacy dashboard** — capability tier explainer (L0-L3), active safeguards list
-
-### 8. Paste + Window Layouts (commit `b06b03f`)
-- **Paste as plain text** — system-wide, strips HTML/RTF from contentEditable paste
-- **Window layout save/restore** — saveLayout()/restoreLayout()/getSavedLayouts() in window manager
+### 7. Bug Fixes (5 total)
+- widgets.js: store setInterval ID (timer leak fix)
+- activity-monitor.js: use isConnected + parentElement observer (cleanup fix)
+- boot.js: clear login clock interval after login (timer leak fix)
+- browser.js: replace deprecated DOMNodeRemoved with MutationObserver
+- clock.js: store world clock setTimeout, clear on close
 
 ---
 
-## App Count: 58 → 63 (5 new apps)
-New: Pixel Art, Tetris, Minesweeper, Matrix Rain, Neon Void
+## App Count: Still 63 (no new apps added — lesson learned)
+
+## Files Added
+- `js/lib/smart-answers.js` — offline instant answer engine
+- `js/shell/recent-apps.js` — recent app tracker
+- `js/shell/selection-info.js` — selection word count tooltip
 
 ## What's Left / Next Session
 
-### Phase 0 (Chat Foundation) — ALREADY BUILT
-Messages app already has full planner routing, inline step execution, compound query handling. No new work needed. Phase 0 can be marked complete after soak testing with real AI.
+### Browser Polish
+- Test proxy against more sites, fix edge cases
+- Consider WebSocket proxying for sites that use it
+- Add browser tabs (multiple pages in one window)
 
-### Phase 1 (Server File I/O Bridge) — Apr 28-May 11
-- Express endpoints: /api/files/read, /write, /list, /search (some already exist in server/index.js)
-- New capabilities: code.readFile (L0), code.writeFile (L2 with diff preview)
-- Demo: "Show me the first 20 lines of snake.js" → works
+### Phase 1 Remaining
+- Soak-test the "show me first 20 lines of snake.js" demo end-to-end with the planner
+- Phase 0 (Chat Foundation) soak test with real AI still pending
 
-### Phase 2 (Dual Brain / M3) — MOSTLY COMPLETE
-- Brain badges, feedback, reasoning trace shipped this session
-- Remaining: real-world soak test with Claude API key
-- Calibration tracker needs real S1 vs S2 data to be meaningful
+### More QoL Ideas
+- Drag-and-drop reorder in dock
+- Virtual folders (smart graph queries)
+- Per-app volume mixer
+- Notification snoozing
+- Dynamic/adaptive UI
 
-### Research-Inspired Features Still TODO
-From Viraaj's research dump (50 features from Reddit/Google):
-- Virtual folders (smart graph queries) — graph foundation exists, needs UI
-- Per-app volume mixer — needs volume-hud.js enhancement
+### Research-Inspired Features
+From Viraaj's research dump — still TODO:
+- Virtual folders (smart graph queries)
+- Per-app volume mixer
 - Notification snoozing by content/keyword
-- Dynamic/adaptive UI — context-aware interface changes
-- Semantic search improvements — graph already does this, needs NL → query translation
-
-### M2 Gaps (not blocking, but incomplete)
-- M2.P3 POSIX Compatibility Lens — not started
-- M2.P4 Finder → Graph — Finder still reads from IDB fileSystem, not graph
+- Semantic search improvements
 
 ---
 
-## Architecture Notes
+## Architecture Notes (unchanged from prior session)
 - All apps: processManager.register() in js/apps/*.js
 - Boot: import + register in TWO blocks in js/boot.js
 - Icons: assets/icons/{app-id}.svg must match app ID
@@ -100,3 +118,6 @@ From Viraaj's research dump (50 features from Reddit/Google):
 - AI events: ai:thinking, ai:response with {brain, confidence, provider, model, escalated, query}
 - Dock badges: eventBus.emit('dock:badge', { appId, count })
 - Layouts: windowManager.saveLayout('name'), restoreLayout('name')
+- NEW: windowManager.togglePin(id), toggleMini(id) for pin/PiP
+- NEW: /api/proxy?url=... for web browsing through server
+- NEW: getSmartAnswer(query) from js/lib/smart-answers.js
