@@ -21,6 +21,40 @@ import { getRecentApps } from './recent-apps.js';
 import { getSmartAnswer } from '../lib/smart-answers.js';
 
 let isOpen = false;
+// Search history — persisted to localStorage
+const SEARCH_HISTORY_KEY = 'nova-search-history';
+const MAX_SEARCH_HISTORY = 15;
+
+function getSearchHistory() {
+  try { return JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY)) || []; }
+  catch { return []; }
+}
+
+function addToSearchHistory(query) {
+  if (!query || query.length < 2) return;
+  let history = getSearchHistory();
+  history = history.filter(q => q !== query);
+  history.unshift(query);
+  if (history.length > MAX_SEARCH_HISTORY) history = history.slice(0, MAX_SEARCH_HISTORY);
+  try { localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history)); } catch {}
+}
+
+// Rotating tips — shown in the Spotlight placeholder
+const SPOTLIGHT_TIPS = [
+  'Try: "5 lbs in kg" for instant conversion',
+  'Try: "time in tokyo" for world clock',
+  'Try: "#ff6b6b" to preview a color',
+  'Try: "timer 5m" to set a timer',
+  'Try: "uuid" to generate a UUID',
+  'Try: "flip a coin" for a random choice',
+  'Try: "255 in hex" for base conversion',
+  'Try: "15% of 200" for quick math',
+  'Tip: Right-click titlebar to pin windows on top',
+  'Tip: Ctrl+Shift+P for mini mode (PiP)',
+  'Tip: Ctrl+Shift+V for clipboard history',
+  'Tip: Alt+Scroll on titlebar to change opacity',
+];
+
 // Agent Core Sprint: the id of the plan currently streaming in the panel,
 // so we can scope `plan:*` events and ignore stale ones after abort.
 let activePlanId = null;
@@ -413,6 +447,8 @@ export function initSpotlight() {
     // handleSubmit disables it, but if the plan ends in clarify/abort/fail
     // without hitting plan:completed, input stays disabled forever.
     input.disabled = false;
+    // Rotate tip in placeholder
+    input.placeholder = SPOTLIGHT_TIPS[Math.floor(Math.random() * SPOTLIGHT_TIPS.length)];
     // Show recent apps (if any), otherwise fall back to static suggestions
     const recents = getRecentApps();
     const allApps = processManager.getAllApps();
@@ -659,6 +695,9 @@ export function initSpotlight() {
   }
 
   async function handleSubmit(query) {
+    // Record search history
+    addToSearchHistory(query);
+
     // Agent Core Sprint — if the Spotlight is waiting on an L2+ preview
     // confirmation, Enter confirms the pending plan rather than submitting
     // a new one.
