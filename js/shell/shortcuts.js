@@ -81,6 +81,22 @@ export function initShortcuts() {
       }
     }
 
+    // Cmd+Shift+P — Toggle mini mode (PiP) for focused window
+    if (meta && e.shiftKey && (e.key === 'p' || e.key === 'P')) {
+      e.preventDefault();
+      if (windowManager.activeWindowId) {
+        windowManager.toggleMini(windowManager.activeWindowId);
+      }
+    }
+
+    // Cmd+Shift+T — Toggle pin-on-top for focused window
+    if (meta && e.shiftKey && (e.key === 't' || e.key === 'T') && !e.altKey) {
+      e.preventDefault();
+      if (windowManager.activeWindowId) {
+        windowManager.togglePin(windowManager.activeWindowId);
+      }
+    }
+
     // Cmd+Shift+Left — Snap window left half
     if (meta && e.shiftKey && e.key === 'ArrowLeft') {
       e.preventDefault();
@@ -102,6 +118,28 @@ export function initShortcuts() {
       e.preventDefault();
       if (windowManager.activeWindowId) {
         windowManager.maximize(windowManager.activeWindowId);
+      }
+    }
+
+    // Ctrl+Alt+Arrow — Snap to corners (quadrant layout)
+    if (e.ctrlKey && e.altKey && ['ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      if (e.shiftKey) {
+        // Ctrl+Alt+Shift+Left/Right → bottom corners
+        e.preventDefault();
+        const zone = e.key === 'ArrowLeft' ? 'bottom-left' : 'bottom-right';
+        if (windowManager.activeWindowId) {
+          const fakeX = zone.includes('left') ? 0 : window.innerWidth;
+          const fakeY = window.innerHeight - 50;
+          windowManager._handleSnap(fakeX, fakeY, windowManager.activeWindowId);
+        }
+      } else if (meta) {
+        // Ctrl+Cmd+Left/Right → top corners
+        e.preventDefault();
+        const fakeX = e.key === 'ArrowLeft' ? 0 : window.innerWidth;
+        const fakeY = 30;
+        if (windowManager.activeWindowId) {
+          windowManager._handleSnap(fakeX, fakeY, windowManager.activeWindowId);
+        }
       }
     }
 
