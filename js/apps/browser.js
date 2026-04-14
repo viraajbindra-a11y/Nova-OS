@@ -144,6 +144,13 @@ function initBrowser(container, instanceId, options = {}) {
   }
 
   function navigate(url) {
+    // Clean up proxy URLs — extract the real URL if someone passed a proxy link
+    if (url.includes('/api/proxy?url=')) {
+      try { url = decodeURIComponent(url.split('/api/proxy?url=')[1]); } catch {}
+    }
+    if (url.includes('api.allorigins.win/raw?url=')) {
+      try { url = decodeURIComponent(url.split('api.allorigins.win/raw?url=')[1]); } catch {}
+    }
     currentUrl = url;
     urlInput.value = url;
     loadingBar.style.width = '50%';
@@ -172,63 +179,70 @@ function initBrowser(container, instanceId, options = {}) {
       const old = viewport.querySelector('.browser-home, .browser-error, iframe');
       if (old) old.remove();
 
-      // Detect: running on ISO (has server) or web (GitHub Pages)?
+      // Detect: running with Express server (localhost:3000 / ISO)?
       const hasServer = window.location.port === '3000' || window.__NOVA_NATIVE__;
 
-      if (hasServer) {
-        // ISO: try native browser, fall back to proxy
-        fetch('/api/browser/open', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url }),
-        }).then(r => r.json()).then(data => {
-          if (data.ok) {
-            loadingBar.style.width = '100%';
-            setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
-          }
-        }).catch(() => {});
-      } else {
-        // Web version: try iframe first, show "open externally" if blocked
-        const iframe = document.createElement('iframe');
-        iframe.className = 'browser-iframe';
-        iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox');
+      // For local pages (search.html, etc.), load directly without proxy
+      const isLocalPage = !url.startsWith('http://') && !url.startsWith('https://');
+
+      const iframe = document.createElement('iframe');
+      iframe.className = 'browser-iframe';
+      iframe.style.cssText = 'width:100%;height:100%;border:none;background:white;';
+
+      if (isLocalPage) {
+        // Local Astrion page — load directly
         iframe.src = url;
-        iframe.style.cssText = 'width:100%;height:100%;border:none;';
-        iframe.onload = () => {
-          loadingBar.style.width = '100%';
-          setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
-        };
-        viewport.appendChild(iframe);
-
-        // Intercept link clicks inside iframe to navigate in-app
-        iframe.addEventListener('load', () => {
-          try {
-            const doc = iframe.contentDocument;
-            if (doc) {
-              doc.addEventListener('click', (e) => {
-                const a = e.target.closest('a');
-                if (a && a.href && !a.href.startsWith('javascript:')) {
-                  e.preventDefault();
-                  navigate(a.href);
-                }
-              }, true);
-            }
-          } catch {}
-        });
-
-        // If blocked, show open externally after 3s
-        setTimeout(() => {
-          try {
-            const doc = iframe.contentDocument;
-            if (!doc || !doc.body || doc.body.innerHTML === '') {
-              showBlockedPage(url);
-            }
-          } catch {
-            showBlockedPage(url);
-          }
-        }, 3000);
+      } else if (hasServer) {
+        // Route through our server proxy — strips X-Frame-Options/CSP
+        iframe.src = `/api/proxy?url=${encodeURIComponent(url)}`;
+      } else {
+        // GitHub Pages fallback — use allorigins.win as public CORS proxy
+        iframe.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
       }
 
+      iframe.onload = () => {
+        loadingBar.style.width = '100%';
+        setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
+
+        // Try to intercept link clicks inside proxied pages
+        try {
+          const doc = iframe.contentDocument;
+          if (doc) {
+            doc.addEventListener('click', (e) => {
+              const a = e.target.closest('a');
+              if (a && a.href) {
+                const href = a.href;
+                // If the link goes through our proxy, extract the real URL
+                if (href.includes('/api/proxy?url=')) {
+                  e.preventDefault();
+                  const realUrl = decodeURIComponent(href.split('/api/proxy?url=')[1]);
+                  navigate(realUrl);
+                } else if (href.startsWith('http') && !href.startsWith('javascript:')) {
+                  e.preventDefault();
+                  navigate(href);
+                }
+              }
+            }, true);
+          }
+        } catch {
+          // Cross-origin — proxy links already rewritten server-side
+        }
+      };
+
+      iframe.onerror = () => showBlockedPage(url);
+      viewport.appendChild(iframe);
+
+      // Timeout fallback — if nothing loaded after 10s, show error
+      setTimeout(() => {
+        try {
+          const doc = iframe.contentDocument;
+          if (!doc || !doc.body || doc.body.innerHTML === '') {
+            showBlockedPage(url);
+          }
+        } catch {
+          // Cross-origin frame from proxy — this is fine, page loaded
+        }
+      }, 10000);
     }
   }
 

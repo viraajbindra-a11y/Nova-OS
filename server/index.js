@@ -389,6 +389,113 @@ app.get('/api/files/search', async (req, res) => {
   }
 });
 
+// ─── Web Proxy (makes the in-app browser actually work) ───
+// Fetches any URL server-side and serves it back with iframe-blocking
+// headers stripped. This lets the Browser app load real websites inside
+// Astrion. Without this, most sites refuse to render in an iframe due
+// to X-Frame-Options / Content-Security-Policy: frame-ancestors.
+//
+// Security: only available on localhost. Rewrites relative URLs so
+// links, images, and scripts resolve correctly through the proxy.
+
+app.get('/api/proxy', async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) return res.status(400).json({ error: 'Missing url parameter' });
+
+  // Basic URL validation
+  let parsed;
+  try { parsed = new URL(targetUrl); } catch { return res.status(400).json({ error: 'Invalid URL' }); }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    return res.status(400).json({ error: 'Only http/https URLs allowed' });
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
+    const response = await fetch(targetUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      redirect: 'follow',
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    const contentType = response.headers.get('content-type') || '';
+
+    // For non-HTML content (images, CSS, JS, fonts), pipe through directly
+    if (!contentType.includes('text/html')) {
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      const buffer = Buffer.from(await response.arrayBuffer());
+      return res.send(buffer);
+    }
+
+    // For HTML: read body, rewrite URLs, strip blocking headers
+    let html = await response.text();
+    const baseUrl = response.url || targetUrl; // follow redirects
+    const origin = new URL(baseUrl).origin;
+
+    // Inject a <base> tag so relative URLs resolve against the original site
+    if (!/<base\s/i.test(html)) {
+      html = html.replace(/<head([^>]*)>/i, `<head$1><base href="${baseUrl}">`);
+    }
+
+    // Rewrite links to go through the proxy (so clicking works)
+    // Only rewrite anchor hrefs to proxy — leave other resources to <base>
+    html = html.replace(
+      /(<a\s[^>]*href\s*=\s*["'])(?!javascript:|mailto:|tel:|#|data:)([^"']+)(["'])/gi,
+      (match, prefix, url, suffix) => {
+        try {
+          const absolute = new URL(url, baseUrl).href;
+          return `${prefix}/api/proxy?url=${encodeURIComponent(absolute)}${suffix}`;
+        } catch { return match; }
+      }
+    );
+
+    // Rewrite form actions to go through proxy
+    html = html.replace(
+      /(<form\s[^>]*action\s*=\s*["'])([^"']+)(["'])/gi,
+      (match, prefix, url, suffix) => {
+        try {
+          const absolute = new URL(url, baseUrl).href;
+          return `${prefix}/api/proxy?url=${encodeURIComponent(absolute)}${suffix}`;
+        } catch { return match; }
+      }
+    );
+
+    // Inject a small script to intercept navigation
+    const navScript = `<script>
+      // Intercept clicks on dynamically added links
+      document.addEventListener('click', function(e) {
+        var a = e.target.closest('a');
+        if (a && a.href && !a.href.startsWith('javascript:') && !a.href.includes('/api/proxy')) {
+          // Check if it's an external link that needs proxying
+          if (a.href.startsWith('http') && !a.href.startsWith(window.location.origin)) {
+            e.preventDefault();
+            window.location.href = '/api/proxy?url=' + encodeURIComponent(a.href);
+          }
+        }
+      }, true);
+    </script>`;
+    html = html.replace('</body>', navScript + '</body>');
+
+    // Serve with permissive headers
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    // Explicitly do NOT set X-Frame-Options or CSP — that's the point
+    res.send(html);
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      return res.status(504).json({ error: 'Request timed out (15s)' });
+    }
+    res.status(502).json({ error: `Proxy fetch failed: ${err.message}` });
+  }
+});
+
 // ─── System Overlay (brings JS features to native shell) ───
 // This page runs in a hidden WebKitGTK window and provides:
 // screensaver, widgets, emoji picker, clipboard, night shift, etc.
