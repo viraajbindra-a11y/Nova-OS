@@ -321,6 +321,48 @@ function tryFun(query) {
     }
   }
 
+  // Lorem ipsum
+  if (q === 'lorem ipsum' || q === 'lorem' || q === 'placeholder text') {
+    const text = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.';
+    return { icon: '📝', title: text.slice(0, 60) + '...', subtitle: 'Placeholder text · Click to copy', copyValue: text };
+  }
+
+  // Password generator
+  if (q === 'generate password' || q === 'password' || q === 'random password') {
+    const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*';
+    let pwd = '';
+    for (let i = 0; i < 16; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+    return { icon: '🔐', title: pwd, subtitle: 'Random 16-char password · Click to copy', copyValue: pwd };
+  }
+
+  // IP address (just shows what the browser knows)
+  if (q === 'my ip' || q === 'ip address' || q === 'what is my ip') {
+    return { icon: '🌐', title: 'Check your IP', subtitle: 'Open browser to whatismyip.com', action: 'web-search', query: 'what is my ip' };
+  }
+
+  // Encode/decode
+  // Decode must come before encode (both match "base64 decode X")
+  const decodeMatch = q.match(/^(?:base64|b64)\s+decode\s+(.+)/i);
+  if (decodeMatch) {
+    try {
+      const decoded = atob(decodeMatch[1].trim());
+      return { icon: '🔓', title: decoded, subtitle: 'Base64 decoded · Click to copy', copyValue: decoded };
+    } catch { /* invalid base64 */ }
+  }
+  const encodeMatch = q.match(/^(?:base64|b64)\s+encode\s+(.+)/i);
+  if (encodeMatch) {
+    try {
+      const encoded = btoa(encodeMatch[1]);
+      return { icon: '🔒', title: encoded, subtitle: 'Base64 encoded · Click to copy', copyValue: encoded };
+    } catch { /* invalid chars */ }
+  }
+
+  // Timestamp
+  if (q === 'timestamp' || q === 'unix timestamp' || q === 'epoch') {
+    const ts = Math.floor(Date.now() / 1000);
+    return { icon: '⏱️', title: `${ts}`, subtitle: 'Current Unix timestamp · Click to copy', copyValue: String(ts) };
+  }
+
   return null;
 }
 

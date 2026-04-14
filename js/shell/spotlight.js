@@ -622,13 +622,25 @@ export function initSpotlight() {
       html += `</div>`;
     }
 
+    // Web search option — always works, no AI needed
+    html += `<div class="spotlight-result-group">
+      <div class="spotlight-result-label">Web</div>
+      <div class="spotlight-result-item" data-action="web-search" data-query="${escapeHtml(query)}">
+        <div class="spotlight-result-icon" style="font-size:18px;">🌐</div>
+        <div class="spotlight-result-text">
+          <div class="spotlight-result-title">Search: "${escapeHtml(query.substring(0, 50))}"</div>
+          <div class="spotlight-result-subtitle">Open in Browser</div>
+        </div>
+      </div>
+    </div>`;
+
     // Always show AI option
     html += `<div class="spotlight-result-group">
       <div class="spotlight-result-label">Astrion AI</div>
       <div class="spotlight-result-item" data-action="ask-ai">
-        <div class="spotlight-result-icon" style="background:linear-gradient(135deg,#007aff,#5856d6);border-radius:50%;color:white;font-size:14px;font-weight:bold;">N</div>
+        <div class="spotlight-result-icon" style="background:linear-gradient(135deg,#007aff,#5856d6);border-radius:50%;color:white;font-size:14px;font-weight:bold;">A</div>
         <div class="spotlight-result-text">
-          <div class="spotlight-result-title">Ask Astrion: "${query.substring(0, 50)}"</div>
+          <div class="spotlight-result-title">Ask Astrion: "${escapeHtml(query.substring(0, 50))}"</div>
           <div class="spotlight-result-subtitle">Press Enter to ask AI</div>
         </div>
       </div>
@@ -884,6 +896,10 @@ export function initSpotlight() {
       } else if (nodeType === 'reminder') {
         processManager.launch('reminders', { openNodeId: nodeId });
       }
+      close();
+    } else if (action === 'web-search') {
+      const q = item.dataset.query;
+      if (q) processManager.launch('browser', { initialUrl: `https://www.google.com/search?q=${encodeURIComponent(q)}` });
       close();
     } else if (action === 'copy') {
       const text = item.dataset.copy;
