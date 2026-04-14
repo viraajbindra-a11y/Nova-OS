@@ -402,11 +402,6 @@ function tryFun(query) {
     return { icon: '🔐', title: pwd, subtitle: 'Random 16-char password · Click to copy', copyValue: pwd };
   }
 
-  // IP address (just shows what the browser knows)
-  if (q === 'my ip' || q === 'ip address' || q === 'what is my ip') {
-    return { icon: '🌐', title: 'Check your IP', subtitle: 'Open browser to whatismyip.com', action: 'web-search', query: 'what is my ip' };
-  }
-
   // Encode/decode
   // Decode must come before encode (both match "base64 decode X")
   const decodeMatch = q.match(/^(?:base64|b64)\s+decode\s+(.+)/i);
@@ -422,6 +417,36 @@ function tryFun(query) {
       const encoded = btoa(encodeMatch[1]);
       return { icon: '🔒', title: encoded, subtitle: 'Base64 encoded · Click to copy', copyValue: encoded };
     } catch { /* invalid chars */ }
+  }
+
+  // IP info (shows local info)
+  if (q === 'my ip' || q === 'ip address' || q === 'what is my ip') {
+    return { icon: '🌐', title: 'Check your IP', subtitle: 'Search "what is my ip" to find out', action: 'launch', appId: 'browser' };
+  }
+
+  // ASCII / char code — "ascii A" or "charcode 65"
+  // Use original query for case-sensitive character lookup
+  const asciiMatch = query.match(/^(?:ascii|charcode|char)\s+(.+)/i);
+  if (asciiMatch) {
+    const input = asciiMatch[1].trim();
+    if (/^\d+$/.test(input)) {
+      const code = parseInt(input);
+      if (code >= 0 && code <= 127) {
+        const char = code === 32 ? '(space)' : code < 32 ? '(control)' : String.fromCharCode(code);
+        return { icon: '🔤', title: `${char}`, subtitle: `ASCII ${code} = "${char}"`, copyValue: String.fromCharCode(code) };
+      }
+    } else if (input.length === 1) {
+      return { icon: '🔤', title: `${input.charCodeAt(0)}`, subtitle: `"${input}" = ASCII ${input.charCodeAt(0)}`, copyValue: String(input.charCodeAt(0)) };
+    }
+  }
+
+  // Word count — "count words in <text>"
+  const wordCountMatch = q.match(/^(?:count|how many)\s+(?:words?|chars?|characters?)\s+(?:in\s+)?(.+)/i);
+  if (wordCountMatch) {
+    const text = wordCountMatch[1];
+    const words = text.trim().split(/\s+/).length;
+    const chars = text.length;
+    return { icon: '📊', title: `${words} words, ${chars} chars`, subtitle: `"${text.slice(0, 40)}${text.length > 40 ? '...' : ''}"` };
   }
 
   // Timestamp
