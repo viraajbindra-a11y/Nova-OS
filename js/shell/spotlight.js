@@ -424,12 +424,54 @@ export function initSpotlight() {
     debounceTimer = setTimeout(() => handleQuery(query), 200);
   });
 
+  let selectedResultIdx = -1;
+
+  function getResultItems() {
+    return [...results.querySelectorAll('.spotlight-result-item')];
+  }
+
+  function highlightResult(idx) {
+    const items = getResultItems();
+    items.forEach((el, i) => {
+      el.style.background = i === idx ? 'rgba(255,255,255,0.08)' : '';
+    });
+    selectedResultIdx = idx;
+    if (items[idx]) items[idx].scrollIntoView({ block: 'nearest' });
+  }
+
   input.addEventListener('keydown', (e) => {
+    const items = getResultItems();
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const next = selectedResultIdx < items.length - 1 ? selectedResultIdx + 1 : 0;
+      highlightResult(next);
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prev = selectedResultIdx > 0 ? selectedResultIdx - 1 : items.length - 1;
+      highlightResult(prev);
+      return;
+    }
     if (e.key === 'Enter') {
       e.preventDefault();
+      // If a result is selected, click it
+      if (selectedResultIdx >= 0 && items[selectedResultIdx]) {
+        handleResultClick(items[selectedResultIdx], input.value.trim());
+        return;
+      }
       const query = input.value.trim();
       if (query) handleSubmit(query);
+      return;
     }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
+      return;
+    }
+    // Reset selection when typing
+    selectedResultIdx = -1;
   });
 
   function toggle() {
