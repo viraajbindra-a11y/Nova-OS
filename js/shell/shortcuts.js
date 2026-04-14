@@ -167,6 +167,18 @@ export function initShortcuts() {
       cascadeWindows();
     }
 
+    // Ctrl+Shift+D — Toggle dock visibility
+    if (meta && e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+      e.preventDefault();
+      const dock = document.getElementById('dock');
+      if (dock) {
+        const isHidden = dock.style.transform === 'translateY(100%)';
+        dock.style.transition = 'transform 0.3s cubic-bezier(0.16,1,0.3,1)';
+        dock.style.transform = isHidden ? '' : 'translateY(100%)';
+        setTimeout(() => { dock.style.transition = ''; }, 350);
+      }
+    }
+
     // === Screenshots ===
     // Cmd+Shift+3 — Screenshot (full desktop)
     if (meta && e.shiftKey && e.key === '3') {

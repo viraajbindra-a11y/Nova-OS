@@ -15,6 +15,7 @@ const SHORTCUTS = [
   { keys: 'Ctrl + Shift + T', action: 'Toggle pin on top' },
   { keys: 'Ctrl + Shift + G', action: 'Grid tile all windows' },
   { keys: 'Ctrl + Shift + C', action: 'Cascade all windows' },
+  { keys: 'Ctrl + Shift + D', action: 'Toggle dock visibility' },
   { keys: 'Escape', action: 'Close current dialog / Spotlight' },
   { keys: 'F4', action: 'Open App Grid (Launchpad)' },
   { keys: 'Arrow Keys', action: 'Navigate files / games' },
