@@ -60,6 +60,9 @@ async function initFinder(container, instanceId, startPath) {
           <button class="finder-nav-btn" id="finder-forward-${instanceId}" aria-label="Forward" disabled>\u25B6</button>
           <span class="finder-path" id="finder-path-${instanceId}">${currentPath}</span>
           <div class="finder-toolbar-right">
+            <button class="finder-action-btn" id="finder-newfile-${instanceId}" title="New File" style="background:none;border:none;color:var(--text-secondary);font-size:14px;cursor:pointer;padding:4px 6px;border-radius:4px;">📄+</button>
+            <button class="finder-action-btn" id="finder-newfolder-${instanceId}" title="New Folder" style="background:none;border:none;color:var(--text-secondary);font-size:14px;cursor:pointer;padding:4px 6px;border-radius:4px;">📁+</button>
+            <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px;"></div>
             <button class="finder-view-btn" id="finder-grid-${instanceId}" aria-label="Grid view" title="Grid view" style="opacity:1">&#9638;</button>
             <button class="finder-view-btn" id="finder-list-${instanceId}" aria-label="List view" title="List view" style="opacity:0.4">&#9776;</button>
             <input type="text" class="finder-search" id="finder-search-${instanceId}" placeholder="Search..." aria-label="Search files">
@@ -97,6 +100,22 @@ async function initFinder(container, instanceId, startPath) {
     filesContainer.classList.add('list-view');
     gridBtn.style.opacity = '0.4';
     listBtn.style.opacity = '1';
+  });
+
+  // New File / New Folder buttons
+  container.querySelector(`#finder-newfile-${instanceId}`).addEventListener('click', async () => {
+    const name = prompt('New file name:', 'untitled.txt');
+    if (name) {
+      await fileSystem.writeFile(currentPath + '/' + name, '');
+      loadFiles();
+    }
+  });
+  container.querySelector(`#finder-newfolder-${instanceId}`).addEventListener('click', async () => {
+    const name = prompt('New folder name:', 'New Folder');
+    if (name) {
+      await fileSystem.createDir(currentPath + '/' + name);
+      loadFiles();
+    }
   });
 
   // Sidebar navigation
