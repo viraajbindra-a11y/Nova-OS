@@ -13,6 +13,8 @@ const SHORTCUTS = [
   { keys: 'Right-click titlebar', action: 'Pin on top, mini mode, close' },
   { keys: 'Ctrl + Shift + P', action: 'Toggle mini mode (PiP)' },
   { keys: 'Ctrl + Shift + T', action: 'Toggle pin on top' },
+  { keys: 'Ctrl + Shift + G', action: 'Grid tile all windows' },
+  { keys: 'Ctrl + Shift + C', action: 'Cascade all windows' },
   { keys: 'Escape', action: 'Close current dialog / Spotlight' },
   { keys: 'F4', action: 'Open App Grid (Launchpad)' },
   { keys: 'Arrow Keys', action: 'Navigate files / games' },

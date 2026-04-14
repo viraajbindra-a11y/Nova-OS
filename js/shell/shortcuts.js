@@ -155,6 +155,18 @@ export function initShortcuts() {
       cycleWindows();
     }
 
+    // Ctrl+Shift+G — Grid tile all open windows
+    if (meta && e.shiftKey && (e.key === 'g' || e.key === 'G')) {
+      e.preventDefault();
+      tileWindows();
+    }
+
+    // Ctrl+Shift+C — Cascade windows
+    if (meta && e.shiftKey && (e.key === 'c' || e.key === 'C') && !e.altKey) {
+      e.preventDefault();
+      cascadeWindows();
+    }
+
     // === Screenshots ===
     // Cmd+Shift+3 — Screenshot (full desktop)
     if (meta && e.shiftKey && e.key === '3') {
@@ -211,6 +223,82 @@ function snapWindow(windowId, side) {
     winEl.style.width = (sw / 2) + 'px';
     winEl.style.height = sh + 'px';
   }
+}
+
+/**
+ * Tile all open (non-minimized) windows in a grid layout.
+ * 1 window = maximize. 2 = side-by-side. 3+ = grid.
+ */
+function tileWindows() {
+  const windows = Array.from(windowManager.windows.entries())
+    .filter(([id, s]) => !s.minimized);
+  if (windows.length === 0) return;
+
+  const menuH = 28;
+  const dockH = 78;
+  const sw = window.innerWidth;
+  const sh = window.innerHeight - menuH - dockH;
+  const gap = 4;
+
+  if (windows.length === 1) {
+    // Just maximize
+    windowManager.maximize(windows[0][0]);
+    return;
+  }
+
+  // Calculate grid dimensions
+  const cols = Math.ceil(Math.sqrt(windows.length));
+  const rows = Math.ceil(windows.length / cols);
+  const cellW = Math.floor((sw - gap * (cols + 1)) / cols);
+  const cellH = Math.floor((sh - gap * (rows + 1)) / rows);
+
+  windows.forEach(([id, state], i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const x = gap + col * (cellW + gap);
+    const y = menuH + gap + row * (cellH + gap);
+
+    state.el.style.transition = 'all 0.25s cubic-bezier(0.16,1,0.3,1)';
+    Object.assign(state.el.style, {
+      left: x + 'px',
+      top: y + 'px',
+      width: cellW + 'px',
+      height: cellH + 'px',
+    });
+    setTimeout(() => { state.el.style.transition = ''; }, 300);
+
+    // Undo maximized state if set
+    if (state.maximized) state.maximized = false;
+  });
+}
+
+/**
+ * Cascade all open windows diagonally from top-left.
+ */
+function cascadeWindows() {
+  const windows = Array.from(windowManager.windows.entries())
+    .filter(([id, s]) => !s.minimized);
+  if (windows.length === 0) return;
+
+  const menuH = 28;
+  const offset = 30;
+  const baseW = Math.min(700, window.innerWidth - 200);
+  const baseH = Math.min(480, window.innerHeight - 200);
+
+  windows.forEach(([id, state], i) => {
+    const x = 40 + i * offset;
+    const y = menuH + 20 + i * offset;
+    state.el.style.transition = 'all 0.25s cubic-bezier(0.16,1,0.3,1)';
+    Object.assign(state.el.style, {
+      left: x + 'px', top: y + 'px',
+      width: baseW + 'px', height: baseH + 'px',
+    });
+    state.el.style.zIndex = 100 + i;
+    setTimeout(() => { state.el.style.transition = ''; }, 300);
+    if (state.maximized) state.maximized = false;
+  });
+  // Focus the last (topmost) window
+  if (windows.length > 0) windowManager.focus(windows[windows.length - 1][0]);
 }
 
 function cycleWindows() {
