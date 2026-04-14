@@ -155,7 +155,31 @@ async function initFinder(container, instanceId, startPath) {
     selectedIndices = new Set();
     cursorIndex = -1;
     renderFiles(files);
-    pathEl.textContent = currentPath;
+    // Render clickable breadcrumb path
+    const parts = currentPath.split('/').filter(Boolean);
+    pathEl.innerHTML = '';
+    // Root link
+    const rootLink = document.createElement('span');
+    rootLink.textContent = '/';
+    rootLink.style.cssText = 'cursor:pointer; padding:2px 4px; border-radius:4px; color:var(--text-secondary);';
+    rootLink.addEventListener('click', () => navigateTo('/'));
+    rootLink.addEventListener('mouseenter', () => rootLink.style.background = 'rgba(255,255,255,0.08)');
+    rootLink.addEventListener('mouseleave', () => rootLink.style.background = '');
+    pathEl.appendChild(rootLink);
+    parts.forEach((part, i) => {
+      const sep = document.createElement('span');
+      sep.textContent = ' / ';
+      sep.style.cssText = 'color:rgba(255,255,255,0.3); font-size:11px;';
+      pathEl.appendChild(sep);
+      const link = document.createElement('span');
+      link.textContent = part;
+      link.style.cssText = 'cursor:pointer; padding:2px 4px; border-radius:4px;';
+      const targetPath = '/' + parts.slice(0, i + 1).join('/');
+      link.addEventListener('click', () => navigateTo(targetPath));
+      link.addEventListener('mouseenter', () => link.style.background = 'rgba(255,255,255,0.08)');
+      link.addEventListener('mouseleave', () => link.style.background = '');
+      pathEl.appendChild(link);
+    });
     statusEl.textContent = `${files.length} item${files.length !== 1 ? 's' : ''}`;
     backBtn.disabled = historyIndex <= 0;
     forwardBtn.disabled = historyIndex >= history.length - 1;
