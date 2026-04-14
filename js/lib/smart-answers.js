@@ -449,6 +449,20 @@ function tryFun(query) {
     return { icon: '📊', title: `${words} words, ${chars} chars`, subtitle: `"${text.slice(0, 40)}${text.length > 40 ? '...' : ''}"` };
   }
 
+  // Define — open dictionary app
+  const defineMatch = q.match(/^(?:define|definition|meaning of|what does .+ mean)\s+(.+)/);
+  if (defineMatch) {
+    const word = defineMatch[1].trim();
+    return { icon: '📖', title: `Define: ${word}`, subtitle: 'Open Dictionary app', action: 'launch', appId: 'dictionary' };
+  }
+  if (q.match(/^what (?:is|are) (.+)\??$/i)) {
+    // This could be a definition request — but only for short single-word queries
+    const match = q.match(/^what (?:is|are) (.+)\??$/i);
+    if (match && match[1].split(/\s+/).length <= 2 && !/\d/.test(match[1])) {
+      return { icon: '📖', title: `Define: ${match[1]}`, subtitle: 'Open Dictionary app', action: 'launch', appId: 'dictionary' };
+    }
+  }
+
   // Timestamp
   if (q === 'timestamp' || q === 'unix timestamp' || q === 'epoch') {
     const ts = Math.floor(Date.now() / 1000);
