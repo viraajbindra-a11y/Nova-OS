@@ -111,6 +111,10 @@ import { registerTetris } from './apps/tetris.js';
 import { registerMinesweeper } from './apps/minesweeper.js';
 import { registerMatrixRain } from './apps/matrix-rain.js';
 import { registerNeonVoid } from './apps/neon-void.js';
+import { registerSudoku } from './apps/sudoku.js';
+import { registerSpeedTest } from './apps/speed-test.js';
+import { registerRecipeBook } from './apps/recipe-book.js';
+import { registerEmojiKitchen } from './apps/emoji-kitchen.js';
 import { verifyPassword } from './kernel/crypto.js';
 import { sounds } from './kernel/sound.js';
 import { initVolumeHud } from './shell/volume-hud.js';
@@ -154,6 +158,10 @@ import { initVolumeHud } from './shell/volume-hud.js';
     registerAnimate();
     registerVideoEditor();
     registerAiArt();
+    registerSudoku();
+    registerSpeedTest();
+    registerRecipeBook();
+    registerEmojiKitchen();
 
     windowManager.init();
 
@@ -252,6 +260,10 @@ import { initVolumeHud } from './shell/volume-hud.js';
   registerAnimate();
   registerVideoEditor();
   registerAiArt();
+  registerSudoku();
+  registerSpeedTest();
+  registerRecipeBook();
+  registerEmojiKitchen();
   await animate(progressBar, 85, 200);
 
   // Init kernel
