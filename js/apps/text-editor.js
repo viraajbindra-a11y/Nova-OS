@@ -334,6 +334,29 @@ async function initTextEditor(container, instanceId, options = {}) {
       saveFile();
     }
 
+    // Ctrl+Shift+K — delete current line (VS Code style)
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'K') {
+      e.preventDefault();
+      const val = textarea.value;
+      const lineStart = val.lastIndexOf('\n', textarea.selectionStart - 1) + 1;
+      let lineEnd = val.indexOf('\n', textarea.selectionStart);
+      if (lineEnd === -1) lineEnd = val.length;
+      else lineEnd++; // include the newline
+      textarea.value = val.substring(0, lineStart) + val.substring(lineEnd);
+      textarea.selectionStart = textarea.selectionEnd = lineStart;
+      textarea.dispatchEvent(new Event('input'));
+    }
+
+    // Ctrl+L — select current line
+    if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
+      e.preventDefault();
+      const val = textarea.value;
+      const lineStart = val.lastIndexOf('\n', textarea.selectionStart - 1) + 1;
+      let lineEnd = val.indexOf('\n', textarea.selectionStart);
+      if (lineEnd === -1) lineEnd = val.length;
+      textarea.setSelectionRange(lineStart, lineEnd);
+    }
+
     // Cmd+D to duplicate line
     if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
       e.preventDefault();
