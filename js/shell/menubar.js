@@ -96,7 +96,9 @@ export function initMenubar() {
       sudoku: 'Sudoku', 'speed-test': 'Speed Test',
       'recipe-book': 'Recipe Book', 'emoji-kitchen': 'Emoji Kitchen',
       animate: 'Animate Studio', 'video-editor': 'Video Editor',
-      'ai-art': 'AI Art Generator',
+      'ai-art': 'AI Art Generator', wordle: 'Wordle',
+      meditation: 'Meditation', soundboard: 'Soundboard',
+      countdown: 'Countdown',
     };
     document.getElementById('menubar-app-name').textContent = appNames[app] || title || 'Finder';
   });

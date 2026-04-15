@@ -115,6 +115,10 @@ import { registerSudoku } from './apps/sudoku.js';
 import { registerSpeedTest } from './apps/speed-test.js';
 import { registerRecipeBook } from './apps/recipe-book.js';
 import { registerEmojiKitchen } from './apps/emoji-kitchen.js';
+import { registerWordle } from './apps/wordle.js';
+import { registerMeditation } from './apps/meditation.js';
+import { registerSoundboard } from './apps/soundboard.js';
+import { registerCountdown } from './apps/countdown.js';
 import { verifyPassword } from './kernel/crypto.js';
 import { sounds } from './kernel/sound.js';
 import { initVolumeHud } from './shell/volume-hud.js';
@@ -162,6 +166,10 @@ import { initVolumeHud } from './shell/volume-hud.js';
     registerSpeedTest();
     registerRecipeBook();
     registerEmojiKitchen();
+    registerWordle();
+    registerMeditation();
+    registerSoundboard();
+    registerCountdown();
 
     windowManager.init();
 
@@ -264,6 +272,10 @@ import { initVolumeHud } from './shell/volume-hud.js';
   registerSpeedTest();
   registerRecipeBook();
   registerEmojiKitchen();
+  registerWordle();
+  registerMeditation();
+  registerSoundboard();
+  registerCountdown();
   await animate(progressBar, 85, 200);
 
   // Init kernel

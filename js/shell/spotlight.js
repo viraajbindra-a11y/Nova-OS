@@ -633,6 +633,11 @@ export function initSpotlight() {
       pwd: 'password-gen', pw: 'password-gen', md: 'markdown', yt: 'youtube',
       todo: 'todo', note: 'notes', remind: 'reminders', cal: 'calendar',
       clk: 'clock', time: 'clock', weather: 'weather', set: 'settings',
+      puzzle: 'sudoku', game: 'snake', recipe: 'recipe-book', cook: 'recipe-book',
+      food: 'recipe-book', emoji: 'emoji-kitchen', mix: 'emoji-kitchen',
+      speed: 'speed-test', wifi: 'speed-test', zen: 'meditation',
+      breathe: 'meditation', relax: 'meditation', sfx: 'soundboard',
+      sound: 'soundboard', timer: 'timer', event: 'countdown',
     };
     const aliasMatch = APP_ALIASES[lower];
     const apps = processManager.getAllApps();

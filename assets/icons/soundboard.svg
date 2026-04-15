@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs>
+    <linearGradient id="sbg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ea580c"/>
+      <stop offset="100%" style="stop-color:#dc2626"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#sbg)"/>
+  <g transform="translate(22,22)">
+    <rect x="0" y="0" width="34" height="34" rx="8" fill="rgba(255,255,255,0.15)"/>
+    <rect x="42" y="0" width="34" height="34" rx="8" fill="rgba(255,255,255,0.15)"/>
+    <rect x="0" y="42" width="34" height="34" rx="8" fill="rgba(255,255,255,0.15)"/>
+    <rect x="42" y="42" width="34" height="34" rx="8" fill="rgba(255,255,255,0.2)"/>
+  </g>
+  <text x="39" y="52" font-size="18" text-anchor="middle">🔔</text>
+  <text x="81" y="52" font-size="18" text-anchor="middle">⚡</text>
+  <text x="39" y="94" font-size="18" text-anchor="middle">🥁</text>
+  <text x="81" y="94" font-size="18" text-anchor="middle">🔊</text>
+</svg>
