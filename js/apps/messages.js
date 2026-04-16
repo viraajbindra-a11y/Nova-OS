@@ -213,8 +213,9 @@ function initMessages(container) {
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
     sendBtn.addEventListener('click', send);
 
-    container.querySelector('#msg-new').addEventListener('click', () => {
-      const name = prompt('Contact name:');
+    container.querySelector('#msg-new').addEventListener('click', async () => {
+      const { showPrompt } = await import('../lib/dialog.js');
+      const name = await showPrompt('Contact name:', '');
       if (!name) return;
       const id = 'contact-' + Date.now();
       conversations.push({ id, name, avatar: name[0]?.toUpperCase() || '?', messages: [], isAI: false });

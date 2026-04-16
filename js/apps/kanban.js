@@ -82,8 +82,9 @@ function initKanban(container) {
     `;
 
     // Add column
-    container.querySelector('#kb-add-col').addEventListener('click', () => {
-      const title = prompt('Column name:');
+    container.querySelector('#kb-add-col').addEventListener('click', async () => {
+      const { showPrompt } = await import('../lib/dialog.js');
+      const title = await showPrompt('Column name:', 'New Column');
       if (!title) return;
       board.columns.push({ id: 'col-' + Date.now(), title, cards: [] });
       saveBoard(board);
@@ -92,8 +93,9 @@ function initKanban(container) {
 
     // Add card
     container.querySelectorAll('.kb-add-card').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const text = prompt('Card text:');
+      btn.addEventListener('click', async () => {
+        const { showPrompt } = await import('../lib/dialog.js');
+        const text = await showPrompt('Card text:', '');
         if (!text) return;
         const colors = ['#007aff', '#ff9500', '#34c759', '#ff3b30', '#5856d6', '#ff2d55'];
         const ci = parseInt(btn.dataset.col);

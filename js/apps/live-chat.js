@@ -192,7 +192,7 @@ function initLiveChat(container) {
   }
 
   function connectToPeer(peerId) {
-    if (!peer) { alert('Connecting... try again in a moment.'); return; }
+    if (!peer) { import('../lib/dialog.js').then(d => d.showAlert('Connecting... try again in a moment.')); return; }
     const conn = peer.connect(peerId);
     setupConnection(conn);
   }

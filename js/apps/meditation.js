@@ -70,9 +70,16 @@ function initMeditation(container) {
           const idx = +el.dataset.idx;
           const preset = PRESETS[idx];
           if (preset.mins === 0) {
-            const input = prompt('Enter minutes:', '7');
-            if (!input) return;
-            duration = Math.max(1, Math.min(60, parseInt(input) || 5)) * 60;
+            // Inline input instead of prompt (blocked in WebKitGTK)
+            const inp = document.createElement('div');
+            inp.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:999;';
+            inp.innerHTML = '<div style="background:#1e1e2e;padding:24px;border-radius:16px;text-align:center;"><div style="color:white;margin-bottom:12px;font-size:14px;">Enter minutes (1-60):</div><input type="number" value="7" min="1" max="60" style="width:80px;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:#2a2a3a;color:white;font-size:18px;text-align:center;outline:none;"><div style="display:flex;gap:8px;margin-top:12px;justify-content:center;"><button class="med-ok" style="padding:8px 20px;border-radius:8px;border:none;background:#6366f1;color:white;cursor:pointer;">Start</button><button class="med-cancel" style="padding:8px 20px;border-radius:8px;border:none;background:rgba(255,255,255,0.1);color:white;cursor:pointer;">Cancel</button></div></div>';
+            container.appendChild(inp);
+            inp.querySelector('input').focus();
+            inp.querySelector('.med-ok').onclick = () => { duration = Math.max(1, Math.min(60, parseInt(inp.querySelector('input').value) || 5)) * 60; inp.remove(); remaining = duration; state = 'breathing'; startBreathing(); render(); };
+            inp.querySelector('.med-cancel').onclick = () => inp.remove();
+            inp.querySelector('input').onkeydown = (e) => { if (e.key === 'Enter') inp.querySelector('.med-ok').click(); };
+            return;
           } else {
             duration = preset.mins * 60;
           }

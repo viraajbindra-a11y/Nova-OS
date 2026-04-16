@@ -25,15 +25,19 @@ const PRIMITIVES = new Set([
 // All known Astrion apps. When a new app ships, add it here as 'template' (default).
 // Adding a new 'primitive' requires explicit justification and a plan review.
 const ALL_APPS = [
-  '2048', 'activity-monitor', 'appstore', 'beat-studio', 'browser', 'budget',
-  'calculator', 'calendar', 'chess', 'clock', 'color-picker', 'contacts',
-  'dictionary', 'draw', 'finder', 'flashcards', 'habit-tracker', 'installer',
-  'journal', 'kanban', 'live-chat', 'maps', 'markdown', 'messages', 'music',
-  'notes', 'password-gen', 'pdf-viewer', 'photos', 'pomodoro', 'qr-code',
-  'quotes', 'reminders', 'screen-recorder', 'settings', 'snake', 'sticky-notes',
-  'stopwatch', 'system-info', 'terminal', 'text-editor', 'timer-app', 'todo',
-  'translator', 'trash', 'typing-test', 'unit-converter', 'vault', 'video-player',
-  'voice-memos', 'weather', 'whiteboard',
+  '2048', 'activity-monitor', 'ai-art', 'animate', 'appstore', 'beat-studio',
+  'bmi-calc', 'browser', 'budget', 'calculator', 'calendar', 'chess', 'clock',
+  'color-palette', 'color-picker', 'contacts', 'countdown', 'dictionary', 'draw',
+  'emoji-kitchen', 'finder', 'flashcards', 'habit-tracker', 'installer', 'journal',
+  'kanban', 'live-chat', 'maps', 'markdown', 'matrix-rain', 'meditation',
+  'messages', 'minesweeper', 'music', 'neon-void', 'notes', 'password-gen',
+  'pdf-viewer', 'photos', 'pixel-art', 'pomodoro', 'qr-code', 'quotes',
+  'random-facts', 'reaction-test', 'recipe-book', 'reminders', 'rock-paper-scissors',
+  'screen-recorder', 'settings', 'snake', 'soundboard', 'speed-test', 'sticky-notes',
+  'stopwatch', 'sudoku', 'system-info', 'terminal', 'tetris', 'text-editor',
+  'tic-tac-toe', 'timer-app', 'todo', 'translator', 'trash', 'typing-test',
+  'unit-converter', 'vault', 'video-editor', 'video-player', 'voice-memos',
+  'weather', 'whiteboard', 'wordle', 'youtube',
 ];
 
 /**

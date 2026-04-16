@@ -84,8 +84,9 @@ function initHabits(container) {
       </div>
     `;
 
-    container.querySelector('#ht-add').addEventListener('click', () => {
-      const name = prompt('Habit name:');
+    container.querySelector('#ht-add').addEventListener('click', async () => {
+      const { showPrompt } = await import('../lib/dialog.js');
+      const name = await showPrompt('Habit name:', '');
       if (!name) return;
       data.habits.push({ id: 'h-' + Date.now(), name });
       saveData(data);

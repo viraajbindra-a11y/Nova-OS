@@ -153,7 +153,15 @@ function initSudoku(container) {
         render();
         if (isComplete()) {
           clearInterval(timerInterval);
-          setTimeout(() => alert(`🎉 Solved in ${Math.floor(timer/60)}:${(timer%60).toString().padStart(2,'0')} with ${mistakes} mistakes!`), 100);
+          // Show win message inline instead of alert (blocked in WebKitGTK)
+          setTimeout(() => {
+            const msg = document.createElement('div');
+            msg.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#22c55e;color:white;padding:20px 32px;border-radius:16px;font-size:16px;font-weight:700;z-index:100;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,0.4);';
+            msg.textContent = `🎉 Solved in ${Math.floor(timer/60)}:${(timer%60).toString().padStart(2,'0')} with ${mistakes} mistakes!`;
+            container.style.position = 'relative';
+            container.appendChild(msg);
+            setTimeout(() => msg.remove(), 3000);
+          }, 100);
         }
       });
     });

@@ -119,14 +119,16 @@ async function initFinder(container, instanceId, startPath) {
 
   // New File / New Folder buttons
   container.querySelector(`#finder-newfile-${instanceId}`).addEventListener('click', async () => {
-    const name = prompt('New file name:', 'untitled.txt');
+    const { showPrompt } = await import('../lib/dialog.js');
+    const name = await showPrompt('New file name:', 'untitled.txt');
     if (name) {
       await fileSystem.writeFile(currentPath + '/' + name, '');
       loadFiles();
     }
   });
   container.querySelector(`#finder-newfolder-${instanceId}`).addEventListener('click', async () => {
-    const name = prompt('New folder name:', 'New Folder');
+    const { showPrompt } = await import('../lib/dialog.js');
+    const name = await showPrompt('New folder name:', 'New Folder');
     if (name) {
       await fileSystem.createDir(currentPath + '/' + name);
       loadFiles();
@@ -583,7 +585,8 @@ async function initFinder(container, instanceId, startPath) {
       { label: 'Open With...', disabled: true },
       { separator: true },
       { label: 'Rename', action: async () => {
-        const newName = prompt('Rename to:', name);
+        const { showPrompt } = await import('../lib/dialog.js');
+        const newName = await showPrompt('Rename to:', name);
         if (newName && newName !== name) {
           const newPath = file.path.replace(name, newName);
           await fileSystem.rename(file.path, newPath);
@@ -614,9 +617,10 @@ async function initFinder(container, instanceId, startPath) {
         try { await navigator.clipboard.writeText(file.path); } catch {}
       }},
       { separator: true },
-      { label: 'Get Info', action: () => {
+      { label: 'Get Info', action: async () => {
+        const { showAlert } = await import('../lib/dialog.js');
         const info = `Name: ${name}\nPath: ${file.path}\nType: ${file.type}\nCreated: ${new Date(file.created).toLocaleString()}\nModified: ${new Date(file.modified).toLocaleString()}`;
-        alert(info);
+        showAlert(info.replace(/\n/g, '<br>'));
       }},
     ];
 
