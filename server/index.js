@@ -706,7 +706,13 @@ app.get('/app/:appId', (req, res) => {
   <title>Astrion OS — ${appId}</title>
   <link rel="stylesheet" href="/css/system.css">
   <link rel="stylesheet" href="/css/desktop.css">
+  <link rel="stylesheet" href="/css/menubar.css">
+  <link rel="stylesheet" href="/css/dock.css">
   <link rel="stylesheet" href="/css/window.css">
+  <link rel="stylesheet" href="/css/spotlight.css">
+  <link rel="stylesheet" href="/css/setup.css">
+  <link rel="stylesheet" href="/css/control-center.css">
+  <link rel="stylesheet" href="/css/launchpad.css">
   <link rel="stylesheet" href="/css/apps/terminal.css">
   <link rel="stylesheet" href="/css/apps/notes.css">
   <link rel="stylesheet" href="/css/apps/finder.css">
@@ -729,6 +735,13 @@ app.get('/app/:appId', (req, res) => {
     body.nova-native-app { background: #1e1e2e; margin: 0; padding: 0; overflow: hidden; }
     body.nova-native-app #windows-container { position: fixed; inset: 0; }
     body.nova-native-app #desktop { display: none !important; }
+    body.nova-native-app #menubar { display: none !important; }
+    body.nova-native-app #dock { display: none !important; }
+    body.nova-native-app #spotlight-overlay { display: none !important; }
+    body.nova-native-app #control-center { display: none !important; }
+    body.nova-native-app #launchpad { display: none !important; }
+    body.nova-native-app #boot-screen { display: none !important; }
+    body.nova-native-app #login-screen { display: none !important; }
     body.nova-native-app .window {
       position: fixed !important; inset: 0 !important;
       width: 100% !important; height: 100% !important;
@@ -742,8 +755,12 @@ app.get('/app/:appId', (req, res) => {
   </style>
 </head>
 <body class="nova-native-app">
-  <!-- These IDs are required by window-manager.js and process-manager.js -->
+  <!-- These IDs are required by boot.js, window-manager.js, process-manager.js -->
+  <div id="boot-screen" class="hidden"><div class="boot-progress-bar"></div></div>
+  <div id="login-screen" class="hidden"></div>
   <div id="desktop" style="display:none"></div>
+  <div id="menubar" style="display:none"></div>
+  <div id="dock" style="display:none"></div>
   <div id="windows-container"></div>
   <script>
     // HiDPI auto-scale (same as main index.html)
