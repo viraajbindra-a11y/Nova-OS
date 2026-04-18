@@ -135,6 +135,46 @@ app.post('/api/update/check', async (req, res) => {
   }
 });
 
+// ─── Ollama: pull a model on the local Ollama server ───
+// Streams JSON status lines from Ollama back to the client. The client
+// reads incrementally and shows progress in Settings > AI > Ollama.
+app.post('/api/ai/ollama-pull', async (req, res) => {
+  const { url, model } = req.body || {};
+  if (!model || typeof model !== 'string') {
+    return res.status(400).json({ error: 'model name required' });
+  }
+  const ollamaUrl = url || 'http://localhost:11434';
+  try {
+    const upstream = await fetch(`${ollamaUrl}/api/pull`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: model, stream: true }),
+      signal: AbortSignal.timeout(30 * 60 * 1000), // 30 min hard cap
+    });
+    if (!upstream.ok || !upstream.body) {
+      return res.status(upstream.status || 502).json({
+        error: 'Ollama pull rejected: ' + upstream.statusText,
+      });
+    }
+    res.setHeader('content-type', 'application/x-ndjson');
+    // Stream the upstream body byte-for-byte. Ollama emits one JSON object
+    // per line; the client parses incrementally.
+    const reader = upstream.body.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      res.write(value);
+    }
+    res.end();
+  } catch (error) {
+    if (!res.headersSent) {
+      res.status(502).json({ error: 'Could not reach Ollama at ' + ollamaUrl + ': ' + error.message });
+    } else {
+      res.end();
+    }
+  }
+});
+
 // ─── Ollama proxy (local or remote LLM) ───
 app.post('/api/ai/ollama', async (req, res) => {
   const { url, model, system, messages, max_tokens } = req.body;
@@ -725,9 +765,19 @@ app.get('/popup/spotlight', (req, res) => {
 // ─── Native Shell App Routes ───
 // When nova-shell (the native C renderer) opens an app,
 // it loads /app/terminal, /app/notes, etc.
-// We serve the same index.html but with a query param so JS can auto-launch the app.
+// Serves a stripped page: only system + window CSS + the requested
+// app's CSS (if it has one). Shell chrome (menubar/dock/spotlight) is
+// not loaded — the native shell provides those.
 app.get('/app/:appId', (req, res) => {
   const appId = req.params.appId;
+  // Whitelist character set for appId so we never read arbitrary paths
+  if (!/^[a-z0-9-]+$/i.test(appId)) {
+    return res.status(400).send('Invalid appId');
+  }
+  const appCssPath = join(__dirname, '..', 'css', 'apps', `${appId}.css`);
+  const appCssTag = existsSync(appCssPath)
+    ? `<link rel="stylesheet" href="/css/apps/${appId}.css">`
+    : '<!-- no per-app CSS for this app -->';
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -735,31 +785,8 @@ app.get('/app/:appId', (req, res) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Astrion OS — ${appId}</title>
   <link rel="stylesheet" href="/css/system.css">
-  <link rel="stylesheet" href="/css/desktop.css">
-  <link rel="stylesheet" href="/css/menubar.css">
-  <link rel="stylesheet" href="/css/dock.css">
   <link rel="stylesheet" href="/css/window.css">
-  <link rel="stylesheet" href="/css/spotlight.css">
-  <link rel="stylesheet" href="/css/setup.css">
-  <link rel="stylesheet" href="/css/control-center.css">
-  <link rel="stylesheet" href="/css/launchpad.css">
-  <link rel="stylesheet" href="/css/apps/terminal.css">
-  <link rel="stylesheet" href="/css/apps/notes.css">
-  <link rel="stylesheet" href="/css/apps/finder.css">
-  <link rel="stylesheet" href="/css/apps/calculator.css">
-  <link rel="stylesheet" href="/css/apps/text-editor.css">
-  <link rel="stylesheet" href="/css/apps/music.css">
-  <link rel="stylesheet" href="/css/apps/photos.css">
-  <link rel="stylesheet" href="/css/apps/calendar.css">
-  <link rel="stylesheet" href="/css/apps/settings.css">
-  <link rel="stylesheet" href="/css/apps/weather.css">
-  <link rel="stylesheet" href="/css/apps/clock.css">
-  <link rel="stylesheet" href="/css/apps/draw.css">
-  <link rel="stylesheet" href="/css/apps/reminders.css">
-  <link rel="stylesheet" href="/css/apps/activity-monitor.css">
-  <link rel="stylesheet" href="/css/apps/appstore.css">
-  <link rel="stylesheet" href="/css/apps/browser.css">
-  <link rel="stylesheet" href="/css/apps/vault.css">
+  ${appCssTag}
   <style>
     /* Native mode: no shell chrome, just the app content filling the window */
     body.nova-native-app { background: #1e1e2e; margin: 0; padding: 0; overflow: hidden; }

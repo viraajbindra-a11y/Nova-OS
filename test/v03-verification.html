@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Astrion v0.3 Offline Verification</title>
+<style>
+  body { background: #1e1e2e; color: #eee; font-family: -apple-system, system-ui, sans-serif;
+         padding: 24px; line-height: 1.5; max-width: 900px; margin: 0 auto; }
+  h1 { color: #fff; margin: 0 0 12px; font-size: 22px; }
+  h2 { color: #cba6f7; margin: 20px 0 8px; font-size: 14px; text-transform: uppercase;
+       letter-spacing: 1px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 4px; }
+  .test { padding: 6px 10px; margin: 2px 0; border-radius: 6px;
+          font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+  .pass { background: rgba(166,227,161,0.10); color: #a6e3a1; }
+  .fail { background: rgba(243,139,168,0.15); color: #f38ba8; }
+  .pending { background: rgba(250,179,135,0.10); color: #fab387; }
+  .summary { margin-top: 24px; padding: 14px 18px; border-radius: 10px;
+             background: #313244; font-size: 16px; }
+  .err { color: #f38ba8; font-size: 11px; margin-left: 24px; opacity: 0.9; }
+  code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+  .legend { color: rgba(255,255,255,0.5); font-size: 12px; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<h1>Astrion v0.3 Offline Verification</h1>
+<p class="legend">
+  Runs every layer of v0.3 (planner, executor, calibration, budget, math parser, brain detection)
+  against a stubbed AI so it never needs an API key. Refresh to re-run.
+  Open the JS console for full traces.
+</p>
+<div id="results"></div>
+<div id="summary" class="summary">Running tests…</div>
+
+<script type="module">
+// ─── Force offline path so no real network calls fire ───
+localStorage.setItem('nova-ai-provider', 'mock');
+
+const results = document.getElementById('results');
+let passCount = 0, failCount = 0;
+const failures = [];
+
+function section(title) {
+  const h = document.createElement('h2');
+  h.textContent = title;
+  results.appendChild(h);
+}
+function record(name, ok, err) {
+  const div = document.createElement('div');
+  div.className = 'test ' + (ok ? 'pass' : 'fail');
+  div.innerHTML = (ok ? '✓ ' : '✗ ') + name;
+  if (!ok && err) {
+    const e = document.createElement('div');
+    e.className = 'err';
+    e.textContent = String(err);
+    div.appendChild(e);
+    failures.push({ name, err: String(err) });
+  }
+  results.appendChild(div);
+  ok ? passCount++ : failCount++;
+}
+async function test(name, fn) {
+  try {
+    const result = await fn();
+    if (result === false) record(name, false, 'returned false');
+    else record(name, true);
+  } catch (err) {
+    record(name, false, err?.message || err);
+    console.error('[test failed]', name, err);
+  }
+}
+
+// ═══ 1. Math parser (safeMathEval, replaces Function() eval) ═══
+section('1. Safe math parser (replaces Function() eval)');
+
+// Trigger module load via a dynamic import. Math parser is internal, so we
+// exercise it through aiService._mockResponse which calls it.
+const { aiService } = await import('/js/kernel/ai-service.js');
+function mockMath(expr) {
+  // _mockResponse looks for "what is/calculate/compute X" or bare expr
+  const reply = aiService._mockResponse(expr);
+  // Reply format: "EXPR = NUM" if math worked
+  const m = reply.match(/= (-?[\d.]+)$/);
+  return m ? parseFloat(m[1]) : null;
+}
+await test('1+1 = 2', () => mockMath('1+1') === 2);
+await test('42 * 17 = 714', () => mockMath('42 * 17') === 714);
+await test('(2 + 3) * 4 = 20', () => mockMath('(2 + 3) * 4') === 20);
+await test('100 / 4 - 5 = 20', () => mockMath('100 / 4 - 5') === 20);
+await test('-5 + 10 = 5', () => mockMath('-5 + 10') === 5);
+await test('what is 7 * 8 = 56', () => mockMath('what is 7 * 8') === 56);
+await test('rejects bad input (alphabet) returns offline msg', () => {
+  const r = aiService._mockResponse('eval window');
+  return !/= /.test(r); // should NOT have a "= X" math reply
+});
+await test('exponent: 2 ** 10 = 1024', () => mockMath('2 ** 10') === 1024);
+await test('exponent caret: 3^4 = 81', () => mockMath('3^4') === 81);
+await test('exponent right-assoc: 2^3^2 = 512', () => mockMath('2^3^2') === 512);
+await test('mixed: (1+2)^3 = 27', () => mockMath('(1+2)^3') === 27);
+
+// ═══ 2. Budget manager ═══
+section('2. Budget manager (M3.P2)');
+
+const budget = await import('/js/kernel/budget-manager.js');
+budget.resetBudget();
+
+await test('default daily cap is $0.50', () => budget.getDailyCap() === 0.50);
+await test('default per-intent cap is $0.05', () => budget.getPerIntentCap() === 0.05);
+await test('checkBudget allows tiny call', () => {
+  const r = budget.checkBudget({ inputTokens: 100, outputTokens: 50 });
+  return r.allowed === true;
+});
+await test('checkBudget blocks huge per-intent call', () => {
+  const r = budget.checkBudget({ inputTokens: 100000, outputTokens: 100000 });
+  return r.allowed === false && /per-intent cap/.test(r.reason);
+});
+await test('recordS2Call increments totals', () => {
+  const before = budget.getTodaySummary().callCount;
+  budget.recordS2Call({ inputTokens: 500, outputTokens: 100, query: 'test' });
+  const after = budget.getTodaySummary().callCount;
+  return after === before + 1;
+});
+await test('getTodaySummary reports remaining', () => {
+  const s = budget.getTodaySummary();
+  return s.remainingUsd <= s.dailyCapUsd && s.remainingUsd >= 0;
+});
+budget.resetBudget(); // clean up after the test
+
+// ═══ 3. Calibration tracker (graph + fs required, init both) ═══
+section('3. Calibration tracker (M3.P3)');
+
+const { graphStore } = await import('/js/kernel/graph-store.js');
+const { fileSystem } = await import('/js/kernel/file-system.js');
+await fileSystem.init();
+await graphStore.init();
+const cal = await import('/js/kernel/calibration-tracker.js');
+
+await test('capCategory("files.createFolder") returns "files"',
+  () => cal.capCategory('files.createFolder') === 'files');
+await test('capCategory("ai.ask") returns "ai"',
+  () => cal.capCategory('ai.ask') === 'ai');
+await test('capCategory("nullary") returns "nullary"',
+  () => cal.capCategory('nullary') === 'nullary');
+await test('capCategory(null) returns "unknown"',
+  () => cal.capCategory(null) === 'unknown');
+
+await test('recordSample stores a node', async () => {
+  const node = await cal.recordSample({
+    brain: 's1', capCategory: 'verify-test', ok: true, query: 'hello',
+  });
+  return node && node.id;
+});
+
+// Record 6 samples for a category (5 fails) so escalation triggers.
+const FAILCAT = 'fail-test-' + Date.now();
+for (let i = 0; i < 6; i++) {
+  await cal.recordSample({ brain: 's1', capCategory: FAILCAT, ok: false, query: 'q' + i });
+}
+await test('shouldEscalate=true after 6 failures', async () => {
+  return await cal.shouldEscalate(FAILCAT) === true;
+});
+await test('getAccuracy reports 0% for failing category', async () => {
+  const stats = await cal.getAccuracy('s1', FAILCAT);
+  return stats.total >= 6 && stats.successes === 0;
+});
+
+// Category with no samples should NOT escalate (insufficient data)
+await test('shouldEscalate=false for unknown category (no samples)',
+  async () => await cal.shouldEscalate('never-seen-cat-' + Date.now()) === false);
+
+// ═══ 4. Capability registry — required for planner schema check ═══
+section('4. Capability registry');
+// capability-providers.js registers everything as a top-level side effect
+// when imported. No explicit register fn needed.
+await import('/js/kernel/capability-providers.js');
+const { listCapabilities, getCapability } = await import('/js/kernel/capability-api.js');
+const caps = listCapabilities();
+
+await test('registry has at least 5 capabilities', () => caps.length >= 5);
+await test('files.createFolder is registered', () => !!getCapability('files.createFolder'));
+await test('files.createFile is registered', () => !!getCapability('files.createFile'));
+
+// ═══ 5. Intent planner — stub aiService to return canned plans ═══
+section('5. Intent planner with stubbed AI (M2 Agent Core)');
+const { planIntent, routeQuery } = await import('/js/kernel/intent-planner.js');
+
+// Stub: planner uses askWithMeta, so stub THAT (not ask). Returns canned
+// JSON plan + a meta blob with brain='offline' to keep section 7 honest.
+const realAsk = aiService.ask.bind(aiService);
+const realAskWithMetaSec5 = aiService.askWithMeta.bind(aiService);
+const stubMeta = { brain: 'offline', confidence: 0.3, provider: 'mock', capCategory: 'planner', model: 'mock', escalated: false, responseTimeMs: 1 };
+aiService.askWithMeta = async (prompt) => {
+  const queryMatch = prompt.match(/USER QUERY: "([^"]+)"/);
+  const query = queryMatch ? queryMatch[1] : '';
+  if (/folder.*Projects.*Desktop.*file.*ideas/i.test(query)) {
+    return { reply: JSON.stringify({
+      status: 'plan',
+      reasoning: 'create folder then file with content',
+      steps: [
+        { cap: 'files.createFolder', args: { path: '/Desktop', name: 'Projects' }, binds: 'folderPath' },
+        { cap: 'files.createFile', args: { parent: '${binds.folderPath}', name: 'ideas.txt', content: 'Idea 1\nIdea 2\nIdea 3' } },
+      ],
+    }), meta: stubMeta };
+  }
+  if (/ambiguous/i.test(query)) {
+    return { reply: JSON.stringify({ status: 'clarify', question: 'Which one?', choices: ['A', 'B'] }), meta: stubMeta };
+  }
+  if (/bad-cap/i.test(query)) {
+    return { reply: JSON.stringify({ status: 'plan', steps: [{ cap: 'nonexistent.cap', args: {} }] }), meta: stubMeta };
+  }
+  return { reply: JSON.stringify({ status: 'plan', steps: [{ cap: 'files.createFolder', args: { path: '/Desktop', name: 'Test' } }] }), meta: stubMeta };
+};
+// Keep aiService.ask delegating through askWithMeta (already does after refactor).
+
+await test('planner returns valid plan for canned query', async () => {
+  const result = await planIntent({
+    query: 'create a folder called Projects on the Desktop and put a file called ideas.txt in it',
+    context: {}, memory: [], parsedIntent: null,
+  });
+  return result.status === 'plan' && result.steps.length === 2;
+});
+await test('planner returns clarify for ambiguous', async () => {
+  const result = await planIntent({ query: 'ambiguous task', context: {}, memory: [], parsedIntent: null });
+  return result.status === 'clarify';
+});
+await test('planner rejects unknown capability after retry', async () => {
+  const result = await planIntent({ query: 'bad-cap test', context: {}, memory: [], parsedIntent: null });
+  return result.status === 'failed';
+});
+// routeQuery requires a parsedIntent with confidence to take the fast path;
+// null parsedIntent always plans (per intent-planner.js:304).
+await test('routeQuery sends "open terminal" to fast path',
+  () => routeQuery('open terminal', { confidence: 0.9 }) === 'fast');
+await test('routeQuery sends compound query to plan path',
+  () => routeQuery('create folder X and put file Y in it', { confidence: 0.9 }) === 'plan');
+await test('routeQuery sends "X and then Y" to plan path',
+  () => routeQuery('open notes and then write hello', { confidence: 0.9 }) === 'plan');
+
+// ═══ 6. Intent executor — run a planned plan end-to-end ═══
+section('6. Intent executor end-to-end with binding (M1+Agent Core)');
+
+const intentExecMod = await import('/js/kernel/intent-executor.js');
+const { executePlan } = intentExecMod;
+intentExecMod.initIntentExecutor(); // wire up the intent:plan + intent:execute handlers
+const { eventBus } = await import('/js/kernel/event-bus.js');
+
+const planForExec = {
+  status: 'plan',
+  steps: [
+    { cap: 'files.createFolder', args: { path: '/Desktop', name: 'V03Verify-' + Date.now() }, binds: 'folderPath' },
+    { cap: 'files.createFile', args: { parent: '${binds.folderPath}', name: 'verify.txt', content: 'verified' } },
+  ],
+};
+
+const events = [];
+eventBus.on('plan:started', () => events.push('plan:started'));
+eventBus.on('plan:step:start', (e) => events.push('plan:step:start:' + e.step.cap));
+eventBus.on('plan:step:done', (e) => events.push('plan:step:done:' + e.step.cap));
+eventBus.on('plan:completed', () => events.push('plan:completed'));
+eventBus.on('plan:failed', (e) => events.push('plan:failed:' + e.error));
+
+const execResult = await executePlan(planForExec, { query: 'verify' });
+
+await test('executor result.ok === true', () => execResult.ok === true);
+await test('executor ran 2 steps', () => execResult.results && execResult.results.length === 2);
+await test('plan:started event fired', () => events.includes('plan:started'));
+await test('plan:completed event fired', () => events.includes('plan:completed'));
+await test('plan:step:start fired for files.createFolder',
+  () => events.includes('plan:step:start:files.createFolder'));
+await test('plan:step:done fired for files.createFile',
+  () => events.includes('plan:step:done:files.createFile'));
+await test('binding placeholder was resolved before capability ran', () => {
+  // The executor preserves the ORIGINAL placeholder in provenance._intent.args
+  // for audit, but the RESOLVED args (provenance.args.parent) must be a real
+  // path. Check the resolved value.
+  const fileResult = execResult.results[1];
+  const resolvedParent = fileResult?.provenance?.args?.parent;
+  return typeof resolvedParent === 'string'
+    && resolvedParent.startsWith('/Desktop/V03Verify-')
+    && !resolvedParent.includes('${binds');
+});
+
+// ═══ 7. Brain detection: per-call meta + plan.meta wiring ═══
+section('7. Brain detection (race-safe per-call meta)');
+
+// Override the section-5 stub with one that returns brain='s2' so we can
+// verify plan.meta propagation specifically.
+aiService.askWithMeta = async () => ({
+  reply: JSON.stringify({ status: 'plan', steps: [{ cap: 'files.createFolder', args: { path: '/Desktop', name: 'BrainTest-' + Date.now() } }] }),
+  meta: { brain: 's2', confidence: 0.95, provider: 'anthropic', capCategory: 'planner', model: 'claude-haiku-4-5-20251001', escalated: false, responseTimeMs: 42 },
+});
+// planIntent already imported in section 5
+const planResult = await planIntent({ query: 'simulated', context: {}, memory: [], parsedIntent: null });
+
+await test('planIntent returns plan.meta with brain', () => planResult.meta?.brain === 's2');
+await test('planIntent returns plan.meta with provider', () => planResult.meta?.provider === 'anthropic');
+
+// Trigger intent:plan event so the executor's intent:plan handler runs the
+// full path: planIntent -> executePlan -> recordSample(brain from plan.meta).
+const beforeS2 = (await cal.getAccuracy('s2', 'files')).total;
+const planRecorded = new Promise((resolve) => {
+  const handler = () => {
+    eventBus.off('plan:completed', handler);
+    setTimeout(async () => {
+      const after = (await cal.getAccuracy('s2', 'files')).total;
+      resolve(after > beforeS2);
+    }, 300);
+  };
+  eventBus.on('plan:completed', handler);
+});
+eventBus.emit('intent:plan', { query: 'simulated brain test', context: {}, parsedIntent: null });
+const recorded = await Promise.race([
+  planRecorded,
+  new Promise((r) => setTimeout(() => r(false), 6000)),
+]);
+await test('s2-tagged calibration sample landed (brain came from plan.meta)',
+  () => recorded === true);
+
+// Restore real ask methods
+aiService.ask = realAsk;
+aiService.askWithMeta = realAskWithMetaSec5;
+
+// ═══ Summary ═══
+const total = passCount + failCount;
+const summary = document.getElementById('summary');
+summary.innerHTML =
+  `<strong>${passCount} / ${total} passed</strong>` +
+  (failCount === 0
+    ? '  —  <span style="color:#a6e3a1">all green</span>'
+    : `  —  <span style="color:#f38ba8">${failCount} failed</span>`);
+console.log(`[v03-verify] ${passCount}/${total} passed`);
+if (failures.length) console.table(failures);
+</script>
+</body>
+</html>
