@@ -319,6 +319,99 @@ await test('s2-tagged calibration sample landed (brain came from plan.meta)',
 aiService.ask = realAsk;
 aiService.askWithMeta = realAskWithMetaSec5;
 
+// ═══ 8. Spec generator (M4.P1) ═══
+section('8. Spec generator (M4.P1)');
+
+const specMod = await import('/js/kernel/spec-generator.js');
+
+// Stub askWithMeta to return a canned spec
+const realAskForSpec = aiService.askWithMeta.bind(aiService);
+const specStubMeta = { brain: 'offline', confidence: 0.3, provider: 'mock', capCategory: 'spec', model: 'mock', escalated: false, responseTimeMs: 1 };
+aiService.askWithMeta = async (prompt) => {
+  // Check BAD-INTENT FIRST — the spec generator's prompt also contains
+  // "spec generator" in its system preamble, so the happy-path branch
+  // would otherwise shadow the bad-input test.
+  if (prompt.includes('BAD-INTENT')) {
+    return { reply: 'I cannot JSON', meta: specStubMeta };
+  }
+  if (prompt.includes('spec generator')) {
+    return {
+      reply: JSON.stringify({
+        goal: 'Track daily habits with streak counting',
+        acceptance_criteria: [
+          'Given the app is open, when the user adds a habit, then it appears in the list.',
+          'Given a habit exists, when the user marks it done for today, then the streak counter increments.',
+          'Given a habit with a 3-day streak, when the user misses a day, then the streak resets to 0.',
+        ],
+        non_goals: ['Cloud sync', 'Cross-device notifications'],
+        ux_notes: 'Keyboard-first. Space to toggle today. Tab cycles habits.',
+        open_questions: [],
+      }),
+      meta: specStubMeta,
+    };
+  }
+  return realAskForSpec(prompt);
+};
+
+await test('generateSpec returns draft status', async () => {
+  const r = await specMod.generateSpec('build me a habit tracker');
+  return r.status === 'draft' && r.spec?.goal?.length > 0;
+});
+await test('generateSpec spec has acceptance_criteria array', async () => {
+  const r = await specMod.generateSpec('build me a habit tracker');
+  return Array.isArray(r.spec.acceptance_criteria) && r.spec.acceptance_criteria.length >= 3;
+});
+await test('generateSpec rejects bad input after retry', async () => {
+  const r = await specMod.generateSpec('BAD-INTENT');
+  return r.status === 'failed';
+});
+await test('generateSpec rejects empty intent', async () => {
+  const r = await specMod.generateSpec('');
+  return r.status === 'failed' && /empty intent/.test(r.error);
+});
+
+// Store + freeze round trip
+const draftResult = await specMod.generateSpec('build me a habit tracker');
+const storedId = await specMod.storeSpec(draftResult.spec);
+await test('storeSpec returns a graph node id', () => typeof storedId === 'string' && storedId.length > 0);
+
+const readBack = await specMod.getSpec(storedId);
+await test('getSpec reads back the goal', () => readBack?.goal === draftResult.spec.goal);
+await test('getSpec reads back criteria count', () => readBack?.acceptance_criteria?.length === draftResult.spec.acceptance_criteria.length);
+await test('newly stored spec is status=draft', () => readBack?.status === 'draft');
+
+const frozen = await specMod.freezeSpec(storedId);
+await test('freezeSpec returns updated node', () => !!frozen);
+const afterFreeze = await specMod.getSpec(storedId);
+await test('freezeSpec sets status=frozen + frozenAt', () => afterFreeze?.status === 'frozen' && typeof afterFreeze.frozenAt === 'number');
+
+// Reject flow
+const draft2 = await specMod.generateSpec('build me a habit tracker');
+const rejectId = await specMod.storeSpec(draft2.spec);
+await specMod.rejectSpec(rejectId, 'too vague');
+const rejected = await specMod.getSpec(rejectId);
+await test('rejectSpec sets status=rejected with reason',
+  () => rejected?.status === 'rejected' && rejected.rejectionReason === 'too vague');
+
+await test('getFrozenSpecByIntent finds approved spec', async () => {
+  const found = await specMod.getFrozenSpecByIntent('build me a habit tracker');
+  // Multiple test runs accumulate specs — just confirm any frozen one for
+  // this intent is returned with the right shape.
+  return found && found.status === 'frozen' && found.raw_intent === 'build me a habit tracker';
+});
+await test('getFrozenSpecByIntent returns null for unknown intent', async () => {
+  const found = await specMod.getFrozenSpecByIntent('does not exist-' + Date.now());
+  return found === null;
+});
+
+// Capability registration
+const specGenCap = getCapability('spec.generate');
+const specFreezeCap = getCapability('spec.freeze');
+await test('spec.generate capability registered', () => !!specGenCap && specGenCap.level === 0);
+await test('spec.freeze capability registered with L2 gate', () => !!specFreezeCap && specFreezeCap.level === 2);
+
+aiService.askWithMeta = realAskForSpec;
+
 // ═══ Summary ═══
 const total = passCount + failCount;
 const summary = document.getElementById('summary');

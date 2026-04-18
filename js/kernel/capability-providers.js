@@ -364,6 +364,64 @@ registerCapability({ ...aiAsk, id: 'ai.explain', verb: 'explain' });
 registerCapability({ ...aiAsk, id: 'ai.summarize', verb: 'summarize' });
 
 // ═══════════════════════════════════════════════════════════════
+// PROVIDER 6.5: spec.generate + spec.freeze — M4.P1
+//   Turn an intent into a plain-English structured spec. Store it as
+//   a draft graph node. A later user-approval step freezes it.
+//   Generated code must reference a frozen spec id.
+// ═══════════════════════════════════════════════════════════════
+
+const specGenerate = {
+  id: 'spec.generate',
+  verb: 'spec',
+  target: '*',
+  level: LEVEL.OBSERVE, // generates text + writes a draft node; no user data touched
+  reversibility: REVERSIBILITY.FREE,
+  blastRadius: BLAST_RADIUS.NONE,
+  summary: 'Generate a structured plain-English spec from an intent (M4.P1)',
+  estimateCost: () => ({ timeMs: 4000, irreversibilityTokens: 0 }),
+  execute: async function(args) {
+    return runCapability(this, args, async () => {
+      const intent = args._intent?.raw || args.intent || args.query || args.topic || '';
+      if (!intent) throw new Error('spec.generate: no intent');
+      const mod = await import('./spec-generator.js');
+      const result = await mod.generateSpec(intent, { context: args.context || {} });
+      if (result.status !== 'draft') {
+        throw new Error('spec.generate failed: ' + (result.error || 'unknown'));
+      }
+      const specId = await mod.storeSpec(result.spec);
+      safeNotify({
+        title: '📝 Draft spec ready',
+        body: result.spec.goal.slice(0, 140),
+      });
+      return { specId, status: 'draft', goal: result.spec.goal, criteriaCount: result.spec.acceptance_criteria.length };
+    });
+  },
+};
+registerCapability(specGenerate);
+
+const specFreeze = {
+  id: 'spec.freeze',
+  verb: 'freeze',
+  target: 'spec',
+  level: LEVEL.REAL, // freezing is user approval; a real decision
+  reversibility: REVERSIBILITY.BOUNDED,
+  blastRadius: BLAST_RADIUS.NONE,
+  summary: 'Freeze a draft spec (user approval gate) — makes it immutable',
+  estimateCost: () => ({ timeMs: 50, irreversibilityTokens: 1 }),
+  execute: async function(args) {
+    return runCapability(this, args, async () => {
+      const id = args.specId || args.id;
+      if (!id) throw new Error('spec.freeze: specId required');
+      const mod = await import('./spec-generator.js');
+      const node = await mod.freezeSpec(id);
+      if (!node) throw new Error('spec.freeze: spec not found or already frozen: ' + id);
+      return { specId: id, status: 'frozen' };
+    });
+  },
+};
+registerCapability(specFreeze);
+
+// ═══════════════════════════════════════════════════════════════
 // PROVIDER 7: browser.navigate — open a URL
 // ═══════════════════════════════════════════════════════════════
 
@@ -1012,6 +1070,8 @@ export const CORE_CAPABILITIES = [
   'reminder.create',
   'compute.calculate',
   'ai.ask',
+  'spec.generate',
+  'spec.freeze',
   'browser.navigate',
   'volume.set',
   'volume.decrease',
