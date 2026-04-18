@@ -817,6 +817,79 @@ await test('app.promote capability registered with L2 user-approval gate',
 await test('app.archive capability registered (L2)',
   () => !!appArchiveCap && appArchiveCap.level === 2);
 
+// ═══ 13. Branching storage layer (M5.P1) ═══
+section('13. Branching storage layer (M5.P1)');
+
+const branchMod = await import('/js/kernel/branch-manager.js');
+
+const b = await branchMod.createBranch({ name: 'verify-branch-' + Date.now(), intent: 'sandbox test' });
+await test('createBranch returns id + open status', () => b.id && b.status === 'open');
+
+const targetNode = await graphStore.createNode('verify-target', { v: 1 }, { createdBy: { kind: 'system', capabilityId: 'verify' } });
+await b.record({ kind: 'updateNode', args: { id: targetNode.id, props: { v: 2 } }, describe: 'bump v' });
+await b.record({ kind: 'createNode', args: { type: 'verify-target', props: { v: 99 } }, describe: 'seed' });
+
+const branchAfterRecord = await branchMod.getBranch(b.id);
+await test('recordMutation appended 2 mutations', () => branchAfterRecord.pendingMutations.length === 2);
+
+const diff = await branchMod.diffBranch(b.id);
+await test('diffBranch reports correct counts', () => diff.counts.updateNode === 1 && diff.counts.createNode === 1);
+await test('diffBranch lines length matches mutation count', () => diff.lines.length === 2);
+
+const targetBeforeMerge = await graphStore.getNode(targetNode.id);
+await test('live node unchanged before merge', () => targetBeforeMerge.props.v === 1);
+
+const merge = await branchMod.mergeBranch(b.id);
+await test('mergeBranch ok with applied count', () => merge.ok && merge.applied === 2);
+
+const afterMerge = await branchMod.getBranch(b.id);
+await test('branch transitions to committed status', () => afterMerge.status === 'committed' && typeof afterMerge.committedAt === 'number');
+
+const targetAfterMerge = await graphStore.getNode(targetNode.id);
+await test('live node now shows v=2 after merge', () => targetAfterMerge.props.v === 2);
+
+const b2 = await branchMod.createBranch({ name: 'will-discard', intent: 'unwanted' });
+await b2.record({ kind: 'updateNode', args: { id: targetNode.id, props: { v: 999 } } });
+await branchMod.discardBranch(b2.id, 'user rejected');
+const discarded = await branchMod.getBranch(b2.id);
+await test('discardBranch sets status=discarded + reason',
+  () => discarded.status === 'discarded' && discarded.discardReason === 'user rejected');
+
+const targetAfterDiscard = await graphStore.getNode(targetNode.id);
+await test('discard left live node untouched', () => targetAfterDiscard.props.v === 2);
+
+let refused = false;
+try { await branchMod.recordMutation(b.id, { kind: 'updateNode', args: { id: targetNode.id, props: { v: 5 } } }); }
+catch (err) { refused = /not open/.test(err.message); }
+await test('recordMutation refuses on already-merged branch', () => refused);
+
+const helperResult = await branchMod.onBranch({ intent: 'helper test' }, async (record) => {
+  await record({ kind: 'createNode', args: { type: 'verify-target', props: { v: 7 } } });
+  return 'value-from-fn';
+});
+await test('onBranch returns branchId + value from fn',
+  () => helperResult.branchId && helperResult.value === 'value-from-fn');
+
+const helperBranch = await branchMod.getBranch(helperResult.branchId);
+await test('onBranch left the branch open for user to merge/discard',
+  () => helperBranch.status === 'open' && helperBranch.pendingMutations.length === 1);
+
+const opens = await branchMod.listBranches('open');
+await test('listBranches(open) returns at least the helper branch',
+  () => opens.some(x => x.id === helperResult.branchId));
+const committed = await branchMod.listBranches('committed');
+await test('listBranches(committed) returns at least one item', () => committed.length >= 1);
+
+const branchCreateCap = getCapability('branch.create');
+const branchMergeCap = getCapability('branch.merge');
+const branchDiscardCap = getCapability('branch.discard');
+await test('branch.create capability registered (L0)',
+  () => !!branchCreateCap && branchCreateCap.level === 0);
+await test('branch.merge capability registered with L2 user-approval gate',
+  () => !!branchMergeCap && branchMergeCap.level === 2);
+await test('branch.discard capability registered (L1)',
+  () => !!branchDiscardCap && branchDiscardCap.level === 1);
+
 // ═══ Summary ═══
 const total = passCount + failCount;
 const summary = document.getElementById('summary');

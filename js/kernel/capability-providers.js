@@ -503,6 +503,76 @@ registerCapability(testsRun);
 //   soft-deletes.
 // ═══════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════
+// PROVIDER 7: branch.* — M5.P1 (branching storage layer)
+//   create / merge / discard branches that stage mutations against
+//   the live M2 graph. The Operation Interceptor (M5.P2) will use
+//   these to wrap every L2+ capability execute() in a branch the
+//   user can confirm or rewind.
+// ═══════════════════════════════════════════════════════════════
+
+const branchCreate = {
+  id: 'branch.create',
+  verb: 'create',
+  target: 'branch',
+  level: LEVEL.OBSERVE,
+  reversibility: REVERSIBILITY.FREE,
+  blastRadius: BLAST_RADIUS.NONE,
+  summary: 'Create an open branch for staged mutations (M5.P1)',
+  estimateCost: () => ({ timeMs: 50, irreversibilityTokens: 0 }),
+  execute: async function(args) {
+    return runCapability(this, args, async () => {
+      const mod = await import('./branch-manager.js');
+      const b = await mod.createBranch({ name: args.name, intent: args.intent });
+      return { branchId: b.id, name: b.name, status: b.status };
+    });
+  },
+};
+registerCapability(branchCreate);
+
+const branchMerge = {
+  id: 'branch.merge',
+  verb: 'merge',
+  target: 'branch',
+  level: LEVEL.REAL, // applies to live graph — user-approval gate
+  reversibility: REVERSIBILITY.BOUNDED,
+  blastRadius: BLAST_RADIUS.NONE,
+  summary: 'Apply a branch\'s pending mutations to live graph (user-approval)',
+  estimateCost: () => ({ timeMs: 200, irreversibilityTokens: 1 }),
+  execute: async function(args) {
+    return runCapability(this, args, async () => {
+      const id = args.branchId || args.id;
+      if (!id) throw new Error('branch.merge: branchId required');
+      const mod = await import('./branch-manager.js');
+      const result = await mod.mergeBranch(id);
+      if (!result.ok) throw new Error('branch.merge failed at step ' + result.failedAt + ': ' + result.error);
+      safeNotify({ title: '✅ Branch merged', body: result.applied + ' mutations applied' });
+      return result;
+    });
+  },
+};
+registerCapability(branchMerge);
+
+const branchDiscard = {
+  id: 'branch.discard',
+  verb: 'discard',
+  target: 'branch',
+  level: LEVEL.SANDBOX,
+  reversibility: REVERSIBILITY.FREE,
+  blastRadius: BLAST_RADIUS.NONE,
+  summary: 'Discard a branch without applying its mutations (soft-delete)',
+  estimateCost: () => ({ timeMs: 50, irreversibilityTokens: 0 }),
+  execute: async function(args) {
+    return runCapability(this, args, async () => {
+      const id = args.branchId || args.id;
+      if (!id) throw new Error('branch.discard: branchId required');
+      const mod = await import('./branch-manager.js');
+      return await mod.discardBranch(id, args.reason || '');
+    });
+  },
+};
+registerCapability(branchDiscard);
+
 const appBundle = {
   id: 'app.bundle',
   verb: 'bundle',
@@ -1258,6 +1328,9 @@ export const CORE_CAPABILITIES = [
   'app.bundle',
   'app.promote',
   'app.archive',
+  'branch.create',
+  'branch.merge',
+  'branch.discard',
   'browser.navigate',
   'volume.set',
   'volume.decrease',
