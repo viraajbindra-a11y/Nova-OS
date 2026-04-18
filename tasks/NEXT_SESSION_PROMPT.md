@@ -3,16 +3,16 @@
 ```
 Fresh session. Read in this order before touching anything:
 
-SESSION_HANDOFF.md — full recap (M0→M3 audit + M4 ship + M5.P1)
-PLAN.md — milestones (M0.P3, M0.P4, M3, M4, and M5.P1 done)
-tasks/lessons.md — read lessons 99-123 (this session's lessons)
+SESSION_HANDOFF.md — full recap (M0→M3 audit + M4 + M5.P1/P2/P2.b)
+PLAN.md — milestones (M0.P3, M0.P4, M3, M4, M5.P1, M5.P2 done)
+tasks/lessons.md — read lessons 99-127 (this session's lessons)
 
 Then run:
 - git status (working tree should be clean)
-- git log --oneline -16 (last 14 commits are this session)
+- git log --oneline -20 (last 18 commits are this session)
 - node server/index.js
 - open http://localhost:3000/test/v03-verification.html — should
-  render 131/131 tests green across 13 sections
+  render 140/140 tests green across 14 sections
 
 Persona: completely serious, no sugarcoating, zero hallucination
 tolerance. Memory file at ~/.claude/projects/-Users-parul-Nova-OS/
@@ -22,24 +22,21 @@ No narration. Verify every claim before stating it.
 
 State of the world:
 
-(1) Architecturally finished through M4 + M5.P1:
-    M1 — Intent Kernel (capability registry, executor, parser)
-    M2 — Hypergraph Storage (graph-store, query, migration)
-    M3 — Dual-Process Runtime (Ollama+Anthropic+budget+
-         calibration+brain-tag-via-plan.meta)
-    M4 — Verifiable Code Generation (full chain):
-         spec-generator.js  — intent → frozen spec
-         test-generator.js  — frozen spec → unit test suite
-         test-runner.js     — sandboxed iframe with sharedCode load
-         code-generator.js  — TDD iteration loop (max 5 attempts)
-         app-promoter.js    — bundle + sandbox→dock gate + archive
-    M5.P1 — Branching Storage Layer:
-         branch-manager.js  — open/record/diff/merge/discard +
-                              onBranch helper
-    11 new capabilities this session: spec.generate, spec.freeze,
-    tests.generate, tests.run, code.generate, app.bundle (L0),
-    app.promote (L2), app.archive (L2), branch.create (L0),
-    branch.merge (L2), branch.discard (L1)
+(1) Architecturally finished through M5.P2.b:
+    M1 — Intent Kernel
+    M2 — Hypergraph Storage
+    M3 — Dual-Process Runtime
+    M4 — Verifiable Code Generation (full chain)
+    M5.P1 — Branching Storage Layer (transaction-log COW)
+    M5.P2 — Operation Interceptor (L2+ preview gate generalized)
+    M5.P2.b — Single-shot executeIntent now goes through the gate
+
+    14 new capabilities total this session: spec.generate,
+    spec.freeze, tests.generate, tests.run, code.generate,
+    app.bundle (L0), app.promote (L2), app.archive (L2),
+    branch.create (L0), branch.merge (L2), branch.discard (L1),
+    plus the operation-interceptor exposes interceptedExecute and
+    requestConfirmation as kernel-level utilities.
 
 (2) ISO ready to rebuild:
     - Ollama install added to distro/build.sh
@@ -47,54 +44,49 @@ State of the world:
     - Run distro/build.sh to produce a fresh ISO; last release
       predates this session's changes.
 
-(3) Verification: 131/131 tests offline at
-    /test/v03-verification.html. The suite stubs
-    aiService.askWithMeta so it runs without an API key. Re-run
-    after any kernel change.
+(3) Verification: 140/140 tests offline at
+    /test/v03-verification.html. Stubs aiService.askWithMeta so
+    no API key needed. Re-run after every kernel change.
 
 What's NOT done (in priority order):
 
-A) Real Anthropic API E2E with funded ANTHROPIC_API_KEY.
-   Tests prove wiring; real API proves Claude's prompt + JSON
-   tolerance for every M3/M4 phase.
+A) **M5.P2.c — Spotlight UI for interception:preview**.
+   Critical follow-up. Without this, L2+ single-shot intents hang
+   for 60s then auto-abort because nothing in the UI is listening
+   for interception:preview events. Plan steps work because
+   executePlan has its own plan:preview Spotlight subscriber. Wire
+   the same shape (yellow border, "↵ Confirm / Esc Abort" header)
+   for interception:preview in js/shell/spotlight.js. ~50 lines.
 
-B) Real Ollama E2E. Settings > AI > Test Connection + Pull Model
-   both work; not soak-tested against real Ollama.
-   Try: `ollama serve` + `ollama pull qwen2.5:7b`, then run a
-   spec → tests → code chain end-to-end through Spotlight.
+B) Real Anthropic API E2E with funded ANTHROPIC_API_KEY. Tests
+   prove wiring; real API proves prompt + JSON tolerance for
+   M3/M4 phases.
 
-C) Native ISO E2E with all 80 apps + Ollama bundled. Hardware
-   boot or full UTM run required. Build a new ISO first.
+C) Real Ollama E2E. Settings > AI > Test Connection + Pull Model
+   both work; not soak-tested with `ollama serve` running.
 
-D) M4 dock surface: bundle/promote write 'generated-app' graph
-   nodes, but no dock-icon plumbing reads them yet. Renderer
-   needs a passive scan + register-as-app on docked status.
+D) Native ISO E2E with all 80 apps + Ollama bundled. Hardware boot
+   or full UTM run required. Build a new ISO first.
 
-E) M5.P2 Operation Interceptor — wrap every L2+ capability
-   execute() in branch-manager.onBranch(), route the diff to a
-   Spotlight preview (the existing plan:preview gate UI), wait
-   for confirm/abort. The substrate is now ready (M5.P1
-   shipped). This makes the safety story REAL across the OS,
-   not just for plans.
+E) M4 dock surface: bundle/promote write 'generated-app' graph
+   nodes; no dock-icon plumbing reads them yet. Renderer needs a
+   passive scan + register-as-app on docked status.
 
-F) M5.P3 (Undo/Rewind UI) and M5.P4 (External-Effect Detection
-   for git push, API call, etc. — point-of-no-return marking).
+F) M5.P3 (Undo/Rewind UI — timeline view of branches) and M5.P4
+   (External-Effect Detection — mark git push / API call /
+   filesystem-outside-roots as point-of-no-return).
 
-G) M6 Socratic Loop + Red-Team Agent. Also retrofits
-   app.promote to require red-team signoff in addition to user.
+G) M6 Socratic Loop + Red-Team Agent. Also retrofits app.promote
+   to require red-team signoff in addition to user.
 
-H) Spotlight Socratic UI for spec approval. spec.freeze is a
-   capability call — there's no nice user flow to review the
-   spec draft. Reuse the existing L2+ preview gate pattern in
-   spotlight.js.
+H) Spotlight Socratic UI for spec approval (spec.freeze gate).
 
-I) safeMathEval doesn't handle scientific notation (1e6) or
-   unary +(.
+I) safeMathEval doesn't handle scientific notation (1e6) or unary
+   +(.
 
-If the user has no specific direction, suggest options A, B,
-D, E first (verify what shipped against real APIs, make the
-dock actually show generated apps, wire the interceptor) before
-tackling M5.P3+ or M6.
+If the user has no specific direction, suggest A first (UI
+subscriber for interception:preview) — without it, the M5.P2
+gate has no UI presence and feels invisible to the user.
 
 Architecture refresher:
 
@@ -102,39 +94,52 @@ Architecture refresher:
   → code.generate (with internal tests.run iteration) →
   app.bundle → user app.promote.
 
-- M5.P1 substrate: createBranch → record({kind, args, describe})
-  multiple times → diffBranch (preview) → mergeBranch (apply)
-  OR discardBranch (drop). Branch is a 'branch' graph node with
-  pendingMutations[]. Lifecycle: open → committed | discarded.
+- M5.P1 substrate: createBranch → record(...) multiple times →
+  diffBranch (preview) → mergeBranch (apply) | discardBranch.
 
-- Sandbox isolation: test-runner builds an iframe with
-  sandbox="allow-scripts" (NOT allow-same-origin). Unique
-  origin → no parent window/storage/network. Verified by an
-  explicit "sandbox blocks parent localStorage access" test.
+- M5.P2 gate: interceptedExecute(cap, args) — L0/L1 pass through,
+  L2+ emit interception:preview {id, cap, args}, wait for
+  interception:confirm {id} or interception:abort {id, reason},
+  60s timeout. opts.skipInterception bypasses for headless paths.
+
+- M5.P2.b: intent-executor.executeIntent now routes through
+  interceptedExecute. compound-plan path passes
+  skipInterception=true on per-step to avoid double-prompt
+  (plan-level gate handles that).
+
+- Sandbox isolation: test-runner uses sandbox="allow-scripts"
+  iframe. Unique origin → no parent window/storage/network.
 
 - Brain tag flow: aiService.askWithMeta returns {reply, meta}.
-  Planner propagates meta. Executor reads plan.meta.brain.
-  Race-safe per-call (lessons #100, #106).
+  Planner propagates meta. Executor reads plan.meta.brain
+  (race-safe per-call).
 
-- Schema validators are first-line defense at three boundaries
-  (test-generator, code-generator, sandbox).
+- Three-layer defense for code generation: prompt rules,
+  schema-validator forbidden tokens, sandbox unique-origin.
 
-- Provenance edges: bundleApp adds three edges per generated
-  app — derives_from spec, passed_tests suite, runs_code code.
+- Provenance edges: every generated app has derives_from spec,
+  passed_tests suite, runs_code code edges. Single graph hop
+  for "where did this come from?" queries.
 
-- Transaction-log branching: each branch records mutation calls
-  (createNode/updateNode/deleteNode/addEdge/removeEdge) instead
-  of duplicating graph state. Replays on merge so provenance
-  flows through unchanged.
+- Transaction-log branching: each branch records mutation calls.
+  Replay on merge preserves provenance verbatim.
+
+- Per-call opaque ids for any kernel/UI boundary that can have
+  multiple in-flight async operations (interceptions, sandbox
+  test-runs, planner calls).
 
 - All 80 apps register in 3 boot.js blocks. Native shell C
   registry at distro/nova-renderer/nova-shell.c (~line 156)
   also needs updating.
 
-- Verification: /test/v03-verification.html — 131 tests, 13
+- Verification: /test/v03-verification.html — 140 tests, 14
   sections, 0 API key. Re-run after every kernel-layer change.
 
-Working tree is clean. The 14 commits this session (latest first):
+Working tree is clean. The 18 commits this session (latest first):
+  b3da7a8 M5.P2.b interceptor wired into executeIntent
+  27a30b9 docs M5.P2 + lessons 124-127
+  ad527d8 M5.P2 operation interceptor
+  2cbaae8 docs handoff prompt for M5.P1
   d461e6d docs M5.P1 + lessons 121-123
   2b29bfd M5.P1 branching storage
   267b524 docs M4 done + lessons 115-120
