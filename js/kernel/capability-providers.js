@@ -496,6 +496,80 @@ registerCapability(testsRun);
 //   linked back to the suite via an 'implements' edge.
 // ═══════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════
+// PROVIDER 6.9: app.bundle + app.promote + app.archive — M4.P4
+//   Bundle a verified spec/suite/code into a 'generated-app' graph
+//   node (sandboxed). User L2 promote moves it to docked. Archive
+//   soft-deletes.
+// ═══════════════════════════════════════════════════════════════
+
+const appBundle = {
+  id: 'app.bundle',
+  verb: 'bundle',
+  target: 'app',
+  level: LEVEL.OBSERVE,
+  reversibility: REVERSIBILITY.FREE,
+  blastRadius: BLAST_RADIUS.NONE,
+  summary: 'Bundle spec/suite/code into a sandboxed generated-app node (M4.P4)',
+  estimateCost: () => ({ timeMs: 100, irreversibilityTokens: 0 }),
+  execute: async function(args) {
+    return runCapability(this, args, async () => {
+      const codeId = args.codeId || args.id;
+      if (!codeId) throw new Error('app.bundle: codeId required');
+      const mod = await import('./app-promoter.js');
+      const result = await mod.bundleApp(codeId);
+      if (!result.ok) throw new Error('app.bundle: ' + result.error);
+      return { appId: result.appId, status: 'sandboxed' };
+    });
+  },
+};
+registerCapability(appBundle);
+
+const appPromote = {
+  id: 'app.promote',
+  verb: 'promote',
+  target: 'app',
+  level: LEVEL.REAL, // user-approval gate — sandbox -> dock is a real decision
+  reversibility: REVERSIBILITY.BOUNDED,
+  blastRadius: BLAST_RADIUS.NONE,
+  summary: 'Promote a sandboxed app to docked (user L2 approval) (M4.P4)',
+  estimateCost: () => ({ timeMs: 50, irreversibilityTokens: 1 }),
+  execute: async function(args) {
+    return runCapability(this, args, async () => {
+      const appId = args.appId || args.id;
+      if (!appId) throw new Error('app.promote: appId required');
+      const mod = await import('./app-promoter.js');
+      const result = await mod.promoteApp(appId);
+      if (!result.ok) throw new Error('app.promote: ' + result.error);
+      safeNotify({ title: '🚀 App promoted to dock', body: 'app ' + appId.slice(0, 8) });
+      return result;
+    });
+  },
+};
+registerCapability(appPromote);
+
+const appArchive = {
+  id: 'app.archive',
+  verb: 'archive',
+  target: 'app',
+  level: LEVEL.REAL,
+  reversibility: REVERSIBILITY.BOUNDED,
+  blastRadius: BLAST_RADIUS.NONE,
+  summary: 'Archive (soft-delete) a generated app (M4.P4)',
+  estimateCost: () => ({ timeMs: 50, irreversibilityTokens: 1 }),
+  execute: async function(args) {
+    return runCapability(this, args, async () => {
+      const appId = args.appId || args.id;
+      if (!appId) throw new Error('app.archive: appId required');
+      const mod = await import('./app-promoter.js');
+      const result = await mod.archiveApp(appId);
+      if (!result.ok) throw new Error('app.archive: ' + result.error);
+      return result;
+    });
+  },
+};
+registerCapability(appArchive);
+
 const codeGenerate = {
   id: 'code.generate',
   verb: 'generate',
@@ -1181,6 +1255,9 @@ export const CORE_CAPABILITIES = [
   'tests.generate',
   'tests.run',
   'code.generate',
+  'app.bundle',
+  'app.promote',
+  'app.archive',
   'browser.navigate',
   'volume.set',
   'volume.decrease',

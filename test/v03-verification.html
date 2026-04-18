@@ -753,6 +753,70 @@ await test('code.generate capability registered with L1 sandbox',
 
 aiService.askWithMeta = realAskForTests;
 
+// ═══ 12. App promoter (M4.P4 — provenance + sandbox→dock gate) ═══
+section('12. App promoter (M4.P4)');
+
+const appMod = await import('/js/kernel/app-promoter.js');
+
+// Reuse the spec/suite/code-id chain from section 11 if possible.
+// codeNodeId points to a 'generated-code' node that all-passed. Bundle it.
+const bundleResult = await appMod.bundleApp(codeNodeId);
+await test('bundleApp returns ok with appId', () => bundleResult.ok && typeof bundleResult.appId === 'string');
+
+const bundledApp = await appMod.getApp(bundleResult.appId);
+await test('bundled app starts in sandboxed status', () => bundledApp?.status === 'sandboxed');
+await test('bundled app carries intent', () => bundledApp?.intent === 'build me a stack');
+await test('bundled app has provenance with codeAttempts', () => bundledApp?.provenance?.codeAttempts === 2);
+await test('bundled app references all three upstream ids',
+  () => bundledApp.specId && bundledApp.suiteId && bundledApp.codeId);
+await test('bundled app has sandboxedAt timestamp', () => typeof bundledApp.sandboxedAt === 'number');
+
+// Promote (L2 gate)
+const promoteResult = await appMod.promoteApp(bundleResult.appId);
+await test('promoteApp ok', () => promoteResult.ok && promoteResult.status === 'docked');
+
+const dockedApp = await appMod.getApp(bundleResult.appId);
+await test('promoted app is now docked + has dockedAt', () => dockedApp.status === 'docked' && typeof dockedApp.dockedAt === 'number');
+
+// Listing — defaults to docked-only
+const dockedList = await appMod.listGeneratedApps('docked');
+await test('listGeneratedApps(docked) includes the promoted app',
+  () => dockedList.some(a => a.id === bundleResult.appId));
+
+// Archive
+const archiveResult = await appMod.archiveApp(bundleResult.appId);
+await test('archiveApp ok', () => archiveResult.ok && archiveResult.status === 'archived');
+const archived = await appMod.getApp(bundleResult.appId);
+await test('archived app has archivedAt set', () => typeof archived.archivedAt === 'number');
+
+// Refusal cases
+const refuseUnknown = await appMod.bundleApp('non-existent-' + Date.now());
+await test('bundleApp refuses unknown codeId',
+  () => refuseUnknown.ok === false && /not found/.test(refuseUnknown.error));
+
+// Refuse if code didn't all-pass (manufacture a "failed" code node)
+const fakeFailedCode = await graphStore.createNode('generated-code', {
+  suiteId: codeSuiteId,
+  code: 'class Stack {}',
+  status: 'failed',
+  finalResults: { passes: 1, total: 3 },
+  attempts: 3,
+  history: [],
+}, { createdBy: { kind: 'system', capabilityId: 'test-fixture' } });
+const refuseFailed = await appMod.bundleApp(fakeFailedCode.id);
+await test('bundleApp refuses code that did not all-pass',
+  () => refuseFailed.ok === false && /not in ok status|does not pass/.test(refuseFailed.error));
+
+// Capability registration
+const appBundleCap = getCapability('app.bundle');
+const appPromoteCap = getCapability('app.promote');
+const appArchiveCap = getCapability('app.archive');
+await test('app.bundle capability registered (L0)', () => !!appBundleCap && appBundleCap.level === 0);
+await test('app.promote capability registered with L2 user-approval gate',
+  () => !!appPromoteCap && appPromoteCap.level === 2);
+await test('app.archive capability registered (L2)',
+  () => !!appArchiveCap && appArchiveCap.level === 2);
+
 // ═══ Summary ═══
 const total = passCount + failCount;
 const summary = document.getElementById('summary');
