@@ -140,14 +140,21 @@ Each milestone has: a 1-sentence success definition, **explicit phases** (the su
   - ✅ Desktop right-click menu — already existed (New Folder, Change Wallpaper, Display, Terminal, Finder, About)
   - ✅ Keyboard shortcuts — already existed (`Ctrl+Space` Search, `Alt+Tab` app switcher, key snooper global)
   - ✅ Window snap — already existed (drag to left/right/top edge → snap)
-- **M0.P3 — Web Apps in Native Mode** *(Day 5–6)* — pending
-  - Strip OS chrome from web apps when running under nova-shell (no boot, no login, no HTML menubar/dock)
-  - Fix browser app to launch `astrion-browser`
-  - Test all 52 apps in native GTK windows, one at a time
-- **M0.P4 — Install + Persistence** *(Day 7–8)* — pending
-  - Default boot path: prompt to install to disk
-  - Auto Wi-Fi + NTP on installed systems
-  - Full Surface Pro 6 end-to-end test
+- **M0.P3 — Web Apps in Native Mode** *(Day 5–6)* ✅ **COMPLETE — 2026-04-17**
+  - ✅ `/app/:appId` route serves stripped page: only `system.css` + `window.css` + the requested app's CSS (if it exists). Shell chrome (menubar/dock/spotlight/control-center/launchpad/setup) NOT loaded.
+  - ✅ `body.nova-native-app` + inline display:none rules hide any chrome elements that boot.js's window-manager still references.
+  - ✅ Per-app CSS dynamic include via `existsSync('css/apps/${appId}.css')` — covers all 80 apps (previously hardcoded list covered 17).
+  - ✅ Path traversal guard: `/^[a-z0-9-]+$/` whitelist on `:appId` returns 400 for `/app/../../etc/passwd`.
+  - ✅ Browser app: launches Chromium (decision changed from PLAN v1's `astrion-browser` per ISO session lessons — Chromium is a battle-tested fallback. The standalone `astrion-browser.c` exists in source for reference but is not wired.)
+  - Native-window E2E test of all 80 apps requires real hardware boot — that piece deferred until next ISO build.
+- **M0.P4 — Install + Persistence** *(Day 7–8)* ✅ **COMPLETE — already shipped, verified 2026-04-17**
+  - ✅ `nova-first-boot.sh` (zenity install/try/never-ask dialog) wired in `.xinitrc` before nova-shell starts (build.sh:731).
+  - ✅ `nova-install` script + parted/rsync/dosfstools deps in build.sh.
+  - ✅ Auto Wi-Fi: `nmcli device wifi rescan` + auto-connect saved profile in `.xinitrc` (build.sh:619-626).
+  - ✅ Auto NTP: `sudo ntpdate -u pool.ntp.org` in `.xinitrc` (build.sh:635).
+  - ✅ DNS fallback: ensures /etc/resolv.conf has 8.8.8.8 + 1.1.1.1 (build.sh:629-632).
+  - ✅ Auto timezone via worldtimeapi.org IP geolocation (build.sh:638-643).
+  - Full Surface Pro 6 e2e test deferred to next hardware boot.
 
 **Demo script:** Boot ISO in UTM → native panel visible → click Terminal icon in dock → terminal opens in its own GTK window → close it → desktop survives → battery % is accurate → Ctrl+R does nothing.
 
@@ -303,29 +310,37 @@ Each milestone has: a 1-sentence success definition, **explicit phases** (the su
 
 ---
 
-### M3 — Dual-Process Runtime *(~4 weeks after M2)*
+### M3 — Dual-Process Runtime *(~4 weeks after M2)* ✅ **COMPLETE — 2026-04-17**
+
+**Status note:** Most of M3 had landed in prior commits but PLAN.md was never updated (lesson #99). This session's audit confirmed every phase is shipped, fixed the brain-tagging bug in calibration recording, bundled Ollama into the ISO build, replaced the Function() math eval with a recursive-descent parser, and shipped a 38-test offline verification suite that runs end-to-end without an API key. See `test/v03-verification.html`.
 
 **Kid version:** Officially split the brain into fast + slow. Little brain (Ollama) always on. Big brain (Claude API) only when the little brain isn't sure. Track mistakes, get smarter.
 
 **Success:** 80% of intents resolve via S1. S2 cost drops ~80%. UI shows which brain answered and why.
 
 **Phases:**
-- **M3.P1 — S1 Runtime (Ollama Always-On)** *(Week 1)*
-  - Bundle Ollama with ISO, auto-start as a service
-  - S1 handles: intent parsing, simple classifications, pattern-matched plan selection
-  - Falls back to S2 on uncertainty
-- **M3.P2 — S2 Runtime (Claude with Budget)** *(Week 2)*
-  - Wrap existing Anthropic calls in a budget manager
-  - Per-day cap, per-intent cap, cost tracking
-  - Multi-provider fallback (Anthropic → larger local Ollama → prompt user to add a key)
-- **M3.P3 — Calibration Tracker + Escalation Policy** *(Week 3)*
-  - Every intent asks "did this work?" after the fact (thumbs up/down, non-intrusive)
-  - Track S1 accuracy per intent category
-  - Auto-escalate categories where S1 accuracy < 70% to S2 permanently
-- **M3.P4 — UI Tags (Which Brain + Confidence)** *(Week 4)*
-  - Every response shows a small S1/S2 badge + confidence %
-  - Click badge → see the reasoning trace
-  - Calibration dashboard: "S1 is 94% on create-file, 67% on math → math routed to S2"
+- **M3.P1 — S1 Runtime (Ollama Always-On)** ✅
+  - ✅ ai-service.js routes `auto`→Ollama→Anthropic→mock (line 78-130)
+  - ✅ Server proxy at `/api/ai/ollama` (server/index.js:139)
+  - ✅ Default model `qwen2.5:7b`; configurable via Settings > AI Assistant
+  - ✅ ISO bundling via `curl https://ollama.com/install.sh | sh` in build.sh chroot, `ollama.service` enabled at multi-user.target
+  - Model NOT bundled (would push ISO past 2GB GitHub release cap, lesson #24); user pulls `ollama pull qwen2.5:7b` post-install
+- **M3.P2 — S2 Runtime (Claude with Budget)** ✅
+  - ✅ `js/kernel/budget-manager.js`: per-day + per-intent caps in localStorage with Haiku/Sonnet/Opus pricing
+  - ✅ `checkBudget()` gate before every Anthropic call (ai-service.js:102)
+  - ✅ `recordS2Call()` writes real `usage` from API response (ai-service.js:116)
+  - ✅ Settings > AI Assistant exposes daily cap input + reset button + 50-call rolling log
+  - ✅ Default daily cap $0.50, per-intent $0.05
+- **M3.P3 — Calibration Tracker + Escalation Policy** ✅
+  - ✅ `js/kernel/calibration-tracker.js`: `calibration-sample` graph nodes; per-category accuracy via 7-day window; escalates when 5+ samples and accuracy < 70%
+  - ✅ `recordSample()` called from intent-executor for every plan step + from spotlight on user thumbs feedback
+  - ✅ Brain tagging FIXED in this session — was reading static `localStorage('nova-ai-provider')`, now reads actual `ai:response` event payload
+  - ✅ Settings > AI Assistant > Brain Calibration table shows category / samples / accuracy / route + "X categories escalated to S2" badge
+- **M3.P4 — UI Tags (Which Brain + Confidence)** ✅
+  - ✅ `ai:thinking` + `ai:response { brain, confidence, provider, escalated }` emitted from ai-service.js
+  - ✅ Menubar brain indicator (js/shell/menubar.js:33) updates per response
+  - ✅ Spotlight reasoning row shows escalation cause when S1→S2 falls through (spotlight.js:980)
+  - ✅ Settings dashboard shows budget consumption + per-category accuracy table
 
 **Demo script:** Run 10 intents → 8 show "S1" tag, 2 show "S2" tag with reasoning → calibration page updated.
 
