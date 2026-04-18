@@ -1,10 +1,10 @@
-# Session Handoff: M0→M3 Audit + M4.P1/P2/P3 Ship
+# Session Handoff: M0→M3 Audit + Full M4 Ship (P1+P2+P3+P3.b+P4)
 
 **Date:** 2026-04-17 → 2026-04-18
-**Branch:** main (8 new commits ahead of origin — not pushed)
+**Branch:** main (11 new commits ahead of origin — not pushed)
 **Starting point:** 80 apps, commit `f8a47fa` (timer.js leak fix)
-**Ending point:** commit `0dbbe83` (M4.P3 sandboxed runner)
-**Verification:** **85/85 tests** in `test/v03-verification.html` (no API key needed)
+**Ending point:** commit `f414fee` (M4.P4 promotion gate)
+**Verification:** **113/113 tests** in `test/v03-verification.html` (no API key needed)
 
 ---
 
@@ -20,9 +20,12 @@ The session did three substantively different chunks of work:
 
 ---
 
-## Commits Landed (8, not pushed)
+## Commits Landed (11, not pushed)
 
 ```
+f414fee M4.P4: provenance + sandbox→dock promotion gate
+c8e48e6 M4.P3.b: code-from-tests iteration loop with sandbox load step
+c1569ca Docs: M4.P1/P2/P3 marked complete; lessons 109-114; new handoff prompt
 0dbbe83 M4.P3: sandboxed test runner via iframe with allow-scripts only
 e34f8c4 M4.P2: tests-from-spec generator with shape-stable per-criterion suite
 4d8ac82 M4.P1: spec generator (intent -> structured spec) + freeze gate
@@ -72,12 +75,24 @@ b7de3ed M0.P3 + M3.P1 server: dynamic per-app CSS, Ollama pull, v0.3 offline sui
 ### M4.P3 — Sandboxed Test Runner ✅ (new)
 - `js/kernel/test-runner.js`: iframe with `sandbox="allow-scripts"` (NOT `allow-same-origin`) → unique origin
 - Bootstrap exposes a tiny matcher: `.toBe / .toEqual / .toBeTruthy / .toBeFalsy / .toContain / .toBeGreaterThan / .toBeLessThan`
-- `runSingleTest(test)` and `runSuite(suiteId)`. Per-test 5s + suite 30s timeouts
+- `runSingleTest(test)` and `runSuite(suiteId, { sharedCode? })`. Sandbox-side `'load'` message accepts shared code once before tests run. Per-test 5s + suite 30s timeouts
 - Capability: `tests.run` (L1 SANDBOX, FREE)
 - Verification confirms sandbox blocks `localStorage` access from inside
 
+### M4.P3.b — Code-from-Tests Iteration Loop ✅ (new)
+- `js/kernel/code-generator.js`: `generateCode(suiteId, { maxAttempts })` reads suite + spec, asks model for code, validates schema + tokens + syntax, runs via `runSuite({sharedCode})`, iterates with the failure list echoed back into the next prompt. Default 3 attempts, max 5
+- Validator rejects forbidden tokens (`import|require|fetch|XMLHttpRequest|WebSocket|eval|Function|setTimeout|setInterval|importScripts|document|window.parent|window.top`), oversize blobs (>8000), and syntactically invalid JS
+- `storeGeneratedCode` persists `'generated-code'` graph node with per-attempt history; `'implements'` edge to suite
+- Capability: `code.generate` (L1 SANDBOX, FREE)
+
+### M4.P4 — Provenance + App Promotion ✅ (new)
+- `js/kernel/app-promoter.js`: `bundleApp(codeId)` REFUSES unless code.status==='ok' AND every test passes AND suite exists AND spec is frozen. Builds `'generated-app'` graph node with full provenance (intent, model+brain per phase, attempts, test counts)
+- Three provenance edges: `app -[derives_from]-> spec`, `app -[passed_tests]-> suite`, `app -[runs_code]-> code`
+- Lifecycle: `sandboxed` → (user L2) → `docked` → (user L2) → `archived`
+- Capabilities: `app.bundle` (L0), `app.promote` (L2 user-approval gate), `app.archive` (L2). Until M6 ships the red-team agent, the user IS the L2 unlock
+
 ### v0.3 Offline Verification Suite ✅
-`test/v03-verification.html` — 85 tests across 10 sections. Refresh to re-run. No API key needed (stubbed `aiService.askWithMeta`).
+`test/v03-verification.html` — 113 tests across 12 sections. Refresh to re-run. No API key needed (stubbed `aiService.askWithMeta`).
 
 ---
 
@@ -88,14 +103,11 @@ b7de3ed M0.P3 + M3.P1 server: dynamic per-app CSS, Ollama pull, v0.3 offline sui
 - Real Ollama E2E with `ollama serve` + `qwen2.5:7b` pulled.
 - Native ISO E2E with all 80 apps in GTK windows. Last ISO build was prior to this session's `distro/build.sh` changes — needs a fresh build to include the Ollama install block.
 
-### M4 Remaining Phases
-- **M4.P3.b** — Code-from-tests iteration loop. Take a frozen spec + suite, ask the model to write code that satisfies the suite, run, capture failures, ask again with the failures echoed back. Bounded retries (~3) before asking the user.
-- **M4.P4** — Provenance + App Promotion. `generated-app` graph node carrying the full chain (intent + spec + suite + code + prompt history + model + seed). Promotion to dock requires user L2 unlock until M6 ships the red-team agent.
-
-### Bigger work (after M4.P3.b/P4)
-- M5 (Reversibility + Temporal Substrate)
-- M6 (Socratic Loop + Red-Team Agent) — also unlocks the M4.P4 promotion gate
-- More apps past 80, marketplace prep, ISO installer UX
+### Bigger work (next)
+- **M4 dock surface**: bundle/promote write graph nodes, but there's no actual dock-icon plumbing that reads `'generated-app'` nodes with status='docked' and shows them in the dock UI. Spotlight already supports launching arbitrary capabilities; the missing piece is a passive scan + register-as-app on the renderer side.
+- **M5 (Reversibility + Temporal Substrate)** — branching storage on top of the M2 graph, every L2+ action creates a branch that the user can confirm/abort. The L2+ preview gate already exists from M2 Agent Core; M5 is the storage substrate that makes the preview real.
+- **M6 (Socratic Loop + Red-Team Agent)** — second AI critiques every L2+ plan. Also retrofits the M4.P4 `app.promote` gate to require red-team signoff.
+- More apps past 80, marketplace prep, ISO installer UX.
 
 ### Smaller open loops
 - Spotlight Socratic UI for spec approval (currently spec.freeze is callable but no nice UI flow). Reuse the existing L2+ preview gate pattern in `spotlight.js`.

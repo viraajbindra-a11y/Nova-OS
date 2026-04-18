@@ -378,17 +378,22 @@ Each milestone has: a 1-sentence success definition, **explicit phases** (the su
   - ✅ Capability: `tests.generate` (L0). Helpers: `getTestSuite`, `getSuitesForSpec`, `recordSuiteRun`.
 - **M4.P3 — Sandbox Executor** ✅ **2026-04-18**
   - ✅ `js/kernel/test-runner.js`: iframe with `sandbox="allow-scripts"` (NOT `allow-same-origin`) → unique origin, no parent window/storage/network access. Bootstrap exposes a tiny matcher (`.toBe / .toEqual / .toBeTruthy / .toBeFalsy / .toContain / .toBeGreaterThan / .toBeLessThan`).
-  - ✅ `runSingleTest(test)` and `runSuite(suiteId)`. Per-test 5s + suite 30s hard timeouts.
-  - ✅ Reuses one sandbox per `runSuite` call; results recorded back via `recordSuiteRun()` so each suite node carries `lastRunAt`/`lastRunPasses`/`lastRunResults`.
+  - ✅ `runSingleTest(test)` and `runSuite(suiteId, { sharedCode? })`. Per-test 5s + suite 30s hard timeouts.
+  - ✅ Reuses one sandbox per `runSuite` call; sandbox-side `'load'` message accepts shared code (e.g. M4.P3.b output) once before tests run; results recorded back via `recordSuiteRun()`.
   - ✅ Capability: `tests.run` (L1 SANDBOX, FREE reversibility).
   - Verified: sandbox blocks `localStorage` access from inside (parent storage isolated).
-  - Code-from-tests iteration loop (S2 writes code targeting failing tests) — deferred to M4.P3.b.
-- **M4.P4 — Provenance + App Promotion** ⏳ pending
-  - Every generated app would be a graph node with: original intent, spec, tests, code, prompt chain, model version, seed.
-  - Promotion from sandbox → dock requires red-team signoff (from M6) OR explicit user L2 unlock (until M6 ships).
-  - The 'spec'+'test-suite' nodes already give half the provenance; a 'generated-app' node + edge schema lands in M4.P4.
+- **M4.P3.b — Code-from-Tests Iteration Loop** ✅ **2026-04-18**
+  - ✅ `js/kernel/code-generator.js`: `generateCode(suiteId, { maxAttempts })` reads suite + spec, asks the model for code, validates schema + tokens + syntax, runs via `runSuite({sharedCode})`, iterates with the failure list echoed back into the next prompt. Default 3 attempts, max 5.
+  - ✅ Validator rejects forbidden tokens (`import|require|fetch|XMLHttpRequest|WebSocket|eval|Function|setTimeout|setInterval|importScripts|document|window.parent|window.top`), oversize blobs (>8000 chars), and syntactically invalid JS (`new Function(code)` parse check).
+  - ✅ `storeGeneratedCode` persists a `'generated-code'` graph node with per-attempt history (pass/total/brain/model) and adds an `'implements'` edge back to the suite.
+  - ✅ Capability: `code.generate` (L1 SANDBOX, FREE).
+- **M4.P4 — Provenance + App Promotion** ✅ **2026-04-18**
+  - ✅ `js/kernel/app-promoter.js`: `bundleApp(codeId)` REFUSES unless code.status==='ok' AND every test passes AND suite exists AND spec is frozen. Builds a `'generated-app'` graph node with full provenance bundle (intent, specCreatedAt, suiteGeneratedAt, suiteModel, codeAttempts, codeModel, codeBrain, testsTotal, testsPassed).
+  - ✅ Three provenance edges: `app -[derives_from]-> spec`, `app -[passed_tests]-> suite`, `app -[runs_code]-> code`.
+  - ✅ Lifecycle: `sandboxed` → (user L2) → `docked` → (user) → `archived`.
+  - ✅ Capabilities: `app.bundle` (L0), `app.promote` (L2 user-approval gate), `app.archive` (L2). Until M6 ships the red-team agent, the user IS the L2 unlock; promote() will require red-team signoff too once M6 lands.
 
-**Verification:** All M4.P1/P2/P3 paths are exercised by `test/v03-verification.html` against a stubbed AI. **85/85 tests** green offline. Real Anthropic key required only for soak-testing prompt quality — wiring is proven.
+**Verification:** All M4.P1/P2/P3/P3.b/P4 paths are exercised by `test/v03-verification.html` against a stubbed AI. **113/113 tests** green offline across 12 sections. Real Anthropic key required only for soak-testing prompt quality — wiring is proven.
 
 **Demo script:** "build me a pomodoro timer with 25-min work + 5-min break" → spec → tests → code → tests pass → app in dock → works.
 
