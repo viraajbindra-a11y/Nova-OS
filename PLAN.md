@@ -465,9 +465,12 @@ Each milestone has: a 1-sentence success definition, **explicit phases** (the su
 **Success:** Run an intent → see planner's plan AND red-team's critique side-by-side → choose to proceed or revise.
 
 **Phases:**
-- **M6.P1 — Red-Team Agent** *(Week 1)*
-  - Separate process, different model (or same model with adversarial system prompt)
-  - Input: the planner's proposed plan. Output: list of failure modes + risks
+- **M6.P1 — Red-Team Agent** ✅ **2026-04-18**
+  - ✅ `js/kernel/red-team.js`: `reviewAction(cap, args) → {ok, review?{risks, recommendation, summary, brain, model}, error?}`. Adversarial system prompt with structured JSON output (risks list with severity low/medium/high; recommendation proceed/review/abort; ≤5 risks). One retry on schema/parse failure; 600 maxTokens; 10s per-call timeout.
+  - ✅ `initRedTeamAgent()` subscribes to `interception:preview`, fires reviews for L2+ caps only (skips L0/L1), emits `interception:enriched` on completion. Hard cap of 4 parallel reviews to bound concurrency.
+  - ✅ Spotlight subscriber appends a colored risks list under the args summary (green/yellow/red severity dots, colored recommendation header). "No concerns" in green; "red-team unavailable" dimmed when the model fails.
+  - Wired in both the native-mode and normal-mode boot blocks so web preview + ISO behave identically.
+  - Different model option (true model diversity) — deferred to M6.P1.b. Same model with adversarial persona is enough proof-of-concept; the only coupling is through `aiService.askWithMeta`.
 - **M6.P2 — Socratic Prompter** *(Week 2)*
   - Confidence-threshold based: above 0.9 → silent execute; 0.6–0.9 → single-line prompt; below 0.6 → full Socratic ("did you consider X?")
   - Prompts are questions, not yes/no dialogs
