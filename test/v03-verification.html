@@ -1186,6 +1186,16 @@ await test('socratic:rubberstamp-warning fires after threshold reached',
 await test('warning includes rapidRate >= 0.80',
   () => warned && warned.rapidRate >= 0.80);
 
+// M6.P4.c: warning also fires as notification:show
+let notif = null;
+const onNotif = (e) => { if (e.icon === '🤖') notif = e; };
+eventBus.on('notification:show', onNotif);
+rsMod.resetStats();
+for (let i = 0; i < 20; i++) await rapid();
+eventBus.off('notification:show', onNotif);
+await test('warning fires as notification:show with reading-hint message',
+  () => notif && /under 1.5 seconds/.test(notif.message));
+
 // Cooldown: re-running shouldn't re-warn within 24h
 warned = null;
 eventBus.on('socratic:rubberstamp-warning', onWarn);

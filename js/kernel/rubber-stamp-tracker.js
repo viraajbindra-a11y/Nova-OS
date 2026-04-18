@@ -99,10 +99,21 @@ function maybeWarn(stats) {
   if (now - (stats.lastWarnedAt || 0) < WARN_COOLDOWN_MS) return;
   stats.lastWarnedAt = now;
   saveStats(stats);
-  eventBus.emit('socratic:rubberstamp-warning', {
+  const payload = {
     rapidRate: Math.round(rate * 100) / 100,
     samples: total,
     threshold: RUBBER_STAMP_THRESHOLD,
+  };
+  eventBus.emit('socratic:rubberstamp-warning', payload);
+  // M6.P4.c: also surface as a system notification so the user sees
+  // it immediately, not only in a Settings dashboard. The notification
+  // host (initialized by boot) renders it via the existing
+  // notification:show subscriber.
+  eventBus.emit('notification:show', {
+    title: '🤔 Take a breath',
+    message: `${Math.round(payload.rapidRate * 100)}% of recent confirms were under 1.5 seconds. The L2 gate only helps if you read it. (one warning per day)`,
+    icon: '🤖',
+    duration: 12000,
   });
 }
 
