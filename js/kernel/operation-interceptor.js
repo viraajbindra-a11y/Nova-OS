@@ -95,10 +95,16 @@ export function requestConfirmation(cap, args, opts = {}) {
         summary: cap.summary,
         blastRadius: cap.blastRadius,
         reversibility: cap.reversibility,
+        pointOfNoReturn: !!cap.pointOfNoReturn, // M5.P4
       },
       args,
       recordedAt: Date.now(),
       timeoutMs,
+      // M5.P4: when set, the UI must require typed confirmation (cap id)
+      // instead of just Enter. The interceptor doesn't enforce this — it's
+      // a contract for subscribers — but we surface it in the event so
+      // the renderer can pick it up.
+      requiresTypedConfirmation: !!cap.pointOfNoReturn,
     });
   });
 }

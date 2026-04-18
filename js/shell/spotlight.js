@@ -66,6 +66,7 @@ let pendingConfirmPlanId = null;
 // a plan-level cap fires a single-shot L2 cap mid-step).
 let pendingInterceptionId = null;
 let pendingInterceptionCap = null; // for render
+let pendingInterceptionPONR = false; // M5.P4 — typed-confirm required
 
 export function initSpotlight() {
   const spotlight = document.getElementById('spotlight');
@@ -88,9 +89,11 @@ export function initSpotlight() {
         eventBus.emit('interception:abort', { id: pendingInterceptionId, reason: 'user-aborted' });
         pendingInterceptionId = null;
         pendingInterceptionCap = null;
+        pendingInterceptionPONR = false;
         results.innerHTML = '';
         input.disabled = false;
         input.value = '';
+        input.placeholder = '';
         input.focus();
         return;
       }
@@ -205,11 +208,19 @@ export function initSpotlight() {
   // operation-interceptor's interception:preview event, renders a small
   // panel with cap details + args + "↵ Confirm / Esc Abort" header, and
   // emits interception:confirm or interception:abort on user input.
-  eventBus.on('interception:preview', ({ id, cap, args, timeoutMs }) => {
+  eventBus.on('interception:preview', ({ id, cap, args, timeoutMs, requiresTypedConfirmation }) => {
     pendingInterceptionId = id;
     pendingInterceptionCap = cap;
+    pendingInterceptionPONR = !!requiresTypedConfirmation;
     if (!isOpen) open();
-    input.disabled = true;
+    // For PONR ops, the input is ENABLED so the user can type the cap id;
+    // for normal L2 the input is disabled so Enter just confirms.
+    input.disabled = !pendingInterceptionPONR;
+    input.value = '';
+    if (pendingInterceptionPONR) {
+      input.placeholder = 'Type ' + cap.id + ' to confirm';
+      input.focus();
+    }
     const argSummary = (() => {
       try {
         const clean = { ...args };
@@ -218,14 +229,24 @@ export function initSpotlight() {
         return json.length > 240 ? json.slice(0, 240) + '…' : json;
       } catch { return ''; }
     })();
+    const borderColor = pendingInterceptionPONR ? '#ff5555' : '#f1fa8c';
+    const bgTint = pendingInterceptionPONR ? 'rgba(255,85,85,0.08)' : 'rgba(241,250,140,0.05)';
+    const headerColor = pendingInterceptionPONR ? '#ff5555' : '#f1fa8c';
+    const ponrBanner = pendingInterceptionPONR
+      ? `<div style="font-size:11px;color:#ff5555;font-weight:600;margin-bottom:6px;">⚠ POINT OF NO RETURN — this action cannot be undone</div>`
+      : '';
+    const confirmHint = pendingInterceptionPONR
+      ? `Type <code>${escapeHtml(cap.id)}</code> exactly + Enter to confirm · Esc to abort`
+      : '↵ Press Enter to confirm · Esc to abort';
     results.innerHTML = `
-      <div class="spotlight-result-group" style="border:2px solid #f1fa8c;border-radius:8px;padding:12px 16px;background:rgba(241,250,140,0.05);">
+      <div class="spotlight-result-group" style="border:2px solid ${borderColor};border-radius:8px;padding:12px 16px;background:${bgTint};">
+        ${ponrBanner}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <div style="font-size:12px;font-weight:600;color:#f1fa8c;">⚠ ${escapeHtml(cap.summary || cap.id)}</div>
+          <div style="font-size:12px;font-weight:600;color:${headerColor};">⚠ ${escapeHtml(cap.summary || cap.id)}</div>
           <div style="font-size:11px;color:rgba(255,255,255,0.5);">L${cap.level} · ${escapeHtml(cap.reversibility || 'bounded')} · ${escapeHtml(cap.blastRadius || 'file')}</div>
         </div>
         <div style="font-size:11px;color:rgba(255,255,255,0.6);font-family:ui-monospace,monospace;margin-bottom:8px;word-break:break-all;">${escapeHtml(cap.id)} ${escapeHtml(argSummary)}</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.7);">↵ Press Enter to confirm · Esc to abort · auto-aborts in ${Math.round((timeoutMs || 60000) / 1000)}s</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.7);">${confirmHint} · auto-aborts in ${Math.round((timeoutMs || 60000) / 1000)}s</div>
       </div>`;
   });
 
@@ -829,12 +850,28 @@ export function initSpotlight() {
     // (rare but possible if a plan-step fires a single-shot L2 cap that
     // hits the interceptor mid-plan).
     if (pendingInterceptionId) {
+      // M5.P4: when the cap is point-of-no-return, the user must type
+      // the exact cap id before Enter is accepted as confirmation.
+      if (pendingInterceptionPONR) {
+        const expected = pendingInterceptionCap?.id || '';
+        const typed = (query || '').trim();
+        if (typed !== expected) {
+          // Wrong text — show a hint, don't confirm or abort.
+          input.value = '';
+          results.querySelector('.spotlight-result-group')?.insertAdjacentHTML('beforeend',
+            `<div style="font-size:11px;color:#ff5555;margin-top:6px;">Typed text did not match. Type <code>${escapeHtml(expected)}</code> exactly.</div>`);
+          input.focus();
+          return;
+        }
+      }
       const iid = pendingInterceptionId;
       pendingInterceptionId = null;
       pendingInterceptionCap = null;
+      pendingInterceptionPONR = false;
       eventBus.emit('interception:confirm', { id: iid });
       input.disabled = false;
       input.value = '';
+      input.placeholder = '';
       results.innerHTML = '';
       return;
     }

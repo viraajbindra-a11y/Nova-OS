@@ -999,6 +999,42 @@ eventBus.off('interception:preview', onPrev3);
 await test('requestConfirmation resolves with ok=true on confirm',
   () => directConfirm.ok === true && directConfirm.id);
 
+// ─── M5.P4 point-of-no-return ───
+// PONR caps surface a flag in the preview event. Subscribers (Spotlight)
+// require typed confirmation; the interceptor itself just labels.
+const fakePONR = {
+  id: 'fake.ponr',
+  level: LVL.REAL,
+  blastRadius: 'external',
+  reversibility: 'permanent',
+  pointOfNoReturn: true,
+  execute: async () => ({ ok: true, output: { ran: 'ponr' } }),
+};
+
+let ponrPreview = null;
+const onPONR = (p) => { ponrPreview = p; setTimeout(() => eventBus.emit('interception:confirm', { id: p.id }), 30); };
+eventBus.on('interception:preview', onPONR);
+const ponrResult = await ictrMod.interceptedExecute(fakePONR, { x: 1 });
+eventBus.off('interception:preview', onPONR);
+
+await test('PONR cap preview surfaces pointOfNoReturn flag',
+  () => ponrPreview && ponrPreview.cap.pointOfNoReturn === true);
+await test('PONR cap preview sets requiresTypedConfirmation',
+  () => ponrPreview && ponrPreview.requiresTypedConfirmation === true);
+await test('PONR cap still runs after confirm (subscriber decides typed-vs-not)',
+  () => ponrResult.ok && ponrResult.output.ran === 'ponr');
+
+// Non-PONR cap: requiresTypedConfirmation is false
+let plainPreview = null;
+const onPlain = (p) => { plainPreview = p; setTimeout(() => eventBus.emit('interception:confirm', { id: p.id }), 30); };
+eventBus.on('interception:preview', onPlain);
+await ictrMod.interceptedExecute(fakeL2, { y: 2 });
+eventBus.off('interception:preview', onPlain);
+await test('non-PONR cap has pointOfNoReturn=false',
+  () => plainPreview && plainPreview.cap.pointOfNoReturn === false);
+await test('non-PONR cap has requiresTypedConfirmation=false',
+  () => plainPreview && plainPreview.requiresTypedConfirmation === false);
+
 // ═══ Summary ═══
 const total = passCount + failCount;
 const summary = document.getElementById('summary');
