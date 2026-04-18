@@ -3,13 +3,14 @@
 ```
 Fresh session. Read in this order before touching anything:
 
-SESSION_HANDOFF.md — full recap (M0→M3 audit + M4 + M5.P1/P2/P2.b)
-PLAN.md — milestones (M0.P3, M0.P4, M3, M4, M5.P1, M5.P2 done)
-tasks/lessons.md — read lessons 99-127 (this session's lessons)
+SESSION_HANDOFF.md — full recap (M0→M3 + M4 + M5.P1/P2/P2.b/P2.c)
+PLAN.md — milestones (M0.P3, M0.P4, M3, M4, M5.P1, M5.P2 done;
+  M5.P3 + M5.P4 next)
+tasks/lessons.md — read lessons 99-130 (this session's lessons)
 
 Then run:
 - git status (working tree should be clean)
-- git log --oneline -20 (last 18 commits are this session)
+- git log --oneline -22 (last 21 commits are this session)
 - node server/index.js
 - open http://localhost:3000/test/v03-verification.html — should
   render 140/140 tests green across 14 sections
@@ -20,73 +21,68 @@ memory/user_persona.md was rewritten on 2026-04-17 — read it.
 Default behavior: execute, report, repeat. No trivial questions.
 No narration. Verify every claim before stating it.
 
-State of the world:
+State of the world (BIG):
 
-(1) Architecturally finished through M5.P2.b:
-    M1 — Intent Kernel
-    M2 — Hypergraph Storage
-    M3 — Dual-Process Runtime
-    M4 — Verifiable Code Generation (full chain)
-    M5.P1 — Branching Storage Layer (transaction-log COW)
-    M5.P2 — Operation Interceptor (L2+ preview gate generalized)
-    M5.P2.b — Single-shot executeIntent now goes through the gate
+Architecturally finished through M5.P2.c:
+  M1 — Intent Kernel
+  M2 — Hypergraph Storage
+  M3 — Dual-Process Runtime
+  M4 — Verifiable Code Generation (full chain incl. promotion)
+  M5.P1 — Branching Storage Layer (transaction-log COW)
+  M5.P2 — Operation Interceptor (L2+ preview gate)
+  M5.P2.b — single-shot executeIntent routes through interceptor
+  M5.P2.c — Spotlight UI renders interception:preview, Enter
+            confirms, Escape aborts. The L2+ user-approval gate
+            is now USER-VISIBLE across the entire OS.
 
-    14 new capabilities total this session: spec.generate,
-    spec.freeze, tests.generate, tests.run, code.generate,
-    app.bundle (L0), app.promote (L2), app.archive (L2),
-    branch.create (L0), branch.merge (L2), branch.discard (L1),
-    plus the operation-interceptor exposes interceptedExecute and
-    requestConfirmation as kernel-level utilities.
-
-(2) ISO ready to rebuild:
-    - Ollama install added to distro/build.sh
-    - All M0.P3/P4 wiring already in place
-    - Run distro/build.sh to produce a fresh ISO; last release
-      predates this session's changes.
-
-(3) Verification: 140/140 tests offline at
-    /test/v03-verification.html. Stubs aiService.askWithMeta so
-    no API key needed. Re-run after every kernel change.
+11 new capabilities this session: spec.generate, spec.freeze,
+tests.generate, tests.run, code.generate, app.bundle (L0),
+app.promote (L2), app.archive (L2), branch.create (L0),
+branch.merge (L2), branch.discard (L1).
 
 What's NOT done (in priority order):
 
-A) **M5.P2.c — Spotlight UI for interception:preview**.
-   Critical follow-up. Without this, L2+ single-shot intents hang
-   for 60s then auto-abort because nothing in the UI is listening
-   for interception:preview events. Plan steps work because
-   executePlan has its own plan:preview Spotlight subscriber. Wire
-   the same shape (yellow border, "↵ Confirm / Esc Abort" header)
-   for interception:preview in js/shell/spotlight.js. ~50 lines.
+A) Real Anthropic API E2E with funded ANTHROPIC_API_KEY. Stubs
+   prove wiring; real API proves Claude's prompt + JSON tolerance
+   for every M3/M4 phase. Run a spec→tests→code→bundle chain
+   with a real key.
 
-B) Real Anthropic API E2E with funded ANTHROPIC_API_KEY. Tests
-   prove wiring; real API proves prompt + JSON tolerance for
-   M3/M4 phases.
+B) Real Ollama E2E. Settings > AI > Test Connection + Pull Model
+   work; not soak-tested with `ollama serve` running. Try:
+   `ollama serve` + `ollama pull qwen2.5:7b`, then drive a spec
+   chain through Spotlight.
 
-C) Real Ollama E2E. Settings > AI > Test Connection + Pull Model
-   both work; not soak-tested with `ollama serve` running.
+C) Native ISO E2E with all 80 apps + Ollama bundled. Hardware
+   boot or full UTM run required. Build a new ISO first
+   (distro/build.sh) since the last release predates this
+   session's changes.
 
-D) Native ISO E2E with all 80 apps + Ollama bundled. Hardware boot
-   or full UTM run required. Build a new ISO first.
-
-E) M4 dock surface: bundle/promote write 'generated-app' graph
+D) M4 dock surface: bundle/promote write 'generated-app' graph
    nodes; no dock-icon plumbing reads them yet. Renderer needs a
    passive scan + register-as-app on docked status.
 
-F) M5.P3 (Undo/Rewind UI — timeline view of branches) and M5.P4
-   (External-Effect Detection — mark git push / API call /
-   filesystem-outside-roots as point-of-no-return).
+E) M5.P3 — Undo/Rewind UI. List recent branches (open +
+   committed) with a "rewind to before this branch" action.
+   Substrate is ready (branch-manager has all the data); needs a
+   Settings panel or Spotlight result.
+
+F) M5.P4 — External-Effect Detection. Add a `pointOfNoReturn:
+   true` flag on capability declarations. Interceptor surfaces
+   it in the preview panel ("⚠ This action cannot be undone")
+   and requires typed confirmation, not just Enter.
 
 G) M6 Socratic Loop + Red-Team Agent. Also retrofits app.promote
    to require red-team signoff in addition to user.
 
 H) Spotlight Socratic UI for spec approval (spec.freeze gate).
 
-I) safeMathEval doesn't handle scientific notation (1e6) or unary
-   +(.
+I) safeMathEval doesn't handle scientific notation (1e6) or
+   unary +(.
 
-If the user has no specific direction, suggest A first (UI
-subscriber for interception:preview) — without it, the M5.P2
-gate has no UI presence and feels invisible to the user.
+If the user has no specific direction, suggest A, B, D first
+(verify what shipped against real APIs, surface generated apps
+in the dock) before tackling M5.P3+ or M6. The infrastructure
+is mature; the next investment is making it visible/usable.
 
 Architecture refresher:
 
@@ -102,10 +98,9 @@ Architecture refresher:
   interception:confirm {id} or interception:abort {id, reason},
   60s timeout. opts.skipInterception bypasses for headless paths.
 
-- M5.P2.b: intent-executor.executeIntent now routes through
-  interceptedExecute. compound-plan path passes
-  skipInterception=true on per-step to avoid double-prompt
-  (plan-level gate handles that).
+- M5.P2.b/c: intent-executor.executeIntent now routes through
+  interceptedExecute. Spotlight subscribes to interception:preview,
+  renders the panel, emits confirm/abort on Enter/Escape.
 
 - Sandbox isolation: test-runner uses sandbox="allow-scripts"
   iframe. Unique origin → no parent window/storage/network.
@@ -118,24 +113,24 @@ Architecture refresher:
   schema-validator forbidden tokens, sandbox unique-origin.
 
 - Provenance edges: every generated app has derives_from spec,
-  passed_tests suite, runs_code code edges. Single graph hop
-  for "where did this come from?" queries.
-
-- Transaction-log branching: each branch records mutation calls.
-  Replay on merge preserves provenance verbatim.
+  passed_tests suite, runs_code code edges.
 
 - Per-call opaque ids for any kernel/UI boundary that can have
   multiple in-flight async operations (interceptions, sandbox
   test-runs, planner calls).
 
 - All 80 apps register in 3 boot.js blocks. Native shell C
-  registry at distro/nova-renderer/nova-shell.c (~line 156)
-  also needs updating.
+  registry at distro/nova-renderer/nova-shell.c (~line 156).
 
 - Verification: /test/v03-verification.html — 140 tests, 14
   sections, 0 API key. Re-run after every kernel-layer change.
+  M5.P2.c verified separately via preview server with real
+  Spotlight + simulated keyboard events (NOT in the offline
+  suite because it needs the live shell DOM).
 
-Working tree is clean. The 18 commits this session (latest first):
+Working tree is clean. The 21 commits this session (latest first):
+  b596830 M5.P2.c Spotlight UI for interception:preview
+  c0bea14 docs M5.P2.b
   b3da7a8 M5.P2.b interceptor wired into executeIntent
   27a30b9 docs M5.P2 + lessons 124-127
   ad527d8 M5.P2 operation interceptor
@@ -156,5 +151,7 @@ Working tree is clean. The 18 commits this session (latest first):
   b7de3ed M0.P3 chrome strip + verification suite
 
 If you change anything that's testable, run the verification
-suite again before claiming done.
+suite again before claiming done. For UI changes, drive the
+real Spotlight via preview_eval and dispatch keydown events to
+verify event payloads — not screenshots (lesson #130).
 ```

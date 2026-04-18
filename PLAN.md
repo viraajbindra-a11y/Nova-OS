@@ -428,8 +428,10 @@ Each milestone has: a 1-sentence success definition, **explicit phases** (the su
   - ✅ `js/kernel/operation-interceptor.js`: `interceptedExecute(cap, args, opts)` is the high-level wrapper. L0/L1 caps pass through directly; L2+ go through `requestConfirmation` first.
   - ✅ Event contract: `interception:preview { id, cap, args, recordedAt, timeoutMs }` → subscribers reply with `interception:confirm { id }` or `interception:abort { id, reason }`.
   - ✅ Default 60s auto-abort timeout; max 32 pending interceptions; `opts.skipInterception` bypass for narrow cases.
-  - ✅ Generalises the M2 Agent Core L2+ plan preview gate to ANY capability call. Spotlight can render the same UI by subscribing to `interception:preview`.
-  - Branch-staging integration (route mutations through a M5.P1 branch instead of direct execute) — deferred to M5.P2.b. The interceptor already gives the user the safety contract; branching adds the rewind-after-execute story.
+  - ✅ Generalises the M2 Agent Core L2+ plan preview gate to ANY capability call.
+  - **M5.P2.b** ✅: `intent-executor.executeIntent` now routes through `interceptedExecute`. Compound-plan path passes `skipInterception=true` per step to avoid double-prompting on top of the existing plan-level gate.
+  - **M5.P2.c** ✅: `js/shell/spotlight.js` subscribes to `interception:preview` and renders a yellow-bordered panel with cap id, level, reversibility, blast radius, args summary. Enter emits `interception:confirm`; Escape emits `interception:abort`. Verified end-to-end with simulated keydown events — both flows produce the right per-call opaque id.
+  - Branch-staging integration (route mutations through a M5.P1 branch instead of direct execute) — deferred to M5.P3. The interceptor already gives the user the safety contract; branching adds the rewind-after-execute story.
 - **M5.P3 — Undo/Rewind UI** *(Week 3)*
   - Timeline view of past states (like a Git log but visual)
   - Rewind to any point; optionally fork from a past state

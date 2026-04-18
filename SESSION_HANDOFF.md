@@ -1,10 +1,10 @@
-# Session Handoff: M0→M3 Audit + Full M4 + M5.P1 + M5.P2 + M5.P2.b
+# Session Handoff: M0→M3 Audit + Full M4 + M5.P1/P2/P2.b/P2.c
 
 **Date:** 2026-04-17 → 2026-04-18
-**Branch:** main (18 new commits ahead of origin — not pushed)
+**Branch:** main (21 new commits ahead of origin — not pushed)
 **Starting point:** 80 apps, commit `f8a47fa` (timer.js leak fix)
-**Ending point:** commit `b3da7a8` (M5.P2.b interceptor wired into executeIntent)
-**Verification:** **140/140 tests** in `test/v03-verification.html` (no API key needed)
+**Ending point:** commit `b596830` (M5.P2.c Spotlight UI for interception:preview)
+**Verification:** **140/140 tests** in `test/v03-verification.html` + M5.P2.c verified end-to-end via real Spotlight + simulated Enter/Escape events
 
 ---
 
@@ -20,9 +20,11 @@ The session did three substantively different chunks of work:
 
 ---
 
-## Commits Landed (18, not pushed)
+## Commits Landed (21, not pushed)
 
 ```
+b596830 M5.P2.c: Spotlight UI subscriber for interception:preview
+c0bea14 Docs: bump to M5.P2.b shipped + clearer next-session priorities
 b3da7a8 M5.P2.b: route single-shot executeIntent through interceptedExecute
 27a30b9 Docs: M5.P2 marked complete; lessons 124-127; bump verification to 140
 ad527d8 M5.P2: operation interceptor (L2+ preview gate generalized)
@@ -115,8 +117,14 @@ b7de3ed M0.P3 + M3.P1 server: dynamic per-app CSS, Ollama pull, v0.3 offline sui
 ### M5.P2.b — Wire executeIntent through Interceptor ✅ (new)
 - `js/kernel/intent-executor.js:executeIntent`: replaced `cap.execute(args)` with `interceptedExecute(cap, args, { skipInterception: !!intent.skipInterception })`
 - L2+ single-shot intents now hit the gate. The compound-plan path keeps its own existing plan-level gate (passes `skipInterception` per step to avoid double-prompting)
-- Verification suite still 140/140 — change is invisible to L0/L1 paths (the vast majority)
-- **Open loop:** No Spotlight subscriber for `interception:preview` exists yet. Until that lands (M5.P2.c), L2+ single-shot intents hang for 60s then auto-abort. Plan steps still work because `executePlan` has its own Spotlight `plan:preview` subscriber.
+- Verification suite still 140/140 — change is invisible to L0/L1 paths
+
+### M5.P2.c — Spotlight UI for interception:preview ✅ (new)
+- `js/shell/spotlight.js`: module-level `pendingInterceptionId` + `pendingInterceptionCap`. New subscriber on `interception:preview` opens Spotlight, renders a yellow-bordered panel with cap id + level + reversibility + blast radius + args summary + "↵ Confirm / Esc Abort" affordance
+- handleSubmit: Enter emits `interception:confirm {id}` when gate is pending (priority over plan-confirm). Escape branch emits `interception:abort {id, reason: 'user-aborted'}`
+- Bug fix: input keydown Enter handler used to early-out on empty query; now passes through to handleSubmit when a confirm gate is pending (lesson #128)
+- **Verified end-to-end** via preview server: simulated Enter on input → captured `[{type:'confirm', id:'icpt-c1'}]`; simulated Escape → captured `[{type:'abort', id:'icpt-a1', reason:'user-aborted'}]`. Both flows produce correct per-call opaque id, no cross-contamination
+- **The L2 user-approval gate is now REAL across the OS.** files.delete, browser.navigate, volume.set, app.promote, app.archive, branch.merge — every L2+ single-shot intent prompts the user before execution.
 
 ### v0.3 Offline Verification Suite ✅
 `test/v03-verification.html` — 140 tests across 14 sections. Refresh to re-run. No API key needed (stubbed `aiService.askWithMeta`).
@@ -132,8 +140,8 @@ b7de3ed M0.P3 + M3.P1 server: dynamic per-app CSS, Ollama pull, v0.3 offline sui
 
 ### Bigger work (next)
 - **M4 dock surface**: bundle/promote write graph nodes, but there's no actual dock-icon plumbing that reads `'generated-app'` nodes with status='docked' and shows them in the dock UI. Spotlight already supports launching arbitrary capabilities; the missing piece is a passive scan + register-as-app on the renderer side.
-- **M5.P2.c** — Spotlight subscriber for `interception:preview`. Render the cap.id + summary + args + a "↵ Confirm / Esc Abort" pair, emit `interception:confirm` or `interception:abort` on key. Reuse the existing plan:preview render code in `js/shell/spotlight.js` — same shape.
-- **M5.P3/P4** — Undo/Rewind UI (timeline view of branches) + External-Effect Detection (mark git push / API call / file system writes outside Astrion's roots as point-of-no-return).
+- **M5.P3** — Undo/Rewind UI (timeline view of branches). The M5.P1 substrate already records every committed branch with its mutation log; the missing piece is a Spotlight or Settings panel that lists recent branches and offers a "rewind to before this branch" action.
+- **M5.P4** — External-Effect Detection (mark git push / API call / file system writes outside Astrion's roots as point-of-no-return). Annotate capability declarations with a new `pointOfNoReturn: true` flag; the interceptor surfaces it in the preview panel ("⚠ This action cannot be undone") and requires typed confirmation instead of just Enter.
 - **M6 (Socratic Loop + Red-Team Agent)** — second AI critiques every L2+ plan. Also retrofits the M4.P4 `app.promote` gate to require red-team signoff.
 - More apps past 80, marketplace prep, ISO installer UX.
 
