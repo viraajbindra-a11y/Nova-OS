@@ -1,10 +1,10 @@
-# Session Handoff: M0→M3 + M4 + M5 + M6.P1/P4
+# Session Handoff: M0→M3 + M4 + M5 + M6.P1/P4 + M6.P4.c
 
 **Date:** 2026-04-17 → 2026-04-18
-**Branch:** main (32 new commits ahead of origin — not pushed)
+**Branch:** main (34 new commits ahead of origin — not pushed)
 **Starting point:** 80 apps, commit `f8a47fa` (timer.js leak fix)
-**Ending point:** commit `7e7e22a` (M6.P4 rubber-stamp tracker)
-**Verification:** **169/169 tests** in `test/v03-verification.html` + M5.P2.c verified end-to-end via real Spotlight + simulated Enter/Escape. **M5 fully shipped + M6.P1 (red-team agent) + M6.P4 (rubber-stamp tracker) shipped**.
+**Ending point:** commit `4de5eef` (M6.P4.c rubber-stamp warning → notification:show)
+**Verification:** **170/170 tests** in `test/v03-verification.html` + M5.P2.c verified end-to-end via real Spotlight + simulated Enter/Escape. **Full M5 + M6.P1 + M6.P4 + M6.P4.c shipped**.
 
 ---
 
@@ -20,9 +20,11 @@ The session did three substantively different chunks of work:
 
 ---
 
-## Commits Landed (32, not pushed)
+## Commits Landed (34, not pushed)
 
 ```
+4de5eef M6.P4.c: rubber-stamp warning fires as notification:show too
+635c0c8 Docs: M6.P4 marked complete; lessons 141-143; bump verification to 169
 7e7e22a M6.P4: rubber-stamp tracker (rapid-confirm rate + Socratic warning)
 2e8e53d Docs: M6.P1 marked complete; lessons 137-140
 5e98fba M6.P1: red-team agent + rewind-window + budget-reset fixes

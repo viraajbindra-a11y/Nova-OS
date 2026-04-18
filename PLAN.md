@@ -483,7 +483,7 @@ Each milestone has: a 1-sentence success definition, **explicit phases** (the su
   - ✅ `initRubberStampTracker()` subscribes to `interception:preview/confirm/abort`. When rate > 80% over 20+ samples, emits `socratic:rubberstamp-warning` at most once per day (24h cooldown).
   - ✅ Wired in both boot blocks alongside M6.P1.
   - **M6.P4.b** — chaos injection (insert a known-bad plan as a test, force cooldown if user rubber-stamps it). Requires capability-provider cooperation. Deferred.
-  - **M6.P4.c** — Spotlight UI banner that renders the warning. Event is emitted; visual treatment is the missing piece.
+  - **M6.P4.c** ✅ **2026-04-18**: warning ALSO emits `notification:show {title, message, icon, duration}` so the existing notification host renders it immediately. Reading-hint message: "X% of recent confirms were under 1.5 seconds. The L2 gate only helps if you read it."
 
 **Demo script:** "delete all screenshots older than a week" → planner proposes list → red-team spots 3 linked to active notes → Socratic prompt → you decide.
 
