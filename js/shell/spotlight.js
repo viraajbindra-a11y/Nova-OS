@@ -60,6 +60,13 @@ const SPOTLIGHT_TIPS = [
 let activePlanId = null;
 let pendingConfirmPlanId = null;
 
+// M5.P2.c: id of the interception:preview currently awaiting user input.
+// Distinct from pendingConfirmPlanId because the per-call opaque id format
+// differs and the two flows can in principle overlap (rare but possible if
+// a plan-level cap fires a single-shot L2 cap mid-step).
+let pendingInterceptionId = null;
+let pendingInterceptionCap = null; // for render
+
 export function initSpotlight() {
   const spotlight = document.getElementById('spotlight');
   const input = document.getElementById('spotlight-input');
@@ -72,10 +79,21 @@ export function initSpotlight() {
       toggle();
     }
     if (e.key === 'Escape' && isOpen) {
-      // Agent Core Sprint: Escape behavior has three modes now:
-      //  1. A plan preview is awaiting confirm → abort it (don't close yet)
-      //  2. A plan is actively running → abort it
-      //  3. Otherwise → normal Spotlight close
+      // Agent Core Sprint + M5.P2.c: Escape behavior has four modes now:
+      //  1. An interception preview is awaiting confirm → abort it
+      //  2. A plan preview is awaiting confirm → abort it
+      //  3. A plan is actively running → abort it
+      //  4. Otherwise → normal Spotlight close
+      if (pendingInterceptionId) {
+        eventBus.emit('interception:abort', { id: pendingInterceptionId, reason: 'user-aborted' });
+        pendingInterceptionId = null;
+        pendingInterceptionCap = null;
+        results.innerHTML = '';
+        input.disabled = false;
+        input.value = '';
+        input.focus();
+        return;
+      }
       if (pendingConfirmPlanId) {
         eventBus.emit('plan:aborted', { planId: pendingConfirmPlanId, reason: 'user-aborted' });
         pendingConfirmPlanId = null;
@@ -181,6 +199,34 @@ export function initSpotlight() {
     planState.clarify = null;
     renderPlanPanel();
     if (!isOpen) open(); // force Spotlight open if planner fired from elsewhere
+  });
+
+  // M5.P2.c — generalised L2+ preview gate UI. Subscribes to the
+  // operation-interceptor's interception:preview event, renders a small
+  // panel with cap details + args + "↵ Confirm / Esc Abort" header, and
+  // emits interception:confirm or interception:abort on user input.
+  eventBus.on('interception:preview', ({ id, cap, args, timeoutMs }) => {
+    pendingInterceptionId = id;
+    pendingInterceptionCap = cap;
+    if (!isOpen) open();
+    input.disabled = true;
+    const argSummary = (() => {
+      try {
+        const clean = { ...args };
+        delete clean._intent;
+        const json = JSON.stringify(clean);
+        return json.length > 240 ? json.slice(0, 240) + '…' : json;
+      } catch { return ''; }
+    })();
+    results.innerHTML = `
+      <div class="spotlight-result-group" style="border:2px solid #f1fa8c;border-radius:8px;padding:12px 16px;background:rgba(241,250,140,0.05);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="font-size:12px;font-weight:600;color:#f1fa8c;">⚠ ${escapeHtml(cap.summary || cap.id)}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.5);">L${cap.level} · ${escapeHtml(cap.reversibility || 'bounded')} · ${escapeHtml(cap.blastRadius || 'file')}</div>
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.6);font-family:ui-monospace,monospace;margin-bottom:8px;word-break:break-all;">${escapeHtml(cap.id)} ${escapeHtml(argSummary)}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.7);">↵ Press Enter to confirm · Esc to abort · auto-aborts in ${Math.round((timeoutMs || 60000) / 1000)}s</div>
+      </div>`;
   });
 
   eventBus.on('plan:preview', ({ planId, plan, totalTokens, reasoning }) => {
@@ -462,7 +508,10 @@ export function initSpotlight() {
         return;
       }
       const query = input.value.trim();
-      if (query) handleSubmit(query);
+      // M5.P2.c + Agent Core: Enter on empty query still counts when a
+      // confirm gate is pending (interception or plan preview). Pass
+      // through to handleSubmit so it can hijack and emit the confirm.
+      if (query || pendingInterceptionId || pendingConfirmPlanId) handleSubmit(query);
       return;
     }
     if (e.key === 'Escape') {
@@ -775,6 +824,20 @@ export function initSpotlight() {
   async function handleSubmit(query) {
     // Record search history
     addToSearchHistory(query);
+
+    // M5.P2.c — interception preview takes priority over plan preview
+    // (rare but possible if a plan-step fires a single-shot L2 cap that
+    // hits the interceptor mid-plan).
+    if (pendingInterceptionId) {
+      const iid = pendingInterceptionId;
+      pendingInterceptionId = null;
+      pendingInterceptionCap = null;
+      eventBus.emit('interception:confirm', { id: iid });
+      input.disabled = false;
+      input.value = '';
+      results.innerHTML = '';
+      return;
+    }
 
     // Agent Core Sprint — if the Spotlight is waiting on an L2+ preview
     // confirmation, Enter confirms the pending plan rather than submitting
