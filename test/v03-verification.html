@@ -412,6 +412,122 @@ await test('spec.freeze capability registered with L2 gate', () => !!specFreezeC
 
 aiService.askWithMeta = realAskForSpec;
 
+// ═══ 9. Test generator (M4.P2) ═══
+section('9. Test generator (M4.P2 — tests-from-spec)');
+
+const testsMod = await import('/js/kernel/test-generator.js');
+
+// Stub askWithMeta to return BOTH spec and test responses depending on
+// which prompt header is being asked. Set this BEFORE calling
+// generateSpec so the spec build doesn't fall through to the real
+// (mock-provider) path and produce an unparseable reply.
+const realAskForTests = aiService.askWithMeta.bind(aiService);
+const testsStubMeta = { brain: 'offline', confidence: 0.3, provider: 'mock', capCategory: 'tests', model: 'mock', escalated: false, responseTimeMs: 1 };
+const specSubReply = JSON.stringify({
+  goal: 'Track daily habits with streak counting',
+  acceptance_criteria: [
+    'Given the app is open, when the user adds a habit, then it appears in the list.',
+    'Given a habit exists, when the user marks it done for today, then the streak counter increments.',
+    'Given a habit with a 3-day streak, when the user misses a day, then the streak resets to 0.',
+  ],
+  non_goals: ['Cloud sync'],
+  ux_notes: 'Keyboard-first.',
+  open_questions: [],
+});
+aiService.askWithMeta = async (prompt) => {
+  if (prompt.includes('spec generator')) {
+    return { reply: specSubReply, meta: testsStubMeta };
+  }
+  if (prompt.includes('TEST-FAIL-INTENT')) {
+    return { reply: 'broken', meta: testsStubMeta };
+  }
+  if (prompt.includes('test generator')) {
+    return {
+      reply: JSON.stringify({
+        tests: [
+          { title: 'add habit puts it in list', setup: 'const a = new App();', act: 'a.add("water");', assert: 'expect(a.list()).toContain("water");', criterionIndex: 0 },
+          { title: 'mark done increments streak', setup: 'const a = new App(); a.add("water");', act: 'a.toggle("water","2026-04-18");', assert: 'expect(a.streakOf("water")).toBe(1);', criterionIndex: 1 },
+          { title: 'missed day resets streak', setup: 'const a = new App(); a.add("w"); a.toggle("w","2026-04-15");', act: 'a.toggle("w","2026-04-17");', assert: 'expect(a.streakOf("w")).toBe(0);', criterionIndex: 2 },
+        ],
+      }),
+      meta: testsStubMeta,
+    };
+  }
+  return realAskForTests(prompt);
+};
+
+// NOW build the spec (stub is in place)
+const specForTests = await specMod.generateSpec('build me a habit tracker');
+const specForTestsId = await specMod.storeSpec(specForTests.spec);
+await specMod.freezeSpec(specForTestsId);
+
+await test('generateTests returns ok status', async () => {
+  const r = await testsMod.generateTests(specForTestsId);
+  return r.status === 'ok' && Array.isArray(r.suite.tests);
+});
+await test('generateTests one test per acceptance criterion', async () => {
+  const r = await testsMod.generateTests(specForTestsId);
+  return r.suite.tests.length === specForTests.spec.acceptance_criteria.length;
+});
+await test('generateTests rejects unknown spec id', async () => {
+  const r = await testsMod.generateTests('non-existent-id-' + Date.now());
+  return r.status === 'failed' && /not found/.test(r.error);
+});
+await test('generateTests rejects draft spec (must be frozen)', async () => {
+  const draft = await specMod.generateSpec('build me a habit tracker');
+  const draftId = await specMod.storeSpec(draft.spec);
+  const r = await testsMod.generateTests(draftId);
+  return r.status === 'failed' && /must be frozen/.test(r.error);
+});
+
+// Store + lookup round-trip
+const genResult = await testsMod.generateTests(specForTestsId);
+const suiteId = await testsMod.storeTestSuite(genResult.suite);
+await test('storeTestSuite returns a graph node id', () => typeof suiteId === 'string' && suiteId.length > 0);
+
+const storedSuite = await testsMod.getTestSuite(suiteId);
+await test('getTestSuite reads tests array back', () => Array.isArray(storedSuite?.tests) && storedSuite.tests.length === 3);
+await test('storedSuite preserves specId back-pointer', () => storedSuite?.specId === specForTestsId);
+
+const suitesForSpec = await testsMod.getSuitesForSpec(specForTestsId);
+await test('getSuitesForSpec returns at least one suite', () => suitesForSpec.length >= 1);
+
+// recordSuiteRun
+await testsMod.recordSuiteRun(suiteId, [
+  { index: 0, ok: true, durationMs: 5 },
+  { index: 1, ok: false, error: 'expected 1 got 0', durationMs: 7 },
+  { index: 2, ok: true, durationMs: 4 },
+]);
+const afterRun = await testsMod.getTestSuite(suiteId);
+await test('recordSuiteRun stores lastRunResults', () => Array.isArray(afterRun.lastRunResults) && afterRun.lastRunResults.length === 3);
+await test('recordSuiteRun stores pass count', () => afterRun.lastRunPasses === 2 && afterRun.lastRunTotal === 3);
+
+// Capability registration
+const testsGenCap = getCapability('tests.generate');
+await test('tests.generate capability registered', () => !!testsGenCap && testsGenCap.level === 0);
+
+// Schema enforcement: count mismatch should be rejected after retry
+aiService.askWithMeta = async () => ({
+  reply: JSON.stringify({ tests: [{ title: 't', setup: 's', act: 'a', assert: 'e', criterionIndex: 0 }] }),
+  meta: testsStubMeta,
+});
+await test('generateTests rejects count mismatch after retry', async () => {
+  const r = await testsMod.generateTests(specForTestsId);
+  return r.status === 'failed' && /count|invalid/.test(r.error);
+});
+
+// Forbidden token
+aiService.askWithMeta = async () => ({
+  reply: JSON.stringify({ tests: [0,1,2].map(i => ({ title: 't'+i, setup: 'fetch("/x")', act: 'a', assert: 'e', criterionIndex: i })) }),
+  meta: testsStubMeta,
+});
+await test('generateTests rejects forbidden token after retry', async () => {
+  const r = await testsMod.generateTests(specForTestsId);
+  return r.status === 'failed' && /forbidden|invalid/.test(r.error);
+});
+
+aiService.askWithMeta = realAskForTests;
+
 // ═══ Summary ═══
 const total = passCount + failCount;
 const summary = document.getElementById('summary');

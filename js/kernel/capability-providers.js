@@ -422,6 +422,41 @@ const specFreeze = {
 registerCapability(specFreeze);
 
 // ═══════════════════════════════════════════════════════════════
+// PROVIDER 6.6: tests.generate — M4.P2
+//   Generate a unit test suite from a frozen spec. Returns the new
+//   suite id and per-test count. Spec must be frozen — drafts are
+//   rejected so users can't accidentally test against unapproved
+//   criteria.
+// ═══════════════════════════════════════════════════════════════
+
+const testsGenerate = {
+  id: 'tests.generate',
+  verb: 'generate',
+  target: 'tests',
+  level: LEVEL.OBSERVE,
+  reversibility: REVERSIBILITY.FREE,
+  blastRadius: BLAST_RADIUS.NONE,
+  summary: 'Generate a unit test suite from a frozen spec (M4.P2)',
+  estimateCost: () => ({ timeMs: 6000, irreversibilityTokens: 0 }),
+  execute: async function(args) {
+    return runCapability(this, args, async () => {
+      const specId = args.specId || args.id;
+      if (!specId) throw new Error('tests.generate: specId required');
+      const mod = await import('./test-generator.js');
+      const result = await mod.generateTests(specId);
+      if (result.status !== 'ok') throw new Error('tests.generate failed: ' + result.error);
+      const suiteId = await mod.storeTestSuite(result.suite);
+      safeNotify({
+        title: '🧪 Test suite ready',
+        body: `${result.suite.tests.length} tests for spec ${specId.slice(0, 8)}`,
+      });
+      return { suiteId, specId, testCount: result.suite.tests.length };
+    });
+  },
+};
+registerCapability(testsGenerate);
+
+// ═══════════════════════════════════════════════════════════════
 // PROVIDER 7: browser.navigate — open a URL
 // ═══════════════════════════════════════════════════════════════
 
@@ -1072,6 +1107,7 @@ export const CORE_CAPABILITIES = [
   'ai.ask',
   'spec.generate',
   'spec.freeze',
+  'tests.generate',
   'browser.navigate',
   'volume.set',
   'volume.decrease',
