@@ -438,9 +438,11 @@ Each milestone has: a 1-sentence success definition, **explicit phases** (the su
   - ✅ Capability: `branch.rewind` (L2, BOUNDED, NONE blast). M5.P2 gate fires for it because it's L2.
   - **M5.P3.b** — Spotlight/Settings UI for "list recent branches with a rewind button" still pending. The substrate ships rewindBranch + branch.rewind capability; calling them from a UI panel is the missing piece.
   - Timeline view of past states (like a Git log but visual) — deferred
-- **M5.P4 — External-Effect Detection** *(Week 4)*
-  - Mark any action touching external state (git push, file upload, API call) as "point of no return"
-  - PONR actions can't branch; require explicit unlock
+- **M5.P4 — External-Effect Detection** ✅ **2026-04-18**
+  - ✅ Capability declarations gained an optional `pointOfNoReturn: true` flag (default `false`).
+  - ✅ `operation-interceptor.requestConfirmation`: preview event payload now carries `cap.pointOfNoReturn` and a top-level `requiresTypedConfirmation` mirror so subscribers know to enforce typed input.
+  - ✅ Spotlight subscriber: when PONR is set, panel switches to red border + "POINT OF NO RETURN — this action cannot be undone" banner. Input is enabled (vs disabled for normal L2) and placeholder hints at the cap id to type. handleSubmit refuses Enter unless typed text === cap.id exactly; mismatch shows inline hint and bounces back.
+  - No existing capability is currently marked PONR (every L2+ cap today is bounded-reversible: graph mutations, branch ops). The flag is plumbed end-to-end so future external-effect caps opt in with a one-line declaration.
 
 **Demo script:** "clean up my downloads folder" → branch → diff shown → click undo → nothing actually changed. Click confirm → real delete.
 

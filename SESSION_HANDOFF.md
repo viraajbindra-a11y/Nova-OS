@@ -1,10 +1,10 @@
-# Session Handoff: M0→M3 + M4 + M5.P1/P2/P2.b/P2.c/P3
+# Session Handoff: M0→M3 + Full M4 + Full M5
 
 **Date:** 2026-04-17 → 2026-04-18
-**Branch:** main (23 new commits ahead of origin — not pushed)
+**Branch:** main (26 new commits ahead of origin — not pushed)
 **Starting point:** 80 apps, commit `f8a47fa` (timer.js leak fix)
-**Ending point:** commit `3c8fb5f` (M5.P3 rewindBranch substrate)
-**Verification:** **148/148 tests** in `test/v03-verification.html` + M5.P2.c verified end-to-end via real Spotlight + simulated Enter/Escape events
+**Ending point:** commit `e2aa488` (M5.P4 point-of-no-return flag + typed-confirm)
+**Verification:** **153/153 tests** in `test/v03-verification.html` + M5.P2.c verified end-to-end via real Spotlight + simulated Enter/Escape events. **M5 is now fully shipped** (P1+P2+P2.b+P2.c+P3+P4).
 
 ---
 
@@ -20,9 +20,11 @@ The session did three substantively different chunks of work:
 
 ---
 
-## Commits Landed (23, not pushed)
+## Commits Landed (26, not pushed)
 
 ```
+e2aa488 M5.P4: point-of-no-return flag + Spotlight typed-confirm gate
+709005c Docs: M5.P3 marked complete; lessons 131-133; verification at 148/148
 3c8fb5f M5.P3: rewindBranch — undo every mutation a previous merge produced
 79b9e40 Docs: M5.P2.c shipped + lessons 128-130 + handoff prompt updated
 b596830 M5.P2.c: Spotlight UI subscriber for interception:preview
@@ -135,6 +137,12 @@ b7de3ed M0.P3 + M3.P1 server: dynamic per-app CSS, Ollama pull, v0.3 offline sui
 - Bug caught + fixed: graph-store's `updateNode` reads `meta.capabilityId` directly (not nested under createdBy), so the merge tag has to live at the top of meta (lesson #131)
 - **M5.P3.b deferred:** UI panel listing recent branches with a "Rewind" button. The substrate ships; the UI is the next piece.
 
+### M5.P4 — point-of-no-return + typed-confirm ✅ (new)
+- Capability declarations gained an optional `pointOfNoReturn: true` flag (default false)
+- `operation-interceptor`: preview payload carries `cap.pointOfNoReturn` + top-level `requiresTypedConfirmation` mirror
+- Spotlight subscriber: PONR caps render with a RED border + "POINT OF NO RETURN — this action cannot be undone" banner. Input is enabled (vs disabled for normal L2), placeholder hints at the cap id. handleSubmit refuses Enter unless the typed text === cap.id exactly; mismatch bounces back with "did not match" hint, does NOT abort
+- No current capability is marked PONR — every L2+ cap today is bounded-reversible. The flag ships end-to-end so future external-effect caps (git.push, deploy, send email) opt in with one line
+
 ### v0.3 Offline Verification Suite ✅
 `test/v03-verification.html` — 140 tests across 14 sections. Refresh to re-run. No API key needed (stubbed `aiService.askWithMeta`).
 
@@ -150,7 +158,7 @@ b7de3ed M0.P3 + M3.P1 server: dynamic per-app CSS, Ollama pull, v0.3 offline sui
 ### Bigger work (next)
 - **M4 dock surface**: bundle/promote write graph nodes, but there's no actual dock-icon plumbing that reads `'generated-app'` nodes with status='docked' and shows them in the dock UI. Spotlight already supports launching arbitrary capabilities; the missing piece is a passive scan + register-as-app on the renderer side.
 - **M5.P3.b** — Spotlight/Settings UI listing recent branches with a "Rewind" button. The `branch.rewind` capability + `rewindBranch` substrate ship; the UI is the missing piece. ~50 lines in spotlight.js or a new Settings panel.
-- **M5.P4** — External-Effect Detection (mark git push / API call / file system writes outside Astrion's roots as point-of-no-return). Annotate capability declarations with a new `pointOfNoReturn: true` flag; the interceptor surfaces it in the preview panel ("⚠ This action cannot be undone") and requires typed confirmation instead of just Enter. branch.rewind also refuses to undo PONR mutations.
+- **M6 (Socratic + Red-Team Agent)** — second AI critiques every L2+ plan. The L2+ gate substrate (M5.P2/P2.b/P2.c) is now in place; M6 plugs the red-team agent into `interception:preview` as another subscriber that emits `interception:abort` on red flags. Also retrofits `app.promote` to require red-team signoff in addition to user.
 - **M6 (Socratic Loop + Red-Team Agent)** — second AI critiques every L2+ plan. Also retrofits the M4.P4 `app.promote` gate to require red-team signoff.
 - More apps past 80, marketplace prep, ISO installer UX.
 
