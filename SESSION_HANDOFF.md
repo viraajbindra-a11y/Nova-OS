@@ -1,10 +1,10 @@
-# Session Handoff: M0→M3 Audit + Full M4 Ship (P1+P2+P3+P3.b+P4)
+# Session Handoff: M0→M3 Audit + Full M4 Ship + M5.P1 Branching Substrate
 
 **Date:** 2026-04-17 → 2026-04-18
-**Branch:** main (11 new commits ahead of origin — not pushed)
+**Branch:** main (13 new commits ahead of origin — not pushed)
 **Starting point:** 80 apps, commit `f8a47fa` (timer.js leak fix)
-**Ending point:** commit `f414fee` (M4.P4 promotion gate)
-**Verification:** **113/113 tests** in `test/v03-verification.html` (no API key needed)
+**Ending point:** commit `2b29bfd` (M5.P1 branching storage)
+**Verification:** **131/131 tests** in `test/v03-verification.html` (no API key needed)
 
 ---
 
@@ -20,9 +20,11 @@ The session did three substantively different chunks of work:
 
 ---
 
-## Commits Landed (11, not pushed)
+## Commits Landed (13, not pushed)
 
 ```
+2b29bfd M5.P1: branching storage layer (transaction-log copy-on-write)
+267b524 Docs: M4 fully complete (P1+P2+P3+P3.b+P4); lessons 115-120
 f414fee M4.P4: provenance + sandbox→dock promotion gate
 c8e48e6 M4.P3.b: code-from-tests iteration loop with sandbox load step
 c1569ca Docs: M4.P1/P2/P3 marked complete; lessons 109-114; new handoff prompt
@@ -91,8 +93,15 @@ b7de3ed M0.P3 + M3.P1 server: dynamic per-app CSS, Ollama pull, v0.3 offline sui
 - Lifecycle: `sandboxed` → (user L2) → `docked` → (user L2) → `archived`
 - Capabilities: `app.bundle` (L0), `app.promote` (L2 user-approval gate), `app.archive` (L2). Until M6 ships the red-team agent, the user IS the L2 unlock
 
+### M5.P1 — Branching Storage Layer ✅ (new)
+- `js/kernel/branch-manager.js`: transaction-log copy-on-write. Branch = `'branch'` graph node with `props.pendingMutations[]`. Lifecycle: `open` → `committed` | `discarded`
+- `createBranch(opts)` returns `{id, status, record, createdAt}` where `record` is pre-bound for ergonomic mutation recording
+- `mergeBranch` applies mutations in order; stops at first failure with `{failedAt, error}` so caller can fix and re-merge
+- `diffBranch` returns counts per kind + describe lines for UI rendering; `onBranch(opts, fn)` helper auto-discards on throw
+- Capabilities: `branch.create` (L0), `branch.merge` (L2 user-approval), `branch.discard` (L1)
+
 ### v0.3 Offline Verification Suite ✅
-`test/v03-verification.html` — 113 tests across 12 sections. Refresh to re-run. No API key needed (stubbed `aiService.askWithMeta`).
+`test/v03-verification.html` — 131 tests across 13 sections. Refresh to re-run. No API key needed (stubbed `aiService.askWithMeta`).
 
 ---
 
@@ -105,7 +114,8 @@ b7de3ed M0.P3 + M3.P1 server: dynamic per-app CSS, Ollama pull, v0.3 offline sui
 
 ### Bigger work (next)
 - **M4 dock surface**: bundle/promote write graph nodes, but there's no actual dock-icon plumbing that reads `'generated-app'` nodes with status='docked' and shows them in the dock UI. Spotlight already supports launching arbitrary capabilities; the missing piece is a passive scan + register-as-app on the renderer side.
-- **M5 (Reversibility + Temporal Substrate)** — branching storage on top of the M2 graph, every L2+ action creates a branch that the user can confirm/abort. The L2+ preview gate already exists from M2 Agent Core; M5 is the storage substrate that makes the preview real.
+- **M5.P2 (Operation Interceptor)** — wrap every L2+ capability `execute()` in `branch-manager.onBranch()`, route the diff to a Spotlight preview (the existing `plan:preview` gate UI), wait for confirm/abort. The substrate is now ready (M5.P1).
+- **M5.P3/P4** — Undo/Rewind UI (timeline) + External-Effect Detection (mark git push / API call as point-of-no-return).
 - **M6 (Socratic Loop + Red-Team Agent)** — second AI critiques every L2+ plan. Also retrofits the M4.P4 `app.promote` gate to require red-team signoff.
 - More apps past 80, marketplace prep, ISO installer UX.
 

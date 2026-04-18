@@ -410,16 +410,20 @@ Each milestone has: a 1-sentence success definition, **explicit phases** (the su
 
 ---
 
-### M5 — Reversibility + Temporal Substrate *(~4 weeks after M4)*
+### M5 — Reversibility + Temporal Substrate *(~4 weeks after M4 — P1 shipped 2026-04-18)*
 
 **Kid version:** Everything dangerous happens in a practice universe first. You see the result, say "yes for real" to commit. Rewind to any past state.
 
 **Success:** Delete a folder → branch created → see before/after → confirm or rewind. Works for files, installs, settings, code edits.
 
 **Phases:**
-- **M5.P1 — Branching Storage Layer** *(Week 1)*
-  - Copy-on-write on top of the M2 graph
-  - Every L2+ action creates a branch; main only updates on confirm
+- **M5.P1 — Branching Storage Layer** ✅ **2026-04-18**
+  - ✅ `js/kernel/branch-manager.js`: transaction-log copy-on-write. Branch = `'branch'` graph node with `props.pendingMutations[]`. Lifecycle: `open` → `committed` | `discarded`.
+  - ✅ `createBranch(opts)` → `{id, name, status, record, createdAt}`. The returned `record()` is a pre-bound closure for ergonomic mutation recording.
+  - ✅ `recordMutation` refuses on non-open branches (no double-commit). `mergeBranch` applies in order, stops at first failure with `{failedAt, error}` so caller can fix and re-merge or discard.
+  - ✅ `diffBranch` returns counts per kind + describe lines for UI rendering. `onBranch(opts, fn)` helper auto-discards on throw.
+  - ✅ Capabilities: `branch.create` (L0), `branch.merge` (L2 user-approval gate), `branch.discard` (L1).
+  - Why transaction log not forked graph: M4-era graphs already hit 1000+ nodes; forking per L2+ action would explode storage.
 - **M5.P2 — Operation Interceptor** *(Week 2)*
   - Wrap every L2+ action (file delete, settings change, app install) in the interceptor
   - Interceptor shows diff UI, waits for confirm/rewind
