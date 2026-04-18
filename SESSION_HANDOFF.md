@@ -1,10 +1,10 @@
-# Session Handoff: M0→M3 Audit + Full M4 + M5.P1/P2/P2.b/P2.c
+# Session Handoff: M0→M3 + M4 + M5.P1/P2/P2.b/P2.c/P3
 
 **Date:** 2026-04-17 → 2026-04-18
-**Branch:** main (21 new commits ahead of origin — not pushed)
+**Branch:** main (23 new commits ahead of origin — not pushed)
 **Starting point:** 80 apps, commit `f8a47fa` (timer.js leak fix)
-**Ending point:** commit `b596830` (M5.P2.c Spotlight UI for interception:preview)
-**Verification:** **140/140 tests** in `test/v03-verification.html` + M5.P2.c verified end-to-end via real Spotlight + simulated Enter/Escape events
+**Ending point:** commit `3c8fb5f` (M5.P3 rewindBranch substrate)
+**Verification:** **148/148 tests** in `test/v03-verification.html` + M5.P2.c verified end-to-end via real Spotlight + simulated Enter/Escape events
 
 ---
 
@@ -20,9 +20,11 @@ The session did three substantively different chunks of work:
 
 ---
 
-## Commits Landed (21, not pushed)
+## Commits Landed (23, not pushed)
 
 ```
+3c8fb5f M5.P3: rewindBranch — undo every mutation a previous merge produced
+79b9e40 Docs: M5.P2.c shipped + lessons 128-130 + handoff prompt updated
 b596830 M5.P2.c: Spotlight UI subscriber for interception:preview
 c0bea14 Docs: bump to M5.P2.b shipped + clearer next-session priorities
 b3da7a8 M5.P2.b: route single-shot executeIntent through interceptedExecute
@@ -123,8 +125,15 @@ b7de3ed M0.P3 + M3.P1 server: dynamic per-app CSS, Ollama pull, v0.3 offline sui
 - `js/shell/spotlight.js`: module-level `pendingInterceptionId` + `pendingInterceptionCap`. New subscriber on `interception:preview` opens Spotlight, renders a yellow-bordered panel with cap id + level + reversibility + blast radius + args summary + "↵ Confirm / Esc Abort" affordance
 - handleSubmit: Enter emits `interception:confirm {id}` when gate is pending (priority over plan-confirm). Escape branch emits `interception:abort {id, reason: 'user-aborted'}`
 - Bug fix: input keydown Enter handler used to early-out on empty query; now passes through to handleSubmit when a confirm gate is pending (lesson #128)
-- **Verified end-to-end** via preview server: simulated Enter on input → captured `[{type:'confirm', id:'icpt-c1'}]`; simulated Escape → captured `[{type:'abort', id:'icpt-a1', reason:'user-aborted'}]`. Both flows produce correct per-call opaque id, no cross-contamination
+- **Verified end-to-end** via preview server: simulated Enter on input → captured `[{type:'confirm', id:'icpt-c1'}]`; simulated Escape → captured `[{type:'abort', id:'icpt-a1', reason:'user-aborted'}]`
 - **The L2 user-approval gate is now REAL across the OS.** files.delete, browser.navigate, volume.set, app.promote, app.archive, branch.merge — every L2+ single-shot intent prompts the user before execution.
+
+### M5.P3 — rewindBranch substrate ✅ (new)
+- `js/kernel/branch-manager.js:rewindBranch(branchId)`: walks graph-store mutation log for entries tagged with `'branch.merge:' + branchId`, sorts by timestamp desc, calls `graphStore.rewindMutation` on each. Branch transitions to `'rewound'` (idempotent — refuses re-rewind)
+- Per-mutation inverse logic reuses graph-store's existing primitives (lessons #60/#61): create→delete, update→revert to before.props, delete→restore, add_edge→removeEdge, remove_edge→addEdge
+- Capability: `branch.rewind` (L2 — undoing committed work is a real change). M5.P2 gate fires for it
+- Bug caught + fixed: graph-store's `updateNode` reads `meta.capabilityId` directly (not nested under createdBy), so the merge tag has to live at the top of meta (lesson #131)
+- **M5.P3.b deferred:** UI panel listing recent branches with a "Rewind" button. The substrate ships; the UI is the next piece.
 
 ### v0.3 Offline Verification Suite ✅
 `test/v03-verification.html` — 140 tests across 14 sections. Refresh to re-run. No API key needed (stubbed `aiService.askWithMeta`).
@@ -140,8 +149,8 @@ b7de3ed M0.P3 + M3.P1 server: dynamic per-app CSS, Ollama pull, v0.3 offline sui
 
 ### Bigger work (next)
 - **M4 dock surface**: bundle/promote write graph nodes, but there's no actual dock-icon plumbing that reads `'generated-app'` nodes with status='docked' and shows them in the dock UI. Spotlight already supports launching arbitrary capabilities; the missing piece is a passive scan + register-as-app on the renderer side.
-- **M5.P3** — Undo/Rewind UI (timeline view of branches). The M5.P1 substrate already records every committed branch with its mutation log; the missing piece is a Spotlight or Settings panel that lists recent branches and offers a "rewind to before this branch" action.
-- **M5.P4** — External-Effect Detection (mark git push / API call / file system writes outside Astrion's roots as point-of-no-return). Annotate capability declarations with a new `pointOfNoReturn: true` flag; the interceptor surfaces it in the preview panel ("⚠ This action cannot be undone") and requires typed confirmation instead of just Enter.
+- **M5.P3.b** — Spotlight/Settings UI listing recent branches with a "Rewind" button. The `branch.rewind` capability + `rewindBranch` substrate ship; the UI is the missing piece. ~50 lines in spotlight.js or a new Settings panel.
+- **M5.P4** — External-Effect Detection (mark git push / API call / file system writes outside Astrion's roots as point-of-no-return). Annotate capability declarations with a new `pointOfNoReturn: true` flag; the interceptor surfaces it in the preview panel ("⚠ This action cannot be undone") and requires typed confirmation instead of just Enter. branch.rewind also refuses to undo PONR mutations.
 - **M6 (Socratic Loop + Red-Team Agent)** — second AI critiques every L2+ plan. Also retrofits the M4.P4 `app.promote` gate to require red-team signoff.
 - More apps past 80, marketplace prep, ISO installer UX.
 

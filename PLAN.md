@@ -432,9 +432,12 @@ Each milestone has: a 1-sentence success definition, **explicit phases** (the su
   - **M5.P2.b** ✅: `intent-executor.executeIntent` now routes through `interceptedExecute`. Compound-plan path passes `skipInterception=true` per step to avoid double-prompting on top of the existing plan-level gate.
   - **M5.P2.c** ✅: `js/shell/spotlight.js` subscribes to `interception:preview` and renders a yellow-bordered panel with cap id, level, reversibility, blast radius, args summary. Enter emits `interception:confirm`; Escape emits `interception:abort`. Verified end-to-end with simulated keydown events — both flows produce the right per-call opaque id.
   - Branch-staging integration (route mutations through a M5.P1 branch instead of direct execute) — deferred to M5.P3. The interceptor already gives the user the safety contract; branching adds the rewind-after-execute story.
-- **M5.P3 — Undo/Rewind UI** *(Week 3)*
-  - Timeline view of past states (like a Git log but visual)
-  - Rewind to any point; optionally fork from a past state
+- **M5.P3 — Rewind Substrate** ✅ **2026-04-18** (UI deferred to P3.b)
+  - ✅ `js/kernel/branch-manager.js:rewindBranch(branchId)`: refuses unless `status==='committed'`. Walks graph-store mutation log for entries tagged with this branch's `capabilityId` (`'branch.merge:' + branchId`), sorts by timestamp desc, calls `graphStore.rewindMutation` on each. Branch transitions to `'rewound'` status (idempotent — refuses re-rewind).
+  - ✅ Per-mutation inverse logic reuses graph-store's existing rewind (lessons #60/#61): create_node → delete, update_node → revert to before.props, delete_node → restore, add_edge → removeEdge, remove_edge → addEdge.
+  - ✅ Capability: `branch.rewind` (L2, BOUNDED, NONE blast). M5.P2 gate fires for it because it's L2.
+  - **M5.P3.b** — Spotlight/Settings UI for "list recent branches with a rewind button" still pending. The substrate ships rewindBranch + branch.rewind capability; calling them from a UI panel is the missing piece.
+  - Timeline view of past states (like a Git log but visual) — deferred
 - **M5.P4 — External-Effect Detection** *(Week 4)*
   - Mark any action touching external state (git push, file upload, API call) as "point of no return"
   - PONR actions can't branch; require explicit unlock
