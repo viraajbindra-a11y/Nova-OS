@@ -890,6 +890,40 @@ await test('branch.merge capability registered with L2 user-approval gate',
 await test('branch.discard capability registered (L1)',
   () => !!branchDiscardCap && branchDiscardCap.level === 1);
 
+// ─── M5.P3 rewind ───
+const rewindNode = await graphStore.createNode('verify-rewind-target', { v: 0 });
+const rb = await branchMod.createBranch({ name: 'rewind-test', intent: 'will be rewound' });
+await rb.record({ kind: 'updateNode', args: { id: rewindNode.id, props: { v: 42 } } });
+await rb.record({ kind: 'createNode', args: { type: 'verify-rewind-side', props: { tag: 'created-by-branch' } } });
+const rmerge = await branchMod.mergeBranch(rb.id);
+await test('rewind setup: branch merged 2 mutations', () => rmerge.ok && rmerge.applied === 2);
+
+const rewindAfterMerge = await graphStore.getNode(rewindNode.id);
+await test('rewind setup: live node shows merged value', () => rewindAfterMerge.props.v === 42);
+
+const rewindResult = await branchMod.rewindBranch(rb.id);
+await test('rewindBranch returns ok', () => rewindResult.ok);
+await test('rewindBranch undid both mutations', () => rewindResult.rewound === 2);
+
+const rewindAfterRewind = await graphStore.getNode(rewindNode.id);
+await test('rewindBranch reverted updateNode (props match before)',
+  () => rewindAfterRewind.props.v === 0);
+
+const rewoundBranch = await branchMod.getBranch(rb.id);
+await test('rewound branch transitions to status=rewound + rewoundAt',
+  () => rewoundBranch.status === 'rewound' && typeof rewoundBranch.rewoundAt === 'number');
+
+// rewinding twice should be a no-op error
+let rewindTwice = null;
+try { await branchMod.rewindBranch(rb.id); }
+catch (err) { rewindTwice = err.message; }
+await test('rewindBranch refuses to run twice on same branch',
+  () => /only committed branches/.test(rewindTwice));
+
+const branchRewindCap = getCapability('branch.rewind');
+await test('branch.rewind capability registered with L2 user-approval',
+  () => !!branchRewindCap && branchRewindCap.level === 2);
+
 // ═══ 14. Operation interceptor (M5.P2) ═══
 section('14. Operation interceptor (M5.P2 — L2+ preview gate)');
 

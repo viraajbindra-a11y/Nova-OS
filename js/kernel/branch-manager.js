@@ -39,7 +39,14 @@ const STATUS = {
   OPEN: 'open',
   COMMITTED: 'committed',
   DISCARDED: 'discarded',
+  REWOUND: 'rewound',
 };
+
+// Each branch tags every mutation it produces so M5.P3 rewindBranch
+// can find and reverse them later. Format: 'branch.merge:' + branchId
+function branchTag(branchId) {
+  return 'branch.merge:' + branchId;
+}
 
 // ─── Branch creation ───
 
@@ -190,10 +197,20 @@ export async function mergeBranch(branchId) {
     return { ok: true, applied: 0 };
   }
   let applied = 0;
+  const tag = branchTag(branchId);
   for (let i = 0; i < pending.length; i++) {
     const m = pending[i];
     try {
-      await applyMutation(m);
+      // Tag the meta with the branch's capabilityId so M5.P3 rewindBranch
+      // can find every mutation this merge produced. graph-store reads
+      // meta.capabilityId directly (see createNode line 277, updateNode
+      // line 335) and writes it into the mutation record.
+      const taggedMeta = {
+        ...(m.args?.meta || {}),
+        kind: 'system',
+        capabilityId: tag,
+      };
+      await applyMutation({ ...m, args: { ...(m.args || {}), meta: taggedMeta } });
       applied++;
     } catch (err) {
       return { ok: false, applied, failedAt: i, error: err?.message || String(err) };
@@ -208,34 +225,86 @@ export async function mergeBranch(branchId) {
 }
 
 async function applyMutation(m) {
+  const meta = (m.args && m.args.meta) || {};
   switch (m.kind) {
     case 'createNode': {
-      const { type, props, meta } = m.args || {};
+      const { type, props } = m.args || {};
       if (!type) throw new Error('createNode: type required');
-      return await graphStore.createNode(type, props || {}, meta || {});
+      return await graphStore.createNode(type, props || {}, meta);
     }
     case 'updateNode': {
       const { id, props } = m.args || {};
       if (!id) throw new Error('updateNode: id required');
-      return await graphStore.updateNode(id, props || {});
+      return await graphStore.updateNode(id, props || {}, meta);
     }
     case 'deleteNode': {
       const { id } = m.args || {};
       if (!id) throw new Error('deleteNode: id required');
-      return await graphStore.deleteNode(id);
+      return await graphStore.deleteNode(id, meta);
     }
     case 'addEdge': {
-      const { from, kind, to, props, meta } = m.args || {};
+      const { from, kind, to, props } = m.args || {};
       if (!from || !kind || !to) throw new Error('addEdge: from/kind/to required');
-      return await graphStore.addEdge(from, kind, to, props || {}, meta || {});
+      return await graphStore.addEdge(from, kind, to, props || {}, meta);
     }
     case 'removeEdge': {
       const { from, kind, to } = m.args || {};
       if (!from || !kind || !to) throw new Error('removeEdge: from/kind/to required');
-      return await graphStore.removeEdge(from, kind, to);
+      return await graphStore.removeEdge(from, kind, to, meta);
     }
     default: throw new Error('unknown mutation kind: ' + m.kind);
   }
+}
+
+/**
+ * Reverse every mutation produced by a previous mergeBranch. Walks
+ * graph-store's mutation log for entries tagged with this branch's
+ * capabilityId and applies graphStore.rewindMutation in reverse
+ * timestamp order. Returns {ok, rewound, skipped, errors}.
+ *
+ * Uses graph-store's existing rewind primitives — each rewind
+ * generates a NEW mutation (creating an immutable provenance chain),
+ * so re-rewinding a rewound branch returns the live state to where
+ * it was before the second rewind. See lesson #60 for the version
+ * counter semantics.
+ */
+export async function rewindBranch(branchId) {
+  const branch = await getBranch(branchId);
+  if (!branch) throw new Error('branch not found: ' + branchId);
+  if (branch.status !== STATUS.COMMITTED) {
+    throw new Error('only committed branches can be rewound (status=' + branch.status + ')');
+  }
+  const tag = branchTag(branchId);
+  const since = (branch.committedAt || branch.createdAt || 0) - 1;
+  const all = await graphStore.getMutationsSince(since);
+  const ours = all.filter(m => m.capabilityId === tag);
+  // Reverse chronological order so cascading effects undo correctly
+  ours.sort((a, b) => b.timestamp - a.timestamp);
+
+  let rewound = 0, skipped = 0;
+  const errors = [];
+  for (const mut of ours) {
+    try {
+      const r = await graphStore.rewindMutation(mut.id, {
+        kind: 'system',
+        capabilityId: 'branch.rewind:' + branchId,
+      });
+      if (r.ok && !r.noop) rewound++;
+      else if (r.noop) skipped++;
+      else errors.push({ mutationId: mut.id, reason: r.reason });
+    } catch (err) {
+      errors.push({ mutationId: mut.id, reason: err?.message || String(err) });
+    }
+  }
+
+  // Mark the branch rewound so it can't be rewound again (idempotency)
+  await graphStore.updateNode(branchId, {
+    ...branch,
+    status: STATUS.REWOUND,
+    rewoundAt: Date.now(),
+    rewoundResults: { rewound, skipped, errorCount: errors.length },
+  });
+  return { ok: true, rewound, skipped, errors, totalMutations: ours.length };
 }
 
 /**

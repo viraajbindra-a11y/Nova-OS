@@ -573,6 +573,31 @@ const branchDiscard = {
 };
 registerCapability(branchDiscard);
 
+const branchRewind = {
+  id: 'branch.rewind',
+  verb: 'rewind',
+  target: 'branch',
+  level: LEVEL.REAL, // undoing a committed branch IS a real change to live state
+  reversibility: REVERSIBILITY.BOUNDED,
+  blastRadius: BLAST_RADIUS.NONE,
+  summary: 'Reverse every mutation a previous merge produced (M5.P3)',
+  estimateCost: () => ({ timeMs: 500, irreversibilityTokens: 1 }),
+  execute: async function(args) {
+    return runCapability(this, args, async () => {
+      const id = args.branchId || args.id;
+      if (!id) throw new Error('branch.rewind: branchId required');
+      const mod = await import('./branch-manager.js');
+      const result = await mod.rewindBranch(id);
+      safeNotify({
+        title: '⏪ Branch rewound',
+        body: result.rewound + ' mutation' + (result.rewound === 1 ? '' : 's') + ' undone',
+      });
+      return result;
+    });
+  },
+};
+registerCapability(branchRewind);
+
 const appBundle = {
   id: 'app.bundle',
   verb: 'bundle',
@@ -1331,6 +1356,7 @@ export const CORE_CAPABILITIES = [
   'branch.create',
   'branch.merge',
   'branch.discard',
+  'branch.rewind',
   'browser.navigate',
   'volume.set',
   'volume.decrease',
