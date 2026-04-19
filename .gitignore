@@ -2,3 +2,8 @@ node_modules/
 .DS_Store
 .env
 .claude/
+
+# auto-push runtime logs (script + launchd)
+scripts/auto-push.log
+scripts/auto-push.launchd.out.log
+scripts/auto-push.launchd.err.log
