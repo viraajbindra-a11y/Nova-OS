@@ -156,8 +156,9 @@ class AIService {
           system,
           messages,
           ...(options.maxTokens ? { max_tokens: options.maxTokens } : {}),
+          ...(options.format ? { format: options.format } : {}),
         }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(120000),
       });
 
       if (res.ok) {

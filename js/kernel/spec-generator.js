@@ -140,7 +140,7 @@ export async function generateSpec(intent, options = {}) {
   let raw, meta;
   try {
     const r = await aiService.askWithMeta(prompt, {
-      maxTokens: 700, skipHistory: true, capCategory: 'spec',
+      maxTokens: 700, skipHistory: true, capCategory: 'spec', format: 'json',
     });
     raw = r.reply;
     meta = r.meta;
@@ -164,7 +164,7 @@ Try again. Respond with JSON only.`;
     let retryRaw;
     try {
       const r = await aiService.askWithMeta(retryPrompt, {
-        maxTokens: 700, skipHistory: true, capCategory: 'spec',
+        maxTokens: 700, skipHistory: true, capCategory: 'spec', format: 'json',
       });
       retryRaw = r.reply;
       meta = r.meta;

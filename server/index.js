@@ -177,7 +177,7 @@ app.post('/api/ai/ollama-pull', async (req, res) => {
 
 // ─── Ollama proxy (local or remote LLM) ───
 app.post('/api/ai/ollama', async (req, res) => {
-  const { url, model, system, messages, max_tokens } = req.body;
+  const { url, model, system, messages, max_tokens, format } = req.body;
   const ollamaUrl = url || 'http://localhost:11434';
 
   try {
@@ -190,11 +190,12 @@ app.post('/api/ai/ollama', async (req, res) => {
       stream: false,
     };
     if (max_tokens) ollamaBody.options = { num_predict: max_tokens };
+    if (format === 'json') ollamaBody.format = 'json';
     const response = await fetch(`${ollamaUrl}/api/chat`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(ollamaBody),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(120000),
     });
 
     if (!response.ok) {
